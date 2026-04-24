@@ -124,7 +124,6 @@ Under the hood:
 - `registry.yaml` — service catalog and defaults
 - `lib/` — shared placeholders and validation rules
 - `docs/` — reference material from the live FayaaLink server
-- `DRY_RUN_REPORT.md` — clean-machine validation log
 
 The privilege model is deliberately narrow: a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `sudoers.d` rule. One bootstrap trust event installs it; everything after goes through the helper. No blanket `NOPASSWD`, no hand-edited sudoers.
 
@@ -133,8 +132,6 @@ The privilege model is deliberately narrow: a root-owned helper at `/usr/local/l
 ## Status
 
 v1 ships Caddy, Cloudflared, PostgreSQL, NocoDB (always), plus optional n8n, DBHub, and OpenClaw. Backups, ChangeDetection, Superset, and the broader FayaaLink service set are planned for later releases.
-
-Validation runs are recorded in `DRY_RUN_REPORT.md`. The repo is considered public-ready only after clean-machine runs pass there.
 
 ---
 
