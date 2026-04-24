@@ -54,6 +54,22 @@ That's it. You don't need Docker, Node, or Postgres ready — the agent handles 
 
 On the machine you want to turn into your server:
 
+**Fast bootstrap option**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash
+```
+
+The bootstrapper only clones or updates this repo, runs `scripts/fayaasrv-doctor`, and prints the agent prompt. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
+
+You can override the checkout path if needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | FAYAASRV_DIR=$HOME/FayaaSRV bash
+```
+
+**Manual clone option**
+
 **1. Clone the repo**
 
 ```bash

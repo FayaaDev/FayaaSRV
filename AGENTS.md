@@ -2,7 +2,7 @@
 
 Clone this repo onto the machine you want to turn into a Fayaa-style personal server kit.
 
-This repository is built for an AI coding agent to operate as the installer. It does not include a one-shot shell installer. The agent should interview the user, record answers in `.fss-state.yaml`, render the provided templates, and execute the step files in order.
+This repository is built for an AI coding agent to operate as the installer. It includes a thin `install.sh` bootstrapper, but not a one-shot shell installer. The bootstrapper may clone/update the repo, run doctor, and print the agent prompt; the agent should still interview the user, record answers in `.fss-state.yaml`, render the provided templates, and execute the step files in order.
 
 ## Agent Prompt
 
@@ -20,6 +20,15 @@ On a fresh machine:
 
 1. Install `git` and your coding agent CLI.
 2. Clone this repo and enter it:
+
+Bootstrap option:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash
+cd ~/FayaaSRV
+```
+
+Manual option:
 
 ```bash
 git clone https://github.com/FayaaDev/FayaaSRV.git
