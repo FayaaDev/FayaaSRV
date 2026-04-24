@@ -150,5 +150,6 @@ with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating s
 - Fresh Ubuntu Linux installs need a privileged account for Docker Engine installation and some service setup.
 - The standard Linux privilege path is a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `/etc/sudoers.d/fayaasrv-helper` rule for that path only.
 - If the helper is not already present, Step 00 may use one bootstrap trust event to run `sudo ./scripts/install-privileged-helper --admin-user <user>`, but raw `sudo` is not the normal step execution model.
+- The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access without asking the user to run extra package installs by hand.
 - Do not require the user to hand-edit `/etc/sudoers` or grant blanket `NOPASSWD` access.
 - The host `cloudflared` CLI should be installed without root into `~/.local/bin/cloudflared` when it is missing.

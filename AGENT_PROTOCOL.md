@@ -191,7 +191,7 @@ After confirmation, run these step files in order:
 4. If `privilege_mode` is `sudo` and the helper is absent, Step 00 may use one bootstrap trust event to run `sudo ./scripts/install-privileged-helper --admin-user <user>`, then must verify `sudo -n /usr/local/libexec/fayaasrv-root-helper probe` before continuing.
 5. If `privilege_mode` is `root`, Step 00 may install the helper directly with `./scripts/install-privileged-helper --admin-user <user>`, but the normal Linux interface should switch to the helper once it exists.
 6. If `privilege_mode` is `none` and the helper is absent while root-required work is still needed, stop and tell the user the install must be re-run from a privileged account or from a machine image with the helper preinstalled.
-7. After helper bootstrap, do not use raw `sudo` in later steps for Docker installs, `/srv` layout creation, Node.js installation, or linger setup. Add a reviewed helper verb first if a new privileged action is introduced.
+7. After helper bootstrap, do not use raw `sudo` in later steps for Docker installs, `/srv` layout creation, Node.js installation, or linger setup. The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access. Add a reviewed helper verb first if a new privileged action is introduced.
 8. Persist the helper after a successful install so future repair and upgrade flows can reuse the same narrow privilege boundary.
 9. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed without root into `~/.local/bin`.
 
