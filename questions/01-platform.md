@@ -8,9 +8,9 @@
 
 Ask the user the following questions in order. Linux runs ask three questions; Mac runs ask two because the Linux-only privilege question is skipped. Record answers into `.fss-state.yaml` under the keys specified. Do not advance to `questions/02-identity.md` until every required answer is recorded.
 
-On Linux, also detect whether `/usr/local/libexec/fayaasrv-root-helper` is already installed and usable:
-- If running as root, call `/usr/local/libexec/fayaasrv-root-helper probe` directly when the file exists.
-- If running unprivileged, try `sudo -n /usr/local/libexec/fayaasrv-root-helper probe`.
+On Linux, also detect whether `/usr/local/libexec/rakkib-root-helper` is already installed and usable:
+- If running as root, call `/usr/local/libexec/rakkib-root-helper probe` directly when the file exists.
+- If running unprivileged, try `sudo -n /usr/local/libexec/rakkib-root-helper probe`.
 - If the helper is absent or unusable, record that Step 00 must bootstrap it before any root-required work continues.
 
 Detect `arch` from the machine instead of asking for it. Use `uname -m` and normalize as follows:

@@ -16,7 +16,7 @@ usage() {
 Usage: restore-local.sh <backup_dir> [--yes] [--restore-secrets] [--dry-run]
        restore-local.sh --latest [--yes] [--restore-secrets] [--dry-run]
 
-Restores a FayaaSRV local backup. Secrets are not restored unless
+Restores a Rakkib local backup. Secrets are not restored unless
 --restore-secrets is provided.
 USAGE
 }
@@ -61,7 +61,7 @@ done
 
 latest_backup() {
     local dir
-    for dir in "${BACKUP_ROOT}"/fayaasrv_${SERVER_NAME}_*; do
+    for dir in "${BACKUP_ROOT}"/rakkib_${SERVER_NAME}_*; do
         [[ -d "$dir" ]] || continue
         basename "$dir"
     done | sort -r | sed -n '1p'

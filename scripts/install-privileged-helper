@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly HELPER_DEST="/usr/local/libexec/fayaasrv-root-helper"
-readonly SUDOERS_DEST="/etc/sudoers.d/fayaasrv-helper"
+readonly HELPER_DEST="/usr/local/libexec/rakkib-root-helper"
+readonly SUDOERS_DEST="/etc/sudoers.d/rakkib-helper"
 
 fail() {
   local code="$1"
@@ -41,7 +41,7 @@ main() {
   local script_dir repo_root helper_source tmp_sudoers
   script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   repo_root="$(cd -- "$script_dir/.." && pwd)"
-  helper_source="$repo_root/scripts/fayaasrv-root-helper"
+  helper_source="$repo_root/scripts/rakkib-root-helper"
   [[ -f "$helper_source" ]] || fail 2 "helper source not found: $helper_source"
 
   install -d -m 0755 /usr/local/libexec

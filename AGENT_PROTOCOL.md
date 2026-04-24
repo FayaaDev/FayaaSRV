@@ -68,7 +68,7 @@ Derived value rules:
 - Record Linux privilege capability as `privilege_mode` with one of `sudo`, `root`, or `none`. On Mac, record `privilege_mode: sudo`.
 - On Linux, also record helper state under:
   - `privilege_strategy`: `helper`, `root_process`, or `none`
-  - `helper.installed`: whether `/usr/local/libexec/fayaasrv-root-helper` is already usable
+- `helper.installed`: whether `/usr/local/libexec/rakkib-root-helper` is already usable
   - `helper.version`: helper version from `probe`, or `null` when absent
   - `helper.bootstrap_required`: whether Step 00 must install or unlock the helper before root-required work can continue
 - When `cloudflare.tunnel_uuid` is known, derive and record:
@@ -187,19 +187,19 @@ After confirmation, run these step files in numeric order:
 
 ## Idempotency Rules
 
-1. Read `lib/idempotency.md` before executing any step on a machine that may already have FayaaSRV resources.
+1. Read `lib/idempotency.md` before executing any step on a machine that may already have Rakkib resources.
 2. Existing `.env` files are authoritative for secrets. Render a candidate file, merge in only missing keys, and never replace an existing secret value.
 3. Render Caddy changes to a candidate file and validate before replacing the active Caddyfile. Restore the previous file and stop if validation fails.
-4. Replace cron entries by FayaaSRV marker comments rather than appending new lines.
+4. Replace cron entries by Rakkib marker comments rather than appending new lines.
 5. Detect existing Cloudflare tunnels by name before creating a new tunnel.
-6. Use `./scripts/fayaasrv-doctor` as a standalone diagnostic and as the Step 05 install gate.
+6. Use `./scripts/rakkib-doctor` as a standalone diagnostic and as the Step 05 install gate.
 
 ## Privilege Rules
 
 1. Do not ask the user to edit sudoers or run pre-install shell commands outside the normal interview and deployment flow.
-2. On Linux, the standard privilege model is a narrow helper installed at `/usr/local/libexec/fayaasrv-root-helper` and exposed through a scoped sudoers rule for that path only.
+2. On Linux, the standard privilege model is a narrow helper installed at `/usr/local/libexec/rakkib-root-helper` and exposed through a scoped sudoers rule for that path only.
 3. If the helper is already installed and usable, record `privilege_strategy: helper` and route all later root-required work through helper verbs only.
-4. If `privilege_mode` is `sudo` and the helper is absent, Step 00 may use one bootstrap trust event to run `sudo ./scripts/install-privileged-helper --admin-user <user>`, then must verify `sudo -n /usr/local/libexec/fayaasrv-root-helper probe` before continuing.
+4. If `privilege_mode` is `sudo` and the helper is absent, Step 00 may use one bootstrap trust event to run `sudo ./scripts/install-privileged-helper --admin-user <user>`, then must verify `sudo -n /usr/local/libexec/rakkib-root-helper probe` before continuing.
 5. If `privilege_mode` is `root`, Step 00 may install the helper directly with `./scripts/install-privileged-helper --admin-user <user>`, but the normal Linux interface should switch to the helper once it exists.
 6. If `privilege_mode` is `none` and the helper is absent while root-required work is still needed, stop and tell the user the install must be re-run from a privileged account or from a machine image with the helper preinstalled.
 7. After helper bootstrap, do not use raw `sudo` in later steps for Docker installs, `/srv` layout creation, Node.js installation, or linger setup. The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access. Add a reviewed helper verb first if a new privileged action is introduced.
@@ -226,6 +226,6 @@ The deployment is complete only when:
 
 1. The final `steps/90-verify.md` checks pass.
 2. `{{DATA_ROOT}}/README.md` has been generated on the target machine.
-3. `~/.claude/CLAUDE.md` has been created or updated with the FayaaSRV block delimited by `<!-- FAYAASRV START -->` and `<!-- FAYAASRV END -->`.
-4. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, the same FayaaSRV block has been synced into them.
+3. `~/.claude/CLAUDE.md` has been created or updated with the Rakkib block delimited by `<!-- RAKKIB START -->` and `<!-- RAKKIB END -->`.
+4. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, the same Rakkib block has been synced into them.
 5. The selected services are reachable on their expected domains.

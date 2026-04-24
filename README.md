@@ -1,14 +1,14 @@
-# FayaaSRV
+# Rakkib
 
 **Turn any spare machine into your own private cloud — guided by an AI agent, not a shell script.**
 
-FayaaSRV is a personal server kit. Point a coding agent (Claude Code, Codex, Copilot CLI, etc.) at this repo and it will interview you, set everything up, and hand you back a working server with real HTTPS domains, a database, automation tools, and a no-code app builder.
+Rakkib is a personal server kit. Point a coding agent (Claude Code, Codex, Copilot CLI, etc.) at this repo and it will interview you, set everything up, and hand you back a working server with real HTTPS domains, a database, automation tools, and a no-code app builder.
 
 No memorizing flags. No copy-pasting ten commands. You answer a few questions, the agent does the rest.
 
 ---
 
-## Why FayaaSRV
+## Why Rakkib
 
 - **You own your data.** Everything runs on your hardware. No SaaS bills, no vendor lock-in.
 - **Real domains, real HTTPS.** Caddy + Cloudflare Tunnel give you `nocodb.yourdomain.com` style URLs without opening a single port on your router.
@@ -57,27 +57,27 @@ On the machine you want to turn into your server:
 **Fast bootstrap option**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-The bootstrapper clones or updates this repo, runs `scripts/fayaasrv-doctor`, then launches the first supported agent CLI it finds: `opencode`, then `claude`, then `codex`. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
+The bootstrapper clones or updates this repo, runs `scripts/rakkib-doctor`, then launches the first supported agent CLI it finds: `opencode`, then `claude`, then `codex`. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
 
 You can override the checkout path if needed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | FAYAASRV_DIR=$HOME/FayaaSRV bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | RAKKIB_DIR=$HOME/Rakkib bash
 ```
 
 If you want the old manual-prompt behavior instead of auto-launching an agent:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash -s -- --print-prompt
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --print-prompt
 ```
 
 To force a specific agent:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash -s -- --agent opencode
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --agent opencode
 ```
 
 **Manual clone option**
@@ -85,11 +85,11 @@ curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh |
 **1. Clone the repo**
 
 ```bash
-git clone https://github.com/FayaaDev/FayaaSRV.git
-cd FayaaSRV
+git clone https://github.com/FayaaDev/Rakkib.git
+cd Rakkib
 ```
 
-**2. Start your coding agent** from inside the `FayaaSRV` folder.
+**2. Start your coding agent** from inside the `Rakkib` folder.
 
 **3. Paste this prompt** into the agent:
 
@@ -137,7 +137,7 @@ Internet → Cloudflare → private tunnel → Caddy → your services
 
 ## Rebuilding or Extending
 
-- **Change something later?** Re-run the agent with the same repo. It picks up `.fss-state.yaml`, runs `scripts/fayaasrv-doctor`, and only does what's needed.
+- **Change something later?** Re-run the agent with the same repo. It picks up `.fss-state.yaml`, runs `scripts/rakkib-doctor`, and only does what's needed.
 - **Move to new hardware?** Copy the repo (with `.fss-state.yaml`) and restore from a local backup archive, then re-run the agent.
 - **Want more services?** The `registry.yaml` catalog and `steps/` folder are designed to be extended. Drop in a new step, the agent picks it up.
 

@@ -1,6 +1,6 @@
-# FayaaSRV
+# Rakkib
 
-Clone this repo onto the machine you want to turn into a Fayaa-style personal server kit.
+Clone this repo onto the machine you want to turn into a Rakkib-style personal server kit.
 
 This repository is built for an AI coding agent to operate as the installer. It includes a thin `install.sh` bootstrapper, but not a one-shot shell installer. The bootstrapper may clone/update the repo, run doctor, and launch a supported agent CLI with the installer prompt; the agent should still interview the user, record answers in `.fss-state.yaml`, render the provided templates, and execute the step files in order.
 
@@ -24,7 +24,7 @@ On a fresh machine:
 Bootstrap option:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
 By default, the bootstrapper launches the first available supported agent in this order: `opencode`, `claude`, `codex`. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
@@ -32,8 +32,8 @@ By default, the bootstrapper launches the first available supported agent in thi
 Manual option:
 
 ```bash
-git clone https://github.com/FayaaDev/FayaaSRV.git
-cd FayaaSRV
+git clone https://github.com/FayaaDev/Rakkib.git
+cd Rakkib
 ```
 
 3. If the bootstrapper did not auto-launch an agent, start your agent from the repo root.
@@ -99,7 +99,7 @@ Out of scope for v1:
 - `lib/placeholders.md`: canonical placeholder list
 - `lib/validation.md`: reusable validation checklist
 - `templates/`: rendered into target-machine configs
-- `docs/`: reference material from the live FayaaLink server
+- `docs/`: reference material from the live Rakkib reference server
 
 ## State File
 
@@ -125,7 +125,7 @@ Always write these targets on the target machine during `steps/90-verify.md`:
 - `{{DATA_ROOT}}/README.md`
 - `~/.claude/CLAUDE.md`
 
-If present, also sync the same marked FayaaSRV block into:
+If present, also sync the same marked Rakkib block into:
 
 - `~/.config/github-copilot/AGENTS.md`
 - `~/.codex/AGENTS.md`
@@ -133,9 +133,9 @@ If present, also sync the same marked FayaaSRV block into:
 Use these markers to replace or append exactly one managed block:
 
 ```md
-<!-- FAYAASRV START -->
+<!-- RAKKIB START -->
 ...
-<!-- FAYAASRV END -->
+<!-- RAKKIB END -->
 ```
 
 ## Dry Run Report
@@ -158,7 +158,7 @@ with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating s
 ## Linux Privileges
 
 - Fresh Ubuntu Linux installs need a privileged account for Docker Engine installation and some service setup.
-- The standard Linux privilege path is a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `/etc/sudoers.d/fayaasrv-helper` rule for that path only.
+- The standard Linux privilege path is a root-owned helper at `/usr/local/libexec/rakkib-root-helper` with a scoped `/etc/sudoers.d/rakkib-helper` rule for that path only.
 - If the helper is not already present, Step 00 may use one bootstrap trust event to run `sudo ./scripts/install-privileged-helper --admin-user <user>`, but raw `sudo` is not the normal step execution model.
 - The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access without asking the user to run extra package installs by hand.
 - Do not require the user to hand-edit `/etc/sudoers` or grant blanket `NOPASSWD` access.

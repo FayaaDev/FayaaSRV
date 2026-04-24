@@ -2,15 +2,15 @@
 set -euo pipefail
 
 readonly HELPER_VERSION=1
-readonly HELPER_PATH="/usr/local/libexec/fayaasrv-root-helper"
-readonly LOCK_PATH="/run/lock/fayaasrv-root-helper.lock"
+readonly HELPER_PATH="/usr/local/libexec/rakkib-root-helper"
+readonly LOCK_PATH="/run/lock/rakkib-root-helper.lock"
 
 log() {
   local level="$1"
   shift
   local msg="$*"
   if command -v logger >/dev/null 2>&1; then
-    logger -t fayaasrv-root-helper "level=${level} user=$(id -un 2>/dev/null || printf unknown) msg=${msg}"
+    logger -t rakkib-root-helper "level=${level} user=$(id -un 2>/dev/null || printf unknown) msg=${msg}"
   fi
 }
 
@@ -98,7 +98,7 @@ ensure_apt_prereqs() {
 }
 
 verb_probe() {
-  ok probe ',"version":1,"helper_path":"/usr/local/libexec/fayaasrv-root-helper","verbs":["probe","install-docker-engine-ubuntu","ensure-linux-layout","install-nodejs22-ubuntu","enable-linger","fix-ownership"]'
+  ok probe ',"version":1,"helper_path":"/usr/local/libexec/rakkib-root-helper","verbs":["probe","install-docker-engine-ubuntu","ensure-linux-layout","install-nodejs22-ubuntu","enable-linger","fix-ownership"]'
 }
 
 verb_install_docker_engine_ubuntu() {

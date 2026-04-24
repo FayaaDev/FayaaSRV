@@ -6,7 +6,7 @@ SERVER_NAME="{{SERVER_NAME}}"
 DATA_ROOT="{{DATA_ROOT}}"
 BACKUP_ROOT="{{BACKUP_DIR}}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="${BACKUP_ROOT}/fayaasrv_${SERVER_NAME}_${STAMP}"
+RUN_DIR="${BACKUP_ROOT}/rakkib_${SERVER_NAME}_${STAMP}"
 DRY_RUN=false
 
 DATA_ARCHIVES=()
@@ -19,7 +19,7 @@ usage() {
     cat <<'USAGE'
 Usage: backup-local.sh [--dry-run]
 
-Creates a local FayaaSRV backup with daily, weekly, and monthly retention buckets.
+Creates a local Rakkib backup with daily, weekly, and monthly retention buckets.
 USAGE
 }
 
@@ -243,7 +243,7 @@ prune_bucket() {
             fi
         fi
     done < <(
-        for dir in "${BACKUP_ROOT}"/fayaasrv_${SERVER_NAME}_*; do
+        for dir in "${BACKUP_ROOT}"/rakkib_${SERVER_NAME}_*; do
             [[ -d "$dir" ]] || continue
             basename "$dir"
         done | sort -r

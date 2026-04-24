@@ -2,16 +2,16 @@
 
 set -Eeuo pipefail
 
-REPO_URL="${FAYAASRV_REPO:-https://github.com/FayaaDev/FayaaSRV.git}"
-BRANCH="${FAYAASRV_BRANCH:-main}"
+REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
+BRANCH="${RAKKIB_BRANCH:-main}"
 RUN_DOCTOR=true
 DOCTOR_ONLY=false
-AGENT_MODE="${FAYAASRV_AGENT:-auto}"
+AGENT_MODE="${RAKKIB_AGENT:-auto}"
 
-if [[ -z "${FAYAASRV_DIR:-}" && -f "AGENT_PROTOCOL.md" && -d ".git" ]]; then
+if [[ -z "${RAKKIB_DIR:-}" && -f "AGENT_PROTOCOL.md" && -d ".git" ]]; then
     INSTALL_DIR="$(pwd)"
 else
-    INSTALL_DIR="${FAYAASRV_DIR:-${HOME}/FayaaSRV}"
+    INSTALL_DIR="${RAKKIB_DIR:-${HOME}/Rakkib}"
 fi
 
 usage() {
@@ -19,17 +19,17 @@ usage() {
 Usage: install.sh [--dir <path>] [--repo <url>] [--branch <name>] [--skip-doctor] [--doctor-only]
                   [--agent <auto|opencode|claude|codex|none>] [--no-agent] [--print-prompt]
 
-Thin FayaaSRV bootstrapper. It verifies basic host support, clones or updates
+Thin Rakkib bootstrapper. It verifies basic host support, clones or updates
 the installer repo, optionally runs the doctor diagnostic, then launches an
 installed coding agent with the installer prompt. If no supported agent is
 available, it prints the manual prompt instead. It does not replace the
 agent-driven installer workflow.
 
 Environment overrides:
-  FAYAASRV_DIR       target checkout path, default: $HOME/FayaaSRV
-  FAYAASRV_REPO      git repo URL, default: https://github.com/FayaaDev/FayaaSRV.git
-  FAYAASRV_BRANCH    git branch, default: main
-  FAYAASRV_AGENT     agent to launch, default: auto
+  RAKKIB_DIR       target checkout path, default: $HOME/Rakkib
+  RAKKIB_REPO      git repo URL, default: https://github.com/FayaaDev/Rakkib.git
+  RAKKIB_BRANCH    git branch, default: main
+  RAKKIB_AGENT     agent to launch, default: auto
 USAGE
 }
 
@@ -159,10 +159,10 @@ prepare_repo() {
 }
 
 run_doctor() {
-    local doctor="${INSTALL_DIR}/scripts/fayaasrv-doctor"
+    local doctor="${INSTALL_DIR}/scripts/rakkib-doctor"
     [[ -x "$doctor" ]] || die "doctor script is missing or not executable: ${doctor}"
 
-    log "Running FayaaSRV doctor"
+    log "Running Rakkib doctor"
     if "$doctor" --state "${INSTALL_DIR}/.fss-state.yaml"; then
         return 0
     fi
@@ -191,7 +191,7 @@ PROMPT
 print_agent_prompt() {
     cat <<EOF
 
-FayaaSRV is ready for the agent-driven install flow.
+Rakkib is ready for the agent-driven install flow.
 
 Repo path:
   ${INSTALL_DIR}

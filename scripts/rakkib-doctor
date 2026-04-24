@@ -18,9 +18,9 @@ CHECK_MESSAGES=()
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/fayaasrv-doctor [--json] [--state <path>] [--domain <domain>] [--data-root <path>]
+Usage: scripts/rakkib-doctor [--json] [--state <path>] [--domain <domain>] [--data-root <path>]
 
-Runs FayaaSRV host preflight checks. Set CF_API_TOKEN or CLOUDFLARE_API_TOKEN
+Runs Rakkib host preflight checks. Set CF_API_TOKEN or CLOUDFLARE_API_TOKEN
 to verify the Cloudflare token before tunnel/DNS work.
 USAGE
 }
@@ -329,7 +329,7 @@ check_public_ports() {
   if [[ "$failures" -eq 0 ]]; then
     add_check ok public_ports true "${messages[*]}"
   else
-    add_check fail public_ports true "ports 80/443 must be free or owned by FayaaSRV caddy; ${messages[*]}"
+    add_check fail public_ports true "ports 80/443 must be free or owned by Rakkib caddy; ${messages[*]}"
   fi
 }
 
@@ -402,9 +402,9 @@ check_conflicts() {
   if [[ -n "$pg_listeners" ]] && docker_container_running postgres; then
     true
   elif [[ -n "$pg_listeners" ]] && ! printf '%s\n' "$pg_listeners" | grep -Eiq 'docker|postgres'; then
-    conflicts+=("port 5432 listener is not clearly FayaaSRV postgres")
+    conflicts+=("port 5432 listener is not clearly Rakkib postgres")
   elif [[ -n "$pg_listeners" ]]; then
-    conflicts+=("port 5432 is already listening before the FayaaSRV postgres container is running")
+    conflicts+=("port 5432 is already listening before the Rakkib postgres container is running")
   fi
 
   if [[ "${#conflicts[@]}" -eq 0 ]]; then

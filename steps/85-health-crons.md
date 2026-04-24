@@ -18,9 +18,9 @@ Install lightweight health monitoring jobs.
 
 ## Cron Markers
 
-- `# FAYAASRV: cloudflared-healthcheck`
-- `# FAYAASRV: claw-healthcheck`
-- `# FAYAASRV: claw-memory-alert`
+- `# RAKKIB: cloudflared-healthcheck`
+- `# RAKKIB: claw-healthcheck`
+- `# RAKKIB: claw-memory-alert`
 
 ## Verify
 

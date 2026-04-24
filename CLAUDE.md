@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repo Is
 
-FayaaSRV is an **AI-agent-driven server installer** — not a shell script. The agent interviews the user, records answers in `.fss-state.yaml`, renders templates, and executes step files in order. There is no one-shot installer to run directly.
+Rakkib is an **AI-agent-driven server installer** — not a shell script. The agent interviews the user, records answers in `.fss-state.yaml`, renders templates, and executes step files in order. There is no one-shot installer to run directly.
 
 The canonical operator prompt (paste this to kick off an install):
 
@@ -14,7 +14,7 @@ ask the question files in order, record answers in `.fss-state.yaml`, auto-detec
 host values when instructed, do not write outside the repo until Phase 6
 (`questions/06-confirm.md`), use the helper-first Linux privilege flow instead of
 raw sudo for normal step execution, then after confirmation execute
-`steps/00-prereqs.md` through `steps/90-verify.md` in order and stop on any
+`steps/00-prereqs.md` through `steps/90-verify.md` in numeric order and stop on any
 failed `## Verify` block until it is fixed.
 ```
 
@@ -55,10 +55,10 @@ Only render templates and write compose files for selected services.
 
 ## Privilege Model (Linux)
 
-The standard path is a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `sudoers.d` rule for that path only.
+The standard path is a root-owned helper at `/usr/local/libexec/rakkib-root-helper` with a scoped `sudoers.d` rule for that path only.
 
 - Helper present → `privilege_strategy: helper`; route all root work through helper verbs.
-- Helper absent + `privilege_mode: sudo` → one bootstrap trust event: `sudo ./scripts/install-privileged-helper --admin-user <user>`, then verify with `sudo -n /usr/local/libexec/fayaasrv-root-helper probe`.
+- Helper absent + `privilege_mode: sudo` → one bootstrap trust event: `sudo ./scripts/install-privileged-helper --admin-user <user>`, then verify with `sudo -n /usr/local/libexec/rakkib-root-helper probe`.
 - After bootstrap, **do not use raw `sudo`** in later steps. Introduce a new reviewed helper verb instead.
 - `cloudflared` CLI installs without root into `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).
@@ -87,7 +87,7 @@ After a successful install, write:
 - `{{DATA_ROOT}}/README.md` (from `templates/agent-memory/SERVER_README.md.tmpl`)
 - `~/.claude/CLAUDE.md` (from `templates/agent-memory/CLAUDE.md.tmpl`)
 
-Use `<!-- FAYAASRV START -->` / `<!-- FAYAASRV END -->` markers to manage the block. Sync the same block into `~/.config/github-copilot/AGENTS.md` and `~/.codex/AGENTS.md` if those files exist.
+Use `<!-- RAKKIB START -->` / `<!-- RAKKIB END -->` markers to manage the block. Sync the same block into `~/.config/github-copilot/AGENTS.md` and `~/.codex/AGENTS.md` if those files exist.
 
 ## Extending the Repo
 

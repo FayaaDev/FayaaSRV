@@ -4,7 +4,7 @@ Use these checks after each deployment step. Do not continue if a required check
 
 ## Step 00
 
-- Linux helper path: `/usr/local/libexec/fayaasrv-root-helper probe` as root or `sudo -n /usr/local/libexec/fayaasrv-root-helper probe` from a helper-enabled user
+- Linux helper path: `/usr/local/libexec/rakkib-root-helper probe` as root or `sudo -n /usr/local/libexec/rakkib-root-helper probe` from a helper-enabled user
 - `docker --version`
 - `docker compose version`
 - `docker info`
@@ -13,8 +13,8 @@ Use these checks after each deployment step. Do not continue if a required check
 
 ## Step 05
 
-- `./scripts/fayaasrv-doctor`
-- `./scripts/fayaasrv-doctor --json`
+- `./scripts/rakkib-doctor`
+- `./scripts/rakkib-doctor --json`
 - no `"status":"fail"` checks in the JSON report before continuing
 
 ## Step 10
@@ -88,7 +88,7 @@ Use these checks after each deployment step. Do not continue if a required check
 - `docker ps`
 - `docker exec postgres pg_isready -U postgres`
 - `curl -s http://localhost/health`
-- `./scripts/fayaasrv-doctor`
+- `./scripts/rakkib-doctor`
 - `curl -I https://{{NOCODB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/`
@@ -102,5 +102,5 @@ After a successful install, run a re-apply from `steps/05-preflight.md` through 
 
 - record `sha256sum` for managed `.env` files before and after; values must stay unchanged unless a missing key was filled
 - record `sha256sum {{DATA_ROOT}}/docker/caddy/Caddyfile` before and after; content should stay stable for the same state
-- confirm `crontab -l` contains one line per `# FAYAASRV:` marker
+- confirm `crontab -l` contains one line per `# RAKKIB:` marker
 - confirm `docker compose ps` does not show duplicate managed containers
