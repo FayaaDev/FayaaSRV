@@ -143,28 +143,6 @@ Internet → Cloudflare → private tunnel → Caddy → your services
 
 ---
 
-## For Contributors / Curious Operators
-
-Under the hood:
-
-- `AGENT_PROTOCOL.md` — exact rules the installer agent follows
-- `questions/` — the interview, in order
-- `steps/` — the install steps, each with a `## Verify` block the agent must pass
-- `templates/` — config files rendered with your answers
-- `registry.yaml` — service catalog and defaults
-- `lib/` — shared placeholders, validation rules, and idempotency rules
-- `docs/` — reference material from the live FayaaLink server
-
-The privilege model is deliberately narrow: a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `sudoers.d` rule. One bootstrap trust event installs it; everything after goes through the helper. No blanket `NOPASSWD`, no hand-edited sudoers.
-
----
-
-## Status
-
-v1 ships Caddy, Cloudflared, PostgreSQL, NocoDB (always), local backup/restore, plus optional n8n, DBHub, and OpenClaw. Cloud backup, ChangeDetection, Superset, and the broader FayaaLink service set are planned for later releases.
-
----
-
 ## License
 
 See repository for license details.
