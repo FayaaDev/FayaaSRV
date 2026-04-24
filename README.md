@@ -60,12 +60,24 @@ On the machine you want to turn into your server:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash
 ```
 
-The bootstrapper only clones or updates this repo, runs `scripts/fayaasrv-doctor`, and prints the agent prompt. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
+The bootstrapper clones or updates this repo, runs `scripts/fayaasrv-doctor`, then launches the first supported agent CLI it finds: `opencode`, then `claude`, then `codex`. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
 
 You can override the checkout path if needed:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | FAYAASRV_DIR=$HOME/FayaaSRV bash
+```
+
+If you want the old manual-prompt behavior instead of auto-launching an agent:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash -s -- --print-prompt
+```
+
+To force a specific agent:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/FayaaSRV/main/install.sh | bash -s -- --agent opencode
 ```
 
 **Manual clone option**
