@@ -14,6 +14,39 @@ If you are an AI coding agent:
 4. After confirmation, execute `steps/*.md` in order.
 5. Pass every `## Verify` block before moving forward.
 
+## Fresh Machine Start
+
+On a fresh machine:
+
+1. Install `git` and your coding agent CLI.
+2. Clone this repo and enter it:
+
+```bash
+git clone https://github.com/FayaaDev/FayaaSRV.git
+cd FayaaSRV
+```
+
+3. Start your agent from the repo root.
+4. Paste this prompt:
+
+```text
+Read README.md and AGENT_PROTOCOL.md first.
+
+Use this repo as the installer.
+Ask me the question files in order.
+Record answers in .fss-state.yaml.
+Do not write outside the repo until Phase 6 (questions/06-confirm.md).
+After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in order.
+Stop on any failed Verify block and fix it before continuing.
+```
+
+Expected flow:
+
+1. The agent asks `questions/01-platform.md` through `questions/06-confirm.md`.
+2. After confirmation, the agent runs the deployment steps in order.
+3. The run is complete only when `steps/90-verify.md` passes.
+4. Record the run outcome in `DRY_RUN_REPORT.md` before calling the repo ready for outside users.
+
 ## v1 Scope
 
 Always install:
