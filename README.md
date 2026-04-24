@@ -30,16 +30,7 @@ cd FayaaSRV
 4. Paste this prompt:
 
 ```text
-Read README.md and AGENT_PROTOCOL.md first.
-
-Use this repo as the installer.
-Ask me the question files in order.
-Record answers in .fss-state.yaml.
-Auto-detect host values when the repo says to detect them, instead of asking me.
-Do not write outside the repo until Phase 6 (questions/06-confirm.md).
-If Linux system setup needs privileges, handle it inside the installer flow with sudo and do not ask me to edit sudoers.
-After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in order.
-Stop on any failed Verify block and fix it before continuing.
+Read README.md and AGENT_PROTOCOL.md first, then use this repo as the installer: ask the question files in order, record answers in `.fss-state.yaml`, auto-detect host values when instructed, do not write outside the repo until Phase 6 (`questions/06-confirm.md`), handle Linux privilege needs inside the installer flow with sudo instead of asking me to edit sudoers, then after confirmation execute `steps/00-prereqs.md` through `steps/90-verify.md` in order and stop on any failed `## Verify` block until it is fixed.
 ```
 
 Expected flow:
