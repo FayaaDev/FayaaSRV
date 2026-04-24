@@ -1,0 +1,16 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --metrics 0.0.0.0:20241 run
+    volumes:
+      - {{DATA_ROOT}}/data/cloudflared:/home/nonroot/.cloudflared
+    ports:
+      - 127.0.0.1:20241:20241
+    networks:
+      - {{DOCKER_NET}}
+
+networks:
+  {{DOCKER_NET}}:
+    external: true
