@@ -11,7 +11,7 @@ If you are an AI coding agent:
 1. Read `AGENT_PROTOCOL.md` first.
 2. Do not execute anything outside this repo until Phase 6 (`questions/06-confirm.md`) is complete.
 3. Ask the question files in order and record answers into `.fss-state.yaml`.
-4. After confirmation, execute `steps/*.md` in order.
+4. After confirmation, execute `steps/*.md` in numeric order, skipping optional restore-test work unless explicitly requested.
 5. Pass every `## Verify` block before moving forward.
 
 ## Fresh Machine Start
@@ -37,7 +37,7 @@ Ask me the question files in order.
 Record answers in .fss-state.yaml.
 Do not write outside the repo until Phase 6 (questions/06-confirm.md).
 Use the helper-first Linux privilege flow instead of raw sudo for normal step execution.
-After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in order.
+After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
 Stop on any failed Verify block and fix it before continuing.
 ```
 
@@ -45,7 +45,7 @@ Expected flow:
 
 1. The agent asks `questions/01-platform.md` through `questions/06-confirm.md`.
 2. On fresh Ubuntu Linux installs, the agent should prefer a preinstalled helper or install it during one bootstrap trust event in Step 00, then use the helper for later root-required work.
-3. After confirmation, the agent runs the deployment steps in order.
+3. After confirmation, the agent runs the deployment steps in numeric order, including Step 05 preflight.
 4. The run is complete only when `steps/90-verify.md` passes.
 5. Record the run outcome in `DRY_RUN_REPORT.md` before calling the repo ready for outside users.
 
@@ -80,7 +80,7 @@ Out of scope for v1:
 4. Ask `questions/04-cloudflare.md`
 5. Ask `questions/05-secrets.md`
 6. Ask `questions/06-confirm.md`
-7. Run `steps/00-prereqs.md` through `steps/90-verify.md`
+7. Run `steps/00-prereqs.md` through `steps/90-verify.md` in numeric order, skipping optional restore-test work unless explicitly requested
 
 ## Files
 

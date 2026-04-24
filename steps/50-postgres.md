@@ -8,7 +8,7 @@ Deploy PostgreSQL and create one database/user pair per selected service.
    - `POSTGRES_PASSWORD`
    - `NOCODB_DB_PASS`
    - `N8N_DB_PASS` if `n8n` is selected
-2. Render `templates/docker/postgres/.env.example` into `{{DATA_ROOT}}/docker/postgres/.env` with the recorded `POSTGRES_PASSWORD`.
+2. Render `templates/docker/postgres/.env.example` into a candidate file. If `{{DATA_ROOT}}/docker/postgres/.env` already exists, merge in missing keys only and keep existing values unchanged. If it does not exist, install the candidate as `.env` with mode `600`.
 3. Create `{{DATA_ROOT}}/docker/postgres/init-scripts/init-services.sql`.
 4. Always create the NocoDB database and role.
 5. If `n8n` is selected, create the n8n database and role.
@@ -23,6 +23,9 @@ The rendered SQL file should:
 - create roles only if they do not exist
 - create databases only if they do not exist
 - grant ownership of each service database to its matching role
+- use `DO $$ ... $$` blocks for role checks
+- use a guarded `CREATE DATABASE` pattern such as `SELECT 'CREATE DATABASE ...' WHERE NOT EXISTS (...) \gexec`
+- be safe to run manually against an existing Postgres container after first install, not only during first database initialization
 
 ## Verify
 

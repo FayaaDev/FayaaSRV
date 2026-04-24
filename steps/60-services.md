@@ -11,7 +11,7 @@ Deploy the required and selected application services.
 3. If `n8n` is selected, render and start n8n.
 4. If `dbhub` is selected, render and start DBHub.
 5. For each service:
-   render `.env` from `.env.example`, render `docker-compose.yml`, render any extra config files the service needs, then run `docker compose up -d`.
+   render `.env` from `.env.example` into a candidate file, merge only missing keys into an existing `.env`, render `docker-compose.yml`, render any extra config files the service needs, then run `docker compose up -d`.
 6. After each service starts, verify it internally before moving to the next one.
 
 ## Service Notes
@@ -23,6 +23,7 @@ NocoDB:
 n8n:
 - use the official image template in this repo
 - preserve `N8N_ENCRYPTION_KEY` if migrating
+- if `.env` already exists, preserve `N8N_ENCRYPTION_KEY` even when `.fss-state.yaml` contains a different generated value
 
 DBHub:
 - render `dbhub.toml`

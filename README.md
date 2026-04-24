@@ -16,6 +16,7 @@ No memorizing flags. No copy-pasting ten commands. You answer a few questions, t
 - **Batteries included.** PostgreSQL, NocoDB (Airtable-style no-code), n8n (workflow automation), and more — all pre-wired to talk to each other.
 - **Safe by default.** No raw `sudo` loops, no hand-edited sudoers files. A scoped privileged helper does the few root tasks and nothing else.
 - **Reproducible.** Your answers live in one file. Rebuild the same server on new hardware in minutes.
+- **Re-runnable.** A preflight doctor and idempotency rules make repeat applies safe instead of duplicating services or overwriting secrets.
 
 ---
 
@@ -70,8 +71,9 @@ ask the question files in order, record answers in `.fss-state.yaml`, auto-detec
 host values when instructed, do not write outside the repo until Phase 6
 (`questions/06-confirm.md`), use the helper-first Linux privilege flow instead of
 raw sudo for normal step execution, then after confirmation execute
-`steps/00-prereqs.md` through `steps/90-verify.md` in order and stop on any
-failed `## Verify` block until it is fixed.
+`steps/00-prereqs.md` through `steps/90-verify.md` in numeric order, skipping
+optional restore-test work unless requested, and stop on any failed `## Verify`
+block until it is fixed.
 ```
 
 **4. Answer the questions.** The agent will walk you through six short topics:
@@ -107,8 +109,8 @@ Internet → Cloudflare → private tunnel → Caddy → your services
 
 ## Rebuilding or Extending
 
-- **Change something later?** Re-run the agent with the same repo. It picks up `.fss-state.yaml` and only does what's needed.
-- **Move to new hardware?** Copy the repo (with `.fss-state.yaml`) and your Docker volumes over. Re-run the agent.
+- **Change something later?** Re-run the agent with the same repo. It picks up `.fss-state.yaml`, runs `scripts/fayaasrv-doctor`, and only does what's needed.
+- **Move to new hardware?** Copy the repo (with `.fss-state.yaml`) and restore from a local backup archive, then re-run the agent.
 - **Want more services?** The `registry.yaml` catalog and `steps/` folder are designed to be extended. Drop in a new step, the agent picks it up.
 
 ---
@@ -122,7 +124,7 @@ Under the hood:
 - `steps/` — the install steps, each with a `## Verify` block the agent must pass
 - `templates/` — config files rendered with your answers
 - `registry.yaml` — service catalog and defaults
-- `lib/` — shared placeholders and validation rules
+- `lib/` — shared placeholders, validation rules, and idempotency rules
 - `docs/` — reference material from the live FayaaLink server
 
 The privilege model is deliberately narrow: a root-owned helper at `/usr/local/libexec/fayaasrv-root-helper` with a scoped `sudoers.d` rule. One bootstrap trust event installs it; everything after goes through the helper. No blanket `NOPASSWD`, no hand-edited sudoers.
@@ -131,7 +133,7 @@ The privilege model is deliberately narrow: a root-owned helper at `/usr/local/l
 
 ## Status
 
-v1 ships Caddy, Cloudflared, PostgreSQL, NocoDB (always), plus optional n8n, DBHub, and OpenClaw. Backups, ChangeDetection, Superset, and the broader FayaaLink service set are planned for later releases.
+v1 ships Caddy, Cloudflared, PostgreSQL, NocoDB (always), local backup/restore, plus optional n8n, DBHub, and OpenClaw. Cloud backup, ChangeDetection, Superset, and the broader FayaaLink service set are planned for later releases.
 
 ---
 

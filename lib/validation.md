@@ -11,6 +11,12 @@ Use these checks after each deployment step. Do not continue if a required check
 - `curl --version`
 - `cloudflared --version` or `~/.local/bin/cloudflared --version`
 
+## Step 05
+
+- `./scripts/fayaasrv-doctor`
+- `./scripts/fayaasrv-doctor --json`
+- no `"status":"fail"` checks in the JSON report before continuing
+
 ## Step 10
 
 - `ls -ld {{DATA_ROOT}}/docker {{DATA_ROOT}}/data {{DATA_ROOT}}/backups {{DATA_ROOT}}/MDs`
@@ -22,6 +28,7 @@ Use these checks after each deployment step. Do not continue if a required check
 
 ## Step 30
 
+- candidate Caddyfile validates before replacement
 - `docker ps | grep caddy`
 - `curl -s http://localhost/health`
 
@@ -61,7 +68,15 @@ Use these checks after each deployment step. Do not continue if a required check
 ## Step 80
 
 - `test -x {{BACKUP_DIR}}/backup-local.sh`
+- `test -x {{BACKUP_DIR}}/restore-local.sh`
 - run the script once and confirm a new backup directory exists
+- latest backup directory contains `manifest.json`
+
+## Step 82
+
+- `{{BACKUP_DIR}}/backup-local.sh --dry-run`
+- `{{BACKUP_DIR}}/restore-local.sh --latest --dry-run --yes`
+- if running a real restore test, confirm the selected marker row or file exists after restore
 
 ## Step 85
 
@@ -73,9 +88,19 @@ Use these checks after each deployment step. Do not continue if a required check
 - `docker ps`
 - `docker exec postgres pg_isready -U postgres`
 - `curl -s http://localhost/health`
+- `./scripts/fayaasrv-doctor`
 - `curl -I https://{{NOCODB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}/`
 - `test -f {{DATA_ROOT}}/README.md`
 - `test -f ~/.claude/CLAUDE.md`
+
+## Second-Run Check
+
+After a successful install, run a re-apply from `steps/05-preflight.md` through `steps/90-verify.md` on the same machine.
+
+- record `sha256sum` for managed `.env` files before and after; values must stay unchanged unless a missing key was filled
+- record `sha256sum {{DATA_ROOT}}/docker/caddy/Caddyfile` before and after; content should stay stable for the same state
+- confirm `crontab -l` contains one line per `# FAYAASRV:` marker
+- confirm `docker compose ps` does not show duplicate managed containers

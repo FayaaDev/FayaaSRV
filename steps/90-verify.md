@@ -8,17 +8,19 @@ Run the final smoke tests for the deployed server.
 2. Confirm PostgreSQL is accepting connections.
 3. Confirm Caddy is serving locally.
 4. Confirm the Cloudflare tunnel metrics endpoint is healthy.
-5. Confirm each selected service responds on its public HTTPS hostname. If `cloudflare.zone_in_cloudflare` is `false`, treat these checks as blocked until the domain is active in the intended Cloudflare account and do not mark the deployment fully complete.
-6. Before rendering the generated machine README, derive `{{SERVICE_SUMMARY_LINES}}` from the always-on services plus the selected optional services.
-7. Generate `{{DATA_ROOT}}/README.md` from `templates/agent-memory/SERVER_README.md.tmpl`.
-8. Create `~/.claude` if needed and append or replace the FayaaSRV block in `~/.claude/CLAUDE.md` using `templates/agent-memory/CLAUDE.md.tmpl`.
-9. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, append or replace the same FayaaSRV block there too.
+5. Run `./scripts/fayaasrv-doctor` again and resolve any remaining failures.
+6. Confirm each selected service responds on its public HTTPS hostname. If `cloudflare.zone_in_cloudflare` is `false`, treat these checks as blocked until the domain is active in the intended Cloudflare account and do not mark the deployment fully complete.
+7. Before rendering the generated machine README, derive `{{SERVICE_SUMMARY_LINES}}` from the always-on services plus the selected optional services.
+8. Generate `{{DATA_ROOT}}/README.md` from `templates/agent-memory/SERVER_README.md.tmpl`.
+9. Create `~/.claude` if needed and append or replace the FayaaSRV block in `~/.claude/CLAUDE.md` using `templates/agent-memory/CLAUDE.md.tmpl`.
+10. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, append or replace the same FayaaSRV block there too.
 
 ## Verify
 
 - `docker ps`
 - `docker exec postgres pg_isready -U postgres`
 - `curl -s http://localhost/health`
+- `./scripts/fayaasrv-doctor`
 - `curl -I https://{{NOCODB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/`

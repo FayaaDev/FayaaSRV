@@ -11,7 +11,7 @@ This file defines the exact operating procedure for any coding agent using this 
 5. Do not skip required phases even if values seem obvious.
 6. After confirmation, execute the step files in numeric order.
 7. Stop on any failed `## Verify` block. Fix the issue before advancing.
-8. Prefer minimal edits on the target machine. Preserve any existing user data or secrets unless explicitly replacing them.
+8. Prefer minimal edits on the target machine. Follow `lib/idempotency.md` for every re-apply and preserve existing user data or secrets unless explicitly replacing them.
 9. Never rotate an existing `N8N_ENCRYPTION_KEY`.
 
 ## State File Shape
@@ -155,19 +155,21 @@ Only after `confirmed: true` may the agent modify the target machine.
 
 ## Execution Order
 
-After confirmation, run these step files in order:
+After confirmation, run these step files in numeric order:
 
 1. `steps/00-prereqs.md`
-2. `steps/10-layout.md`
-3. `steps/20-network.md`
-4. `steps/30-caddy.md`
-5. `steps/40-cloudflare.md`
-6. `steps/50-postgres.md`
-7. `steps/60-services.md`
-8. `steps/70-host-agents.md`
-9. `steps/80-backups.md`
-10. `steps/85-health-crons.md`
-11. `steps/90-verify.md`
+2. `steps/05-preflight.md`
+3. `steps/10-layout.md`
+4. `steps/20-network.md`
+5. `steps/30-caddy.md`
+6. `steps/40-cloudflare.md`
+7. `steps/50-postgres.md`
+8. `steps/60-services.md`
+9. `steps/70-host-agents.md`
+10. `steps/80-backups.md`
+11. `steps/82-restore-test.md` when explicitly running a restore dry run or post-backup restore test; skip on first install unless the user asks
+12. `steps/85-health-crons.md`
+13. `steps/90-verify.md`
 
 ## Rendering Rules
 
@@ -182,6 +184,15 @@ After confirmation, run these step files in order:
 9. If the host `cloudflared` CLI is missing, install it during Step 00 into `~/.local/bin/cloudflared` and ensure later steps invoke it through `PATH` or the absolute path.
 10. If `secrets.mode` is `generate`, generate each missing secret immediately before the first step that needs it, then write it back into `.fss-state.yaml` before rendering any file that uses it.
 11. If `cloudflare.zone_in_cloudflare` is `false`, help the user complete Cloudflare zone setup using the official docs before treating public DNS routing or HTTPS verification as complete. Do not mark the deployment fully successful while Step 40 DNS routing or Step 90 public HTTPS checks are still blocked by missing Cloudflare zone ownership.
+
+## Idempotency Rules
+
+1. Read `lib/idempotency.md` before executing any step on a machine that may already have FayaaSRV resources.
+2. Existing `.env` files are authoritative for secrets. Render a candidate file, merge in only missing keys, and never replace an existing secret value.
+3. Render Caddy changes to a candidate file and validate before replacing the active Caddyfile. Restore the previous file and stop if validation fails.
+4. Replace cron entries by FayaaSRV marker comments rather than appending new lines.
+5. Detect existing Cloudflare tunnels by name before creating a new tunnel.
+6. Use `./scripts/fayaasrv-doctor` as a standalone diagnostic and as the Step 05 install gate.
 
 ## Privilege Rules
 

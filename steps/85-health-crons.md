@@ -8,13 +8,19 @@ Install lightweight health monitoring jobs.
 2. If `openclaw` is selected on Linux, install the OpenClaw health check.
 3. If `openclaw` is selected on Linux, install the OpenClaw memory alert helper.
 4. Write the scripts to a user-owned directory such as `~/.local/bin` and make them executable.
-5. Add cron entries with conservative cadence.
+5. Add cron entries with conservative cadence using marker replacement. Remove existing lines with the matching marker before adding the current line.
 
 ## Default Cadence
 
 - cloudflared health check: every 5 minutes
 - OpenClaw health check: every 5 minutes
 - OpenClaw memory alert: every 10 minutes
+
+## Cron Markers
+
+- `# FAYAASRV: cloudflared-healthcheck`
+- `# FAYAASRV: claw-healthcheck`
+- `# FAYAASRV: claw-memory-alert`
 
 ## Verify
 
