@@ -1,0 +1,13 @@
+# Global options
+{
+	auto_https off
+	admin off
+}
+
+# Catch-all on port 80 for all subdomains
+:80 {
+	# Health check endpoint
+	@health path /health
+	handle @health {
+		respond "OK" 200
+	}
