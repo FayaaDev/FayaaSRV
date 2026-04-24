@@ -26,6 +26,8 @@ If `platform` is `linux` and `privilege_mode` is `sudo`, make the summary explic
 
 Make it clear in the summary when `architecture` and `LAN IP` were auto-detected from the host.
 
+If `cloudflare.zone_in_cloudflare` is `false`, the summary must explicitly say that the domain still needs Cloudflare zone setup in the intended account and that public DNS routing plus HTTPS verification will remain blocked until that is done.
+
 Then ask for one final yes/no confirmation.
 
 ---

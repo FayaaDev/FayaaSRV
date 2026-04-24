@@ -4,6 +4,7 @@ Render and deploy the Cloudflare tunnel after the user confirms the setup.
 
 ## Actions
 
+0. If `cloudflare.zone_in_cloudflare` is `false`, stop before any tunnel login or DNS routing work. Help the user finish Cloudflare zone setup first using Cloudflare's docs, then resume this step once the zone is active in the intended account.
 1. Confirm the host `cloudflared` CLI is installed and runnable with `cloudflared --version` before doing any tunnel work. If it was installed into `~/.local/bin`, invoke that path directly when the shell `PATH` has not been refreshed yet.
 2. If `cloudflare.tunnel_strategy` is `new`, guide the user through:
    `cloudflared tunnel login` and `cloudflared tunnel create <tunnel_name>`.
@@ -18,6 +19,13 @@ Render and deploy the Cloudflare tunnel after the user confirms the setup.
 11. Start the container with `docker compose up -d` from `{{DATA_ROOT}}/docker/cloudflared`.
 
 ## Manual Command Pattern
+
+If the zone is not yet in Cloudflare, first help the user complete one of these:
+
+- primary setup (full): `https://developers.cloudflare.com/dns/zone-setups/full-setup/`
+- CNAME setup (partial): `https://developers.cloudflare.com/dns/zone-setups/partial-setup/`
+
+Do not run the tunnel DNS route commands until the zone is active in the Cloudflare account that owns the tunnel.
 
 Use the actual tunnel name from state:
 

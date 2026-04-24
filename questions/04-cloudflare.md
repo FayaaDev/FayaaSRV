@@ -20,7 +20,20 @@ Ask: "Is your base domain already managed in Cloudflare in the same account you 
 
 Accepted answers: `y` or `n`. Normalize to boolean.
 
-If `n`, the agent must warn that deployment can continue locally, but external HTTPS verification cannot pass until the domain is moved to or connected through Cloudflare.
+If `n`, the agent must explain that the domain is not yet in a Cloudflare state this installer can manage for DNS and tunnel routing.
+
+The agent must then help the user choose the right Cloudflare zone setup before continuing:
+
+- Recommend Cloudflare primary setup (full) in most cases. This is the standard option where Cloudflare becomes the authoritative DNS provider for the whole domain.
+- Explain that CNAME setup (partial) is only available on Business or Enterprise plans and only proxies specific hostnames while primary DNS stays elsewhere.
+- Use Cloudflare's zone setup docs as the source of truth:
+  - overview: `https://developers.cloudflare.com/dns/zone-setups/`
+  - primary setup (full): `https://developers.cloudflare.com/dns/zone-setups/full-setup/`
+  - CNAME setup (partial): `https://developers.cloudflare.com/dns/zone-setups/partial-setup/`
+- Tell the user that Free and Pro plans should use primary setup (full).
+- Ask the user to finish adding the domain to the intended Cloudflare account and reach an active zone state before relying on public DNS routing and HTTPS verification.
+
+If the user wants to continue before doing that, the agent may continue the interview and local-only setup, but it must clearly state that `steps/40-cloudflare.md` and public verification in `steps/90-verify.md` cannot fully pass until the domain is managed in Cloudflare.
 
 ### Q2 — Tunnel Strategy
 

@@ -171,6 +171,7 @@ After confirmation, run these step files in order:
 8. A local host `cloudflared` CLI is required for tunnel login, creation, and DNS routing. The container image alone is not enough for Step 40.
 9. If the host `cloudflared` CLI is missing, install it during Step 00 into `~/.local/bin/cloudflared` and ensure later steps invoke it through `PATH` or the absolute path.
 10. If `secrets.mode` is `generate`, generate each missing secret immediately before the first step that needs it, then write it back into `.fss-state.yaml` before rendering any file that uses it.
+11. If `cloudflare.zone_in_cloudflare` is `false`, help the user complete Cloudflare zone setup using the official docs before treating public DNS routing or HTTPS verification as complete. Do not mark the deployment fully successful while Step 40 DNS routing or Step 90 public HTTPS checks are still blocked by missing Cloudflare zone ownership.
 
 ## Privilege Rules
 
