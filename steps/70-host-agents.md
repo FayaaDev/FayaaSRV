@@ -8,16 +8,14 @@ Only run this step if `openclaw` is selected.
 
 Linux:
 1. Ensure `node >= 22.14.0` and `npm` are installed.
-2. Reuse the helper established in Step 00. If `privilege_mode` is `none` and the helper is not already available while Node.js still needs a system install, stop and tell the user to re-run from a privileged account.
-3. If Node.js is missing or too old on Ubuntu 24.04, install Node.js 22 LTS through the helper first:
-   `/usr/local/libexec/rakkib-root-helper install-nodejs22-ubuntu`
+2. Verify the installer process is running as root. If not, stop and tell the user to re-run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+3. If Node.js is missing or too old on Ubuntu 24.04, install Node.js 22 LTS directly as root before continuing.
 4. Verify `node --version` and `npm --version` before installing OpenClaw.
-5. Install OpenClaw into a user-scoped prefix with `npm install -g --prefix "$HOME/.local" openclaw@latest`.
-6. Verify the real entrypoint exists at `~/.local/bin/openclaw` before writing the unit file.
-7. Render `templates/systemd/claw-gateway.service.tmpl` into `~/.config/systemd/user/openclaw-gateway.service`.
-8. Run `systemctl --user daemon-reload`.
-9. Enable linger through the helper so the user service survives logout and reboots:
-   `/usr/local/libexec/rakkib-root-helper enable-linger --admin-user {{ADMIN_USER}}`
+5. Resolve the admin home with `getent passwd {{ADMIN_USER}} | cut -d: -f6`, then install OpenClaw into that user-scoped prefix with `runuser -u {{ADMIN_USER}} -- npm install -g --prefix "$ADMIN_HOME/.local" openclaw@latest` or an equivalent root-safe command.
+6. Verify the real entrypoint exists at `$ADMIN_HOME/.local/bin/openclaw` before writing the unit file.
+7. Render `templates/systemd/claw-gateway.service.tmpl` into `$ADMIN_HOME/.config/systemd/user/openclaw-gateway.service`.
+8. Run `systemctl --user daemon-reload` for the admin user.
+9. Enable linger directly as root so the user service survives logout and reboots: `loginctl enable-linger {{ADMIN_USER}}`.
 10. Enable and start the service.
 
 Mac:
@@ -41,6 +39,6 @@ Mac:
 Both:
 - `node --version`
 - `npm --version`
-- `test -x "$HOME/.local/bin/openclaw"`
-- `"$HOME/.local/bin/openclaw" --version`
+- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/openclaw"`
+- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/openclaw" --version`
 - `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`

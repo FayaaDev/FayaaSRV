@@ -48,6 +48,8 @@ Record answer as `cloudflare.zone_in_cloudflare` (Phase 4 will use this value).
 
 Ask: "What is the admin username on this machine? (e.g. ubuntu — used in file paths and service ownership)"
 
+On Linux when running through `sudo -E`, suggest the detected `SUDO_USER` value as the default if it is set and not `root`.
+
 Validation: must be non-empty.
 
 ### Q4 — Admin Email

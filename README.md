@@ -14,7 +14,7 @@ No memorizing flags. No copy-pasting ten commands. You answer a few questions, t
 - **Real domains, real HTTPS.** Caddy + Cloudflare Tunnel give you `nocodb.yourdomain.com` style URLs without opening a single port on your router.
 - **Agent-driven setup.** Instead of a fragile install script, an AI agent reads the repo, asks what you want, and installs only what you need — explaining each step as it goes.
 - **Batteries included.** PostgreSQL, NocoDB (Airtable-style no-code), n8n (workflow automation), and more — all pre-wired to talk to each other.
-- **Safe by default.** No raw `sudo` loops, no hand-edited sudoers files. A scoped privileged helper does the few root tasks and nothing else.
+- **Simple privilege model.** Linux installs run as root for the setup session, then ownership is handed back to your admin user for maintenance.
 - **Reproducible.** Your answers live in one file. Rebuild the same server on new hardware in minutes.
 - **Re-runnable.** A preflight doctor and idempotency rules make repeat applies safe instead of duplicating services or overwriting secrets.
 
@@ -55,39 +55,45 @@ That's it. You don't need Docker, Node, or Postgres ready — the agent handles 
 
 On the machine you want to turn into your server:
 
-**Fast bootstrap option** (recommended)
+**Fast bootstrap option**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-The remote bootstrapper clones or updates this repo, then hands off to the repo-local `./rakkib` wrapper.
+On Linux, this first attempt is allowed to fail fast with an explicit root rerun command. The canonical Linux command is:
 
-The wrapper handles everything:
+```bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash
+```
+
+The remote bootstrapper clones or updates this repo, checks Linux root privileges, then launches the agent.
+
+The bootstrapper handles the startup work:
 - Runs the doctor diagnostic
-- Installs the scoped privilege helper before the agent starts (uses passwordless sudo on cloud VMs, or lets sudo prompt in your terminal if needed)
-- Launches your AI coding agent unprivileged with the installer prompt
+- Launches your AI coding agent with the installer prompt
+- Prints the exact `sudo -E bash` rerun command if Linux is not root
 
 If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. The agent then interviews you and performs the actual deployment.
 
-> **Root required for install only.** `./rakkib` needs root once to install the scoped privilege helper. It does not read or store your sudo password; sudo prompts in the terminal. Day-to-day operation is unprivileged via the helper.
+> **Root required for Linux install.** Use `sudo -E` so your agent credentials and user environment are preserved. The final verification step fixes ownership so later maintenance can run from your normal account.
 
 You can override the checkout path if needed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | RAKKIB_DIR=$HOME/Rakkib bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E env RAKKIB_DIR=$HOME/Rakkib bash
 ```
 
 If you want the manual-prompt behavior instead of auto-launching an agent:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --print-prompt
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash -s -- --print-prompt
 ```
 
 To force a specific agent:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --agent opencode
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash -s -- --agent opencode
 ```
 
 **Manual clone option** (if you prefer to clone first)
@@ -99,19 +105,19 @@ git clone https://github.com/FayaaDev/Rakkib.git
 cd Rakkib
 ```
 
-**2. Run the local wrapper** from inside the `Rakkib` folder:
+**2. Run the bootstrapper** from inside the `Rakkib` folder:
 
 ```bash
-./rakkib
+sudo -E bash install.sh
 ```
 
-**Manual root-agent fallback** (only if the wrapper cannot get root access)
+**Manual root-agent fallback** (only if you do not want the bootstrapper to launch the agent)
 
 ```bash
 sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(command -v codex)
 ```
 
-> If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed **only for the install run**; day-to-day operation is unprivileged via the helper.
+> If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed for the install run; Step 90 fixes ownership for later unprivileged maintenance.
 
 **3. Paste this prompt** only if you used the manual fallback or `--print-prompt`:
 
@@ -119,8 +125,8 @@ sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(
 Read README.md and AGENT_PROTOCOL.md first, then use this repo as the installer:
 ask the question files in order, record answers in `.fss-state.yaml`, auto-detect
 host values when instructed, do not write outside the repo until Phase 6
-(`questions/06-confirm.md`), use the helper-first Linux privilege flow instead of
-raw sudo for normal step execution, then after confirmation execute
+(`questions/06-confirm.md`), run Linux installs as root and use direct root
+commands after confirmation, then execute
 `steps/00-prereqs.md` through `steps/90-verify.md` in numeric order, skipping
 optional restore-test work unless requested, and stop on any failed `## Verify`
 block until it is fixed.

@@ -7,40 +7,29 @@ Install or verify the base tools needed for the rest of the deployment.
 - `platform`
 - `privilege_mode`
 - `privilege_strategy`
-- `helper.installed`
-- `helper.version`
-- `helper.bootstrap_required`
 - `docker_installed`
 
 ## Actions
 
 1. Verify `curl` is available.
-2. On Linux, detect whether root-required actions are still needed for this machine. At minimum, treat Docker Engine installation, `/srv` creation, Ubuntu Node.js installation for OpenClaw, and linger setup as helper-scoped work.
-3. On Linux, probe the helper before doing any root-required install work:
-   - helper already usable and version is current -> record its version and continue with helper verbs only.
-   - helper already usable but older than the repo-local helper version -> rerun `./rakkib` so it upgrades the helper before launching the agent, then restart the install flow.
-   - helper absent and `privilege_mode: root` -> run `./scripts/install-privileged-helper --admin-user {{ADMIN_USER}}` directly (no `sudo` prefix), then continue through the helper. The script will chown the repo back to `{{ADMIN_USER}}` after installing the helper.
-   - helper absent and `privilege_mode: sudo` -> this state should not normally occur because `./rakkib` installs the helper before launching the agent. As a guardrail, print an instruction to run `./rakkib` or relaunch with `sudo -E <agent>` using the agent's absolute path, then stop. Do not print a manual command to run in another terminal.
-   - helper absent and `privilege_mode: none` -> continue only if Docker is already installed and no remaining Step 00 action needs root; otherwise stop.
-4. Verify `docker` and `docker compose` are available.
-5. If Docker is not installed, install Docker by platform:
+2. On Linux, verify `id -u` is `0` and `privilege_mode: root` is recorded. If not, stop and tell the user to re-run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+3. Verify `docker` and `docker compose` are available.
+4. If Docker is not installed, install Docker by platform:
    - Mac: use the normal Docker Desktop install flow.
-   - Linux: on Ubuntu, call `/usr/local/libexec/rakkib-root-helper install-docker-engine-ubuntu --admin-user {{ADMIN_USER}}`. This reviewed path also installs `acl` so the helper can use `setfacl` for the same-session Docker socket bridge.
+   - Linux: on Ubuntu, install Docker Engine directly as root using Docker's official apt repository instructions. Install `ca-certificates`, `curl`, and `gnupg`; add Docker's GPG key under `/etc/apt/keyrings`; write `/etc/apt/sources.list.d/docker.list`; then install `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin`, and `docker-compose-plugin`.
    - If Linux is not Ubuntu, stop and ask the user before continuing because this repo's documented Linux install path is the official Ubuntu Docker Engine method.
+5. On Linux, enable and start Docker, add `{{ADMIN_USER}}` to the `docker` group if that user exists, and continue using root for this install session.
 6. Verify the Docker daemon is running.
-7. Do not leave Step 00 until the current installer session can run plain `docker` commands successfully. If the helper added the admin user to the `docker` group and had to bridge immediate socket access for the current session, verify that bridge now instead of scattering raw `sudo docker ...` later. If the helper reports `docker_socket_acl_applied: false`, stop and require a session refresh or explicit fallback before continuing.
-8. Verify a local host `cloudflared` binary is available. Step 40 uses the host CLI for tunnel login, creation, and DNS routing, so the Docker image alone is not sufficient.
-9. If `cloudflared` is missing, install it into `~/.local/bin/cloudflared` without root, then ensure later steps can invoke it either through `PATH` or by absolute path.
+7. Verify a local host `cloudflared` binary is available. Step 40 uses the host CLI for tunnel login, creation, and DNS routing, so the Docker image alone is not sufficient.
+8. If `cloudflared` is missing, install it into the admin user's `~/.local/bin/cloudflared` without requiring a system package, then ensure later steps can invoke it either through `PATH` or by absolute path.
 
 ## Platform Notes
 
 Linux:
 - Prefer Docker Engine on headless Ubuntu hosts using Docker's official docs: `https://docs.docker.com/engine/install/ubuntu/`
-- This documented path assumes Ubuntu and a helper-capable privileged account.
-- Bootstrap installs must go through `scripts/install-privileged-helper`, which creates the root-owned helper at `/usr/local/libexec/rakkib-root-helper` and the scoped `/etc/sudoers.d/rakkib-helper` entry for that path only.
-- Do not continue on a fresh Linux machine with `privilege_mode: none` when Docker still needs to be installed and no helper is already available.
-- The helper is responsible for the reviewed Ubuntu Docker Engine path, including installing `acl`, adding `{{ADMIN_USER}}` to the `docker` group, and handling the minimum temporary bridge needed for the current installer session to run `docker` immediately after install.
-- Install the host `cloudflared` CLI into `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
+- This documented path assumes Ubuntu and a root installer process.
+- Do not continue on Linux unless the current process is root.
+- Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
 - A portable install path is acceptable. For example, download the matching release archive for `linux-$ARCH`, extract `cloudflared`, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 
 Mac:
@@ -51,7 +40,7 @@ Mac:
 
 ## Verify
 
-- Linux helper path: `/usr/local/libexec/rakkib-root-helper probe` as root or `sudo -n /usr/local/libexec/rakkib-root-helper probe` from a helper-enabled user
+- Linux: `test "$(id -u)" -eq 0`
 - `docker --version`
 - `docker compose version`
 - `docker info`

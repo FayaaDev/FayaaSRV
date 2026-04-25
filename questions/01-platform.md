@@ -18,31 +18,23 @@ If detection returns anything else, stop and ask the user before continuing.
 
 ## EUID Detection
 
-Before asking any questions, detect whether the agent is running as root:
+Before asking any questions on Linux, detect whether the agent is running as root:
 
 - On Linux, check `EUID` with `id -u` or `$EUID`.
 - If `EUID == 0`:
-  - If `/usr/local/libexec/rakkib-root-helper` exists, call it directly: `/usr/local/libexec/rakkib-root-helper probe`.
   - Record:
     ```yaml
     privilege_mode: root
-    privilege_strategy: helper
-    helper:
-      installed: true   # or false if absent
-      version: <probe version or null>
-      bootstrap_required: true  # if absent; false if already installed
+    privilege_strategy: root_process
     ```
-  - **Skip Q2 entirely.** The install will run as root and the helper will be installed directly in Step 00.
+  - **Skip Q2 entirely.** The install will run as root after Phase 6 confirmation.
 - If `EUID != 0`:
-  - Probe for the helper: `sudo -n /usr/local/libexec/rakkib-root-helper probe`.
-  - If the helper is present and usable, record the same shape as above with `privilege_mode: sudo` (or derive from existing state) and continue.
-  - If the helper is absent or unusable, this is unexpected in the normal flow — `install.sh` normally hands off to `./rakkib`, and `./rakkib` installs the helper before launching the agent. This state only occurs when the agent was started manually. In that case, print a single clear instruction and stop cleanly. Example:
-    > "The Rakkib wrapper normally handles privilege setup automatically. Since you started the agent manually, please run `./rakkib` from the repo root, or relaunch with root privileges:
-    > `sudo -E /full/path/to/agent-binary`
-    > Then restart the install from the beginning."
-  - Do **not** fall back to `sudo -S` or password-in-chat.
+  - Stop cleanly before asking any questions.
+  - Print this instruction exactly enough for the user to act on it:
+    > "Rakkib Linux installs must run as root. Please re-run the bootstrapper with: `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`"
+  - Do **not** fall back to `sudo -S`, do not ask for a password in chat, and do not continue unprivileged.
 
-On Mac, do not perform EUID detection for privilege mode. Record `privilege_mode: sudo`, `privilege_strategy: none`, and `helper.installed: false` by default because the Linux helper flow does not apply.
+On Mac, do not perform Linux root enforcement. Record `privilege_mode: sudo` and `privilege_strategy: none`.
 
 ---
 
@@ -58,39 +50,13 @@ Accepted answers (case-insensitive, normalize to lowercase):
 
 Re-ask if the user provides any other answer.
 
-### Q2 — System Setup Access
-
-**Ask on Linux only if `EUID != 0` and the helper is already installed and usable.**
-
-If the helper is absent and the agent is not running as root, this question is **skipped** in favor of the relaunch instruction above.
-
-If the helper is already present, ask:
-
-"Rakkib needs permission to install system components like Docker and create `/srv` folders. Which option matches this machine?
-
-1. I can approve admin prompts when asked
-2. I already started this agent from a root/admin shell
-3. I cannot provide admin access on this machine"
-
-Accepted answers (case-insensitive, normalize to internal values):
-- `1`, `admin prompts`, `approve`, `sudo` -> `privilege_mode: sudo`
-- `2`, `root`, `root shell`, `sudo -i` -> `privilege_mode: root`
-- `3`, `no`, `none`, `cannot` -> `privilege_mode: none`
-
-Internal meaning:
-- `sudo` — the helper is already present; root-required work will route through helper verbs
-- `root` — the agent is running as root and will install the helper directly in Step 00
-- `none` — the account cannot perform system-level installs
-
-If Linux and the user answers `none`, note that a fresh Linux install that needs Docker cannot proceed until the installer is run from a privileged account or a machine image with the helper preinstalled.
-
-### Q3 — Docker Status
+### Q2 — Docker Status
 
 Ask: "Is Docker already installed and running on this machine? (y/n)"
 
 Accepted answers: `y` or `n`. Normalize to boolean.
 
-If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker installation before any other step runs. On Linux, the documented install path is Docker's official Docker Engine for Ubuntu method routed through the privileged helper.
+If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker installation before any other step runs. On Linux, the documented install path is Docker's official Docker Engine for Ubuntu method run directly by the root installer process.
 
 ---
 
@@ -99,12 +65,8 @@ If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker
 ```yaml
 platform: linux        # or: mac
 arch: amd64            # or: arm64, auto-detected from `uname -m`
-privilege_mode: root   # Linux: sudo | root | none; Mac: sudo
-privilege_strategy: helper  # Linux: helper | root_process | none; Mac: none
-helper:
-  installed: true
-  version: 1
-  bootstrap_required: false
+privilege_mode: root   # Linux: root; Mac: sudo
+privilege_strategy: root_process  # Linux: root_process; Mac: none
 docker_installed: true # or: false
 ```
 

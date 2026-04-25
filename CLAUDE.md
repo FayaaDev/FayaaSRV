@@ -12,8 +12,8 @@ The canonical operator prompt (paste this to kick off an install):
 Read README.md and AGENT_PROTOCOL.md first, then use this repo as the installer:
 ask the question files in order, record answers in `.fss-state.yaml`, auto-detect
 host values when instructed, do not write outside the repo until Phase 6
-(`questions/06-confirm.md`), use the helper-first Linux privilege flow instead of
-raw sudo for normal step execution, then after confirmation execute
+(`questions/06-confirm.md`), run Linux installs as root, use direct root commands
+after confirmation, then execute
 `steps/00-prereqs.md` through `steps/90-verify.md` in numeric order and stop on any
 failed `## Verify` block until it is fixed.
 ```
@@ -55,15 +55,16 @@ Only render templates and write compose files for selected services.
 
 ## Privilege Model (Linux)
 
-The standard path is a root-owned helper at `/usr/local/libexec/rakkib-root-helper` with a scoped `sudoers.d` rule for that path only.
+Linux installs are root-only for v1.
 
-- **Canonical install path:** Run `curl -fsSL .../install.sh | bash`. The remote bootstrapper clones/updates the repo, then hands off to `./rakkib`; the wrapper installs the helper automatically and launches the agent unprivileged.
-- **Local canonical path:** From an existing clone, run `./rakkib`.
-- **Manual fallback:** Launch the agent with `sudo -E <agent-cli>` only if the wrapper cannot get root access. The agent detects `EUID=0`, records `privilege_mode: root`, and installs the helper directly in Step 00. Under this path, the agent may run as root for the entire install; Step 90 calls `fix-ownership` to ensure the repo is admin-owned for later unprivileged maintenance.
-- Helper present → `privilege_strategy: helper`; route all root work through helper verbs.
-- Helper absent + agent not root → print an instruction to run `./rakkib` or relaunch with the agent's absolute path under `sudo -E`, then stop cleanly. Do not fall back to `sudo -S` or password-in-chat.
-- After bootstrap, **do not use raw `sudo`** in later steps. Introduce a new reviewed helper verb instead.
-- `cloudflared` CLI installs without root into `~/.local/bin/cloudflared`.
+- **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+- **Friendly first attempt:** `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash` may be used, but on Linux it must print the explicit `sudo -E bash` rerun command and exit when not root.
+- **Local clone path:** From an existing clone, run `sudo -E bash install.sh`.
+- Phase 1 must verify `id -u == 0`; otherwise stop and print the canonical rerun command. Do not fall back to `sudo -S` or password-in-chat.
+- When root, record `privilege_mode: root` and `privilege_strategy: root_process`.
+- After confirmation, Linux root-required work uses direct root commands.
+- Step 90 fixes repo and state-file ownership back to the admin user for later unprivileged maintenance.
+- `cloudflared` CLI installs into the admin user's `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).
 
 ## State File
@@ -72,7 +73,7 @@ The standard path is a root-owned helper at `/usr/local/libexec/rakkib-root-help
 
 - `arch` — normalize to `amd64` or `arm64` (from `uname -m`)
 - `lan_ip` — first non-loopback IPv4 (from `hostname -I` on Linux)
-- `privilege_mode`, `privilege_strategy`, `helper.*`
+- `privilege_mode`, `privilege_strategy`
 - `claw_gateway_port: 18789`, `cloudflared_metrics_port: 20241` (always these defaults)
 - `cloudflare.auth_method` — prefer `browser_login`; do not store raw Cloudflare API tokens in state
 - `cloudflare.tunnel_creds_host_path` and `cloudflare.tunnel_creds_container_path` — derive from `tunnel_uuid` once known

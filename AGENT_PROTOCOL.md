@@ -23,12 +23,8 @@ Expected high-level sections:
 ```yaml
 platform: linux
 arch: amd64
-privilege_mode: sudo
-privilege_strategy: helper
-helper:
-  installed: true
-  version: 1
-  bootstrap_required: false
+privilege_mode: root
+privilege_strategy: root_process
 docker_installed: true
 data_root: /srv
 docker_net: caddy_net
@@ -69,12 +65,9 @@ Derived value rules:
 - Always derive `claw_gateway_port` as `18789` unless the repo is explicitly changed to ask for a different value.
 - Always derive `cloudflared_metrics_port` as `20241` unless the repo is explicitly changed to ask for a different value.
 - Record Cloudflare auth as `cloudflare.auth_method` with one of `browser_login`, `api_token`, or `existing_tunnel`. Use `browser_login` as the normal path and record `cloudflare.headless` as `true` or `false` for new tunnels.
-- Record Linux privilege capability as `privilege_mode` with one of `sudo`, `root`, or `none`. On Mac, record `privilege_mode: sudo`.
-- On Linux, also record helper state under:
-  - `privilege_strategy`: `helper`, `root_process`, or `none`
-- `helper.installed`: whether `/usr/local/libexec/rakkib-root-helper` is already usable
-  - `helper.version`: helper version from `probe`, or `null` when absent
-  - `helper.bootstrap_required`: whether Step 00 must install or unlock the helper before root-required work can continue
+- On Linux, the installer must run as root. Record `privilege_mode: root` and `privilege_strategy: root_process` after verifying `id -u` is `0`.
+- If Linux is not running as root, stop and instruct the user to re-run the bootstrapper as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+- On Mac, record `privilege_mode: sudo` and `privilege_strategy: none` because the Linux root-only install path does not apply.
 - When `cloudflare.tunnel_uuid` is known, derive and record:
   - `cloudflare.tunnel_creds_host_path: {{DATA_ROOT}}/data/cloudflared/<tunnel_uuid>.json`
   - `cloudflare.tunnel_creds_container_path: /home/nonroot/.cloudflared/<tunnel_uuid>.json`
@@ -204,21 +197,13 @@ After confirmation, run these step files in numeric order:
 
 ## Privilege Rules
 
-1. Do not ask the user to edit sudoers or run pre-install shell commands outside the normal interview and deployment flow.
-2. On Linux, the standard privilege model is a narrow helper installed at `/usr/local/libexec/rakkib-root-helper` and exposed through a scoped sudoers rule for that path only.
-3. **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`. The remote bootstrapper clones or updates the repo, then hands off to the repo-local `./rakkib` wrapper. The wrapper installs the privilege helper automatically (passwordless sudo on cloud VMs, normal terminal sudo prompt otherwise), then launches the agent unprivileged. The agent never sees a privilege prompt.
-4. **Local canonical path:** If the repo is already cloned, the user runs `./rakkib` from the repo root. This uses the same doctor, helper bootstrap, and unprivileged agent launch flow as the remote bootstrapper.
-5. **Manual fallback:** If the wrapper cannot get root access, the user may launch the agent with `sudo -E <agent-cli>`. The agent detects `EUID=0` at the start of `questions/01-platform.md`, records `privilege_mode: root`, `privilege_strategy: helper`, skips the privilege question, and proceeds. Step 00 installs the helper directly without any `sudo` prefix.
-6. **EUID auto-detection in Phase 1:**
-   - If `EUID == 0`: record `privilege_mode: root`, `privilege_strategy: helper`, skip the privilege question, and proceed.
-   - If `EUID != 0` and the helper is absent: the agent prints a single instruction to run `./rakkib` or relaunch using its own absolute executable path with `sudo -E`, then stops cleanly. Do not fall back to `sudo -S` or password-in-chat.
-7. If the helper is already installed and usable, record `privilege_strategy: helper` and route all later root-required work through helper verbs only.
-8. If `privilege_mode` is `root`, Step 00 runs `./scripts/install-privileged-helper --admin-user <user>` directly. The script chowns the repo back to the admin user after installation.
-9. If `privilege_mode` is `none` and the helper is absent while root-required work is still needed, stop and tell the user the install must be re-run from a privileged account or from a machine image with the helper preinstalled.
-10. Under the manual `sudo -E` path, the agent may run as root for the entire install (Steps 00–90). A final `/usr/local/libexec/rakkib-root-helper fix-ownership --path <repo_root> --admin-user <user>` call in Step 90 ensures the repo and state file are owned by the admin user for later unprivileged maintenance.
-11. After helper bootstrap, do not use raw `sudo` in later steps for Docker installs, `/srv` layout creation, Node.js installation, or linger setup. The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access. Add a reviewed helper verb first if a new privileged action is introduced.
-12. Persist the helper after a successful install so future repair and upgrade flows can reuse the same narrow privilege boundary.
-13. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed without root into `~/.local/bin`.
+1. Linux installs are root-only for v1. The bootstrapper should be run as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+2. The plain `curl ... | bash` path is allowed as a friendly first attempt, but on Linux it must print the explicit `sudo -E bash` rerun command and exit before launching an agent.
+3. In Phase 1 on Linux, check `id -u`. If it is not `0`, stop and print the same `curl ... | sudo -E bash` rerun instruction. Do not try `sudo -S`, do not ask for passwords in chat, and do not continue unprivileged.
+4. If `id -u` is `0`, record `privilege_mode: root` and `privilege_strategy: root_process`, then continue. After Phase 6 confirmation, root-required work may use direct root commands.
+5. When running as root through `sudo -E`, use `SUDO_USER` as the default admin user suggestion. If `SUDO_USER` is absent, ask the user for the non-root admin account that should own the repo, `/srv` files, and user-scoped services.
+6. Step 90 must restore ownership of the repo and generated user-writable files to `{{ADMIN_USER}}` with direct root commands so later maintenance can run from the normal account.
+7. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed into the admin user's `~/.local/bin`.
 
 ## Platform Rules
 

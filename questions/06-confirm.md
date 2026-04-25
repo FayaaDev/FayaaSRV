@@ -26,11 +26,8 @@ Before asking for confirmation, present a concise summary of the recorded state 
 - secret strategy
 
 For Linux, summarize privilege details without exposing internal state names unless the user asks:
-- If `privilege_mode` is `sudo`, show `System setup access: admin approval available` and `Privilege handling: Rakkib will use the safest available method during Step 00`.
 - If `privilege_mode` is `root`, show `System setup access: agent is running from a root/admin shell` and `Privilege handling: direct root setup, with user-owned files assigned back to the admin user`.
-- If `privilege_mode` is `none`, show `System setup access: not available` and `Install impact: Docker/system setup cannot proceed on a fresh Linux machine`.
-
-If `platform` is `linux` and `privilege_mode` is `sudo`, make the summary explicit that Step 00 will reuse the installed helper if present. If the helper is absent, the agent should have already instructed the user to run `./rakkib` or relaunch with `sudo -E <agent>` in Phase 1.
+- If `privilege_mode` is anything else, stop before confirmation and tell the user to re-run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
 
 Make it clear in the summary when `architecture` and `LAN IP` were auto-detected from the host.
 

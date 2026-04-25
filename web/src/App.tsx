@@ -237,8 +237,8 @@ function App() {
           <p className="install-note">
             Paste the above command into your terminal. Rakkib detects your AI coding agent
             (Claude Code, Codex, or OpenCode), checks your system, opens an agent session, and
-            loads the setup prompt automatically. The wrapper installs the scoped privilege
-            helper first, then launches the agent unprivileged. You just answer the questions.
+            loads the setup prompt automatically. On Linux, it stops with the exact sudo rerun
+            command if the bootstrapper is not running as root. You just answer the questions.
           </p>
         </section>
 

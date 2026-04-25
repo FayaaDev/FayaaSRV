@@ -15,7 +15,7 @@ Running the installer again against the same machine must be safe. A re-apply ma
 | Cloudflare tunnel | Detect an existing tunnel by name before creating a new one. Reuse the existing UUID and credentials path when present. |
 | Cron entries | Use marker comments such as `# RAKKIB: backup-local` and replace by marker. Never append duplicate lines. |
 | systemd/launchd units | Re-render the unit/plist, reload the manager, then restart or bootstrap the service. |
-| Privileged helper | Probe first. Install only when absent or unusable and privilege policy allows bootstrap. |
+| Linux root context | Verify `id -u` is `0` before root-required work; stop instead of attempting privilege escalation inside the agent. |
 
 ## Required Re-Apply Checks
 

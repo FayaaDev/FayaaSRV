@@ -14,7 +14,7 @@ Run the final smoke tests for the deployed server.
 8. Generate `{{DATA_ROOT}}/README.md` from `templates/agent-memory/SERVER_README.md.tmpl`.
 9. Create `~/.claude` if needed and append or replace the Rakkib block in `~/.claude/CLAUDE.md` using `templates/agent-memory/CLAUDE.md.tmpl`.
 10. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, append or replace the same Rakkib block there too.
-11. On Linux, ensure the repo directory and any files created during the install are owned by `{{ADMIN_USER}}`. If running as root, call `/usr/local/libexec/rakkib-root-helper fix-ownership --path <repo_root> --admin-user {{ADMIN_USER}}` so later unprivileged agent runs can read and edit state.
+11. On Linux, ensure the repo directory and any files created during the install are owned by `{{ADMIN_USER}}`. If running as root, use direct ownership fixes such as `chown -R {{ADMIN_USER}}:{{ADMIN_USER}} <repo_root>` and targeted ownership fixes for user-writable files under `{{DATA_ROOT}}` so later maintenance can run from the normal account.
 
 ## Verify
 

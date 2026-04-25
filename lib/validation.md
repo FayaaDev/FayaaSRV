@@ -4,7 +4,7 @@ Use these checks after each deployment step. Do not continue if a required check
 
 ## Step 00
 
-- Linux helper path: `/usr/local/libexec/rakkib-root-helper probe` as root or `sudo -n /usr/local/libexec/rakkib-root-helper probe` from a helper-enabled user
+- Linux: `test "$(id -u)" -eq 0`
 - `docker --version`
 - `docker compose version`
 - `docker info`
@@ -59,8 +59,8 @@ Use these checks after each deployment step. Do not continue if a required check
 
 - `node --version`
 - `npm --version`
-- `test -x "$HOME/.local/bin/openclaw"`
-- `"$HOME/.local/bin/openclaw" --version`
+- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/openclaw"`
+- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/openclaw" --version`
 - Linux: `systemctl --user status openclaw-gateway.service --no-pager`
 - Mac: `launchctl print gui/$(id -u)/openclaw-gateway`
 - `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`
