@@ -27,7 +27,7 @@ Bootstrap option:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-By default, the bootstrapper launches the first available supported agent in this order: `opencode`, `claude`, `codex`. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
+By default, the bootstrapper launches a supported agent CLI. If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
 
 Manual option:
 

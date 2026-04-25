@@ -60,7 +60,7 @@ On the machine you want to turn into your server:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-The bootstrapper clones or updates this repo, runs `scripts/rakkib-doctor`, then launches the first supported agent CLI it finds: `opencode`, then `claude`, then `codex`. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
+The bootstrapper clones or updates this repo, runs `scripts/rakkib-doctor`, then launches a supported agent CLI. If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
 
 You can override the checkout path if needed:
 

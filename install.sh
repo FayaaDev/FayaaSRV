@@ -21,9 +21,10 @@ Usage: install.sh [--dir <path>] [--repo <url>] [--branch <name>] [--skip-doctor
 
 Thin Rakkib bootstrapper. It verifies basic host support, clones or updates
 the installer repo, optionally runs the doctor diagnostic, then launches an
-installed coding agent with the installer prompt. If no supported agent is
-available, it prints the manual prompt instead. It does not replace the
-agent-driven installer workflow.
+installed coding agent with the installer prompt. If multiple supported agents
+are available, it asks which one to use. If no supported agent is available, it
+prints the manual prompt instead. It does not replace the agent-driven installer
+workflow.
 
 Environment overrides:
   RAKKIB_DIR       target checkout path, default: $HOME/Rakkib
@@ -207,24 +208,60 @@ EOF
 }
 
 select_agent() {
-    local candidate
+    local candidate choice index
+    local installed=()
 
     case "$AGENT_MODE" in
         auto)
             for candidate in opencode claude codex; do
                 if command_exists "$candidate"; then
-                    printf '%s\n' "$candidate"
-                    return 0
+                    installed+=("$candidate")
                 fi
             done
-            return 1
+
+            if [[ "${#installed[@]}" -eq 0 ]]; then
+                return 1
+            fi
+
+            if [[ "${#installed[@]}" -eq 1 ]]; then
+                printf '%s\n' "${installed[0]}"
+                return 0
+            fi
+
+            if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+                warn "Multiple supported agent CLIs found, but no interactive /dev/tty is available for choosing one."
+                return 3
+            fi
+
+            printf '\nRakkib found these AI agent CLIs:\n\n' > /dev/tty
+            index=1
+            for candidate in "${installed[@]}"; do
+                printf '%s. %s\n' "$index" "$(agent_label "$candidate")" > /dev/tty
+                index=$((index + 1))
+            done
+            printf '%s. Do not launch an agent; print the prompt instead\n\n' "$index" > /dev/tty
+
+            while true; do
+                printf 'Which one do you want to use? [1-%s] ' "$index" > /dev/tty
+                IFS= read -r choice < /dev/tty || return 1
+
+                if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= index )); then
+                    if (( choice == index )); then
+                        return 2
+                    fi
+                    printf '%s\n' "${installed[$((choice - 1))]}"
+                    return 0
+                fi
+
+                warn "Invalid choice: ${choice:-empty}"
+            done
             ;;
         opencode|claude|codex)
             command_exists "$AGENT_MODE" || die "requested agent is not installed or not on PATH: ${AGENT_MODE}"
             printf '%s\n' "$AGENT_MODE"
             ;;
         print|none)
-            return 1
+            return 2
             ;;
         *)
             die "unsupported agent: ${AGENT_MODE}; expected auto, opencode, claude, codex, or none"
@@ -232,11 +269,23 @@ select_agent() {
     esac
 }
 
-launch_agent() {
-    local agent prompt
+agent_label() {
+    case "$1" in
+        opencode) printf 'OpenCode\n' ;;
+        claude) printf 'Claude Code\n' ;;
+        codex) printf 'Codex\n' ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
 
-    if ! agent="$(select_agent)"; then
-        if [[ "$AGENT_MODE" == "auto" ]]; then
+launch_agent() {
+    local agent prompt status
+
+    if agent="$(select_agent)"; then
+        :
+    else
+        status="$?"
+        if [[ "$AGENT_MODE" == "auto" && "$status" -eq 1 ]]; then
             warn "No supported agent CLI found on PATH. Looked for: opencode, claude, codex."
         fi
         return 1
