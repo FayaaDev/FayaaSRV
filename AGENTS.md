@@ -19,32 +19,31 @@ If you are an AI coding agent:
 On a fresh machine:
 
 1. Install `git` and your coding agent CLI.
-2. Clone this repo and enter it:
-
-Bootstrap option:
+2. Run the bootstrapper:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-By default, the bootstrapper launches a supported agent CLI. If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
+By default, the bootstrapper:
+- Clones or updates this repo
+- Runs the doctor diagnostic
+- Installs the scoped privilege helper (via passwordless sudo on cloud VMs, or an interactive password prompt if needed)
+- Launches a supported agent CLI with the installer prompt
 
-Manual option:
+If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
+
+**Manual option** (if you prefer to clone first or the bootstrapper cannot get root access):
 
 ```bash
 git clone https://github.com/FayaaDev/Rakkib.git
 cd Rakkib
-```
-
-3. If the bootstrapper did not auto-launch an agent, start your agent **with root privileges** from the repo root:
-
-```bash
 sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(command -v codex)
 ```
 
 > If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed **only for the install run**; day-to-day operation is unprivileged via the helper.
 
-4. Paste this prompt when using the manual path:
+Paste this prompt when using the manual path:
 
 ```text
 Read README.md and AGENT_PROTOCOL.md first.

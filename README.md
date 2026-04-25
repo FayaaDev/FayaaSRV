@@ -54,15 +54,21 @@ That's it. You don't need Docker, Node, or Postgres ready — the agent handles 
 
 On the machine you want to turn into your server:
 
-> **Root required for install only.** The initial install must run as root so the agent can install Docker and the scoped privilege helper. Launch your agent with `sudo -E` for this first run only. Day-to-day operation is unprivileged via the helper.
-
-**Fast bootstrap option**
+**Fast bootstrap option** (recommended)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-The bootstrapper clones or updates this repo, runs `scripts/rakkib-doctor`, then launches a supported agent CLI. If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. The agent still performs the actual interview, rendering, privileged helper flow, and deployment steps.
+The bootstrapper handles everything:
+- Clones or updates this repo
+- Runs the doctor diagnostic
+- Installs the scoped privilege helper (uses passwordless sudo on cloud VMs, or prompts for your password interactively if needed)
+- Launches your AI coding agent with the installer prompt
+
+If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. The agent then interviews you and performs the actual deployment.
+
+> **Root required for install only.** The bootstrapper needs root once to install Docker and the privilege helper. On most cloud VMs this is automatic (passwordless sudo). On other machines it prompts for your password in the terminal. Day-to-day operation is unprivileged via the helper.
 
 You can override the checkout path if needed:
 
@@ -70,7 +76,7 @@ You can override the checkout path if needed:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | RAKKIB_DIR=$HOME/Rakkib bash
 ```
 
-If you want the old manual-prompt behavior instead of auto-launching an agent:
+If you want the manual-prompt behavior instead of auto-launching an agent:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --print-prompt
@@ -82,7 +88,7 @@ To force a specific agent:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --agent opencode
 ```
 
-**Manual clone option**
+**Manual clone option** (if you prefer to clone first or the bootstrapper cannot get root access)
 
 **1. Clone the repo**
 
@@ -97,7 +103,7 @@ cd Rakkib
 sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(command -v codex)
 ```
 
-> If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials.
+> If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed **only for the install run**; day-to-day operation is unprivileged via the helper.
 
 **3. Paste this prompt** into the agent:
 

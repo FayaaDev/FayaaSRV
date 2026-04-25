@@ -318,6 +318,68 @@ launch_agent() {
     esac
 }
 
+ensure_linux_privilege() {
+    local helper="/usr/local/libexec/rakkib-root-helper"
+    local installer="${INSTALL_DIR}/scripts/install-privileged-helper"
+    local user
+    user="$(id -un)"
+
+    # Already have helper? Great.
+    if sudo -n "$helper" probe >/dev/null 2>&1; then
+        log "Privileged helper is already installed."
+        return 0
+    fi
+
+    # Try passwordless sudo first (common on cloud VMs)
+    if sudo -n true >/dev/null 2>&1; then
+        log "Installing privileged helper with passwordless sudo..."
+        if sudo -n "$installer" --admin-user "$user"; then
+            log "Helper installed successfully."
+            return 0
+        else
+            die "Failed to install privileged helper with sudo."
+        fi
+    fi
+
+    # Passwordless didn't work. Check if we have a TTY for interactive prompt.
+    if [[ -t 0 ]]; then
+        log "Root privileges are needed to install the scoped helper."
+        local pw
+        printf 'sudo password: ' >&2
+        read -rs pw
+        printf '\n' >&2
+
+        if printf '%s\n' "$pw" | sudo -S true >/dev/null 2>&1; then
+            log "Installing privileged helper..."
+            if printf '%s\n' "$pw" | sudo -S "$installer" --admin-user "$user"; then
+                log "Helper installed successfully."
+                return 0
+            else
+                die "Failed to install privileged helper with sudo."
+            fi
+        else
+            die "Incorrect sudo password or user is not in sudoers."
+        fi
+    fi
+
+    # No TTY, can't prompt. Fall back to manual relaunch instruction.
+    cat >&2 <<'EOF'
+
+ERROR: Root privileges are required on Linux to install the scoped helper.
+
+This bootstrapper could not use passwordless sudo and has no TTY to prompt
+for a password. Please run the bootstrapper with sudo:
+
+  curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo bash
+
+Or relaunch the agent manually with:
+
+  sudo -E $(command -v claude)    # or opencode, codex
+
+EOF
+    exit 1
+}
+
 main() {
     parse_args "$@"
     detect_platform
@@ -328,22 +390,18 @@ main() {
         run_doctor
     fi
 
+    # On Linux, bootstrap the helper before launching the agent so the agent
+    # never has to break the conversation for a privilege prompt.
+    if [[ "$DOCTOR_ONLY" == false && "$(uname -s)" == "Linux" && "${EUID:-$(id -u)}" -ne 0 ]]; then
+        ensure_linux_privilege
+    fi
+
     if [[ "$DOCTOR_ONLY" == false ]]; then
         if [[ "$AGENT_MODE" == "print" || "$AGENT_MODE" == "none" ]]; then
             print_agent_prompt
         elif ! launch_agent; then
             print_agent_prompt
         fi
-    fi
-
-    local kernel
-    kernel="$(uname -s 2>/dev/null || true)"
-    if [[ "$kernel" == "Linux" && "${EUID:-$(id -u)}" -ne 0 ]]; then
-        log ""
-        log "Note: The Rakkib install run requires root privileges on Linux."
-        log "If the agent was not launched with sudo, relaunch it with:"
-        log "  sudo -E \$(command -v <agent-cli>)"
-        log "The -E flag preserves your HOME and agent credentials."
     fi
 }
 

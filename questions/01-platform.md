@@ -36,8 +36,8 @@ Before asking any questions, detect whether the agent is running as root:
 - If `EUID != 0`:
   - Probe for the helper: `sudo -n /usr/local/libexec/rakkib-root-helper probe`.
   - If the helper is present and usable, record the same shape as above with `privilege_mode: sudo` (or derive from existing state) and continue.
-  - If the helper is absent or unusable, print a single clear instruction using the agent's own absolute executable path, then stop cleanly. Do not ask Q2. Example:
-    > "This installer needs root to bootstrap a narrow privilege helper on a fresh machine. Please relaunch this agent with:
+  - If the helper is absent or unusable, this is unexpected in the normal flow — the `install.sh` bootstrapper normally installs the helper before launching the agent. This state only occurs when the agent was started manually. In that case, print a single clear instruction and stop cleanly. Example:
+    > "The Rakkib bootstrapper normally handles privilege setup automatically. Since you started the agent manually, please relaunch it with root privileges:
     > `sudo -E /full/path/to/agent-binary`
     > Then restart the install from the beginning."
   - Do **not** fall back to `sudo -S` or password-in-chat.
