@@ -257,6 +257,54 @@ select_agent() {
     esac
 }
 
+offer_install_opencode() {
+    local answer
+
+    if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+        cat >&2 <<'EOF'
+WARNING: No supported agent CLI found on PATH. Looked for: opencode, claude, codex.
+
+No interactive terminal is available to confirm installing OpenCode. Install it manually with:
+
+  curl -fsSL https://opencode.ai/install | bash
+
+Then re-run the Rakkib bootstrapper.
+
+EOF
+        return 1
+    fi
+
+    cat > /dev/tty <<'EOF'
+
+Rakkib could not find a supported agent CLI on PATH. Looked for: opencode, claude, codex.
+
+Would you like to install OpenCode now?
+Installer command: curl -fsSL https://opencode.ai/install | bash
+
+EOF
+
+    while true; do
+        printf 'Install OpenCode? [y/N] ' > /dev/tty
+        IFS= read -r answer < /dev/tty || return 1
+        case "$answer" in
+            y|Y|yes|YES|Yes)
+                log "Installing OpenCode"
+                curl -fsSL https://opencode.ai/install | bash
+                hash -r 2>/dev/null || true
+                command_exists opencode || die "OpenCode installer completed, but opencode is still not on PATH. Add it to PATH, then re-run the Rakkib bootstrapper."
+                return 0
+                ;;
+            ''|n|N|no|NO|No)
+                warn "OpenCode was not installed. Install opencode, claude, or codex, then re-run the Rakkib bootstrapper."
+                return 1
+                ;;
+            *)
+                warn "Invalid choice: ${answer:-empty}"
+                ;;
+        esac
+    done
+}
+
 launch_agent() {
     local agent prompt status
 
@@ -264,10 +312,11 @@ launch_agent() {
         :
     else
         status="$?"
-        if [[ "$AGENT_MODE" == "auto" && "$status" -eq 1 ]]; then
-            warn "No supported agent CLI found on PATH. Looked for: opencode, claude, codex."
+        if [[ "$AGENT_MODE" == "auto" && "$status" -eq 1 ]] && offer_install_opencode; then
+            agent="opencode"
+        else
+            return 1
         fi
-        return 1
     fi
 
     if [[ ! -r /dev/tty ]]; then
