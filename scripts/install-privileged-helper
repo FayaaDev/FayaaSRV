@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly HELPER_DEST="/usr/local/libexec/rakkib-root-helper"
 readonly SUDOERS_DEST="/etc/sudoers.d/rakkib-helper"
+tmp_sudoers=""
 
 fail() {
   local code="$1"
@@ -38,7 +39,7 @@ main() {
   local admin_user="$2"
   validate_user "$admin_user"
 
-  local script_dir repo_root helper_source tmp_sudoers
+  local script_dir repo_root helper_source
   script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   repo_root="$(cd -- "$script_dir/.." && pwd)"
   helper_source="$repo_root/scripts/rakkib-root-helper"
@@ -48,7 +49,7 @@ main() {
   install -o root -g root -m 0755 "$helper_source" "$HELPER_DEST"
 
   tmp_sudoers="$(mktemp)"
-  trap 'rm -f "$tmp_sudoers"' EXIT
+  trap '[[ -n "${tmp_sudoers:-}" ]] && rm -f -- "$tmp_sudoers"' EXIT
   printf '%s ALL=(root) NOPASSWD: %s\n' "$admin_user" "$HELPER_DEST" > "$tmp_sudoers"
   chmod 0440 "$tmp_sudoers"
   visudo -cf "$tmp_sudoers" >/dev/null

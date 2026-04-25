@@ -83,11 +83,16 @@ Always install:
 Optional per user choice:
 - n8n
 - DBHub
+- Immich
 - OpenClaw
 
 OpenClaw install model in v1:
 - When selected, install OpenClaw from npm as a user-scoped binary at `~/.local/bin/openclaw`.
 - Require `node >= 22.14.0` and `npm` before rendering the host service wrapper.
+
+Immich install model in v1:
+- When selected, install CPU-only Immich using its dedicated Docker Compose stack.
+- Use Immich's dedicated Postgres/Valkey services rather than the shared Rakkib PostgreSQL instance.
 
 Out of scope for v1:
 - Google Drive / rclone backups
@@ -166,6 +171,7 @@ On a fresh machine, an agent should be able to use only this repo plus the user'
 - `https://{{NOCODB_SUBDOMAIN}}.<domain>`
 - optional `https://{{N8N_SUBDOMAIN}}.<domain>`
 - optional `https://{{DBHUB_SUBDOMAIN}}.<domain>`
+- optional `https://{{IMMICH_SUBDOMAIN}}.<domain>`
 - optional `https://{{OPENCLAW_SUBDOMAIN}}.<domain>`
 
 with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating style as the source server.

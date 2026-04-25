@@ -126,6 +126,19 @@ services:
     host_service: false
     notes: "Database browser. Optional. Uses dbhub.toml config file."
 
+  - id: immich
+    required: false
+    optional: true
+    image: ghcr.io/immich-app/immich-server:release
+    default_port: 2283
+    default_subdomain: immich
+    env_keys:
+      - IMMICH_DB_PASSWORD
+      - IMMICH_VERSION
+    depends_on: []
+    host_service: false
+    notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
+
   - id: openclaw
     required: false
     optional: true

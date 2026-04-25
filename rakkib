@@ -6,6 +6,7 @@ RUN_DOCTOR=true
 DOCTOR_ONLY=false
 AGENT_MODE="${RAKKIB_AGENT:-auto}"
 PRINT_PROMPT_ONLY=false
+readonly REQUIRED_HELPER_VERSION=2
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly INSTALL_DIR="$script_dir"
@@ -40,6 +41,15 @@ die() {
 
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+helper_version_from_probe() {
+    local probe_output="$1"
+    if [[ "$probe_output" =~ \"version\":([0-9]+) ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
 }
 
 parse_args() {
@@ -230,7 +240,7 @@ select_agent() {
 ensure_linux_privilege() {
     local helper="/usr/local/libexec/rakkib-root-helper"
     local installer="${INSTALL_DIR}/scripts/install-privileged-helper"
-    local user
+    local user probe_output helper_version
 
     [[ -x "$installer" ]] || die "privileged helper installer is missing or not executable: ${installer}"
 
@@ -251,9 +261,13 @@ ensure_linux_privilege() {
 
     user="$(id -un)"
 
-    if sudo -n "$helper" probe >/dev/null 2>&1; then
-        log "Privileged helper is already installed."
-        return 0
+    if probe_output="$(sudo -n "$helper" probe 2>/dev/null)"; then
+        helper_version="$(helper_version_from_probe "$probe_output" || true)"
+        if [[ -n "$helper_version" && "$helper_version" -ge "$REQUIRED_HELPER_VERSION" ]]; then
+            log "Privileged helper is already installed."
+            return 0
+        fi
+        log "Privileged helper is installed but outdated; reinstalling helper."
     fi
 
     if sudo -n true >/dev/null 2>&1; then

@@ -40,10 +40,11 @@ admin_user: ubuntu
 admin_email: admin@example.com
 lan_ip: 192.168.1.100
 tz: UTC
-selected_services: [n8n]
+selected_services: [n8n, immich]
 subdomains:
   nocodb: nocodb
   n8n: n8n
+  immich: immich
 cloudflare:
   zone_in_cloudflare: true
   auth_method: browser_login
@@ -107,6 +108,7 @@ Nested mappings:
 - `subdomains.nocodb` -> `{{NOCODB_SUBDOMAIN}}`
 - if `n8n` is selected: `subdomains.n8n` -> `{{N8N_SUBDOMAIN}}`
 - if `dbhub` is selected: `subdomains.dbhub` -> `{{DBHUB_SUBDOMAIN}}`
+- if `immich` is selected: `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
 - if `openclaw` is selected: `subdomains.claw` -> `{{OPENCLAW_SUBDOMAIN}}`
 
 Secrets mapping:
@@ -126,6 +128,7 @@ Derived multiline placeholders:
 - Append optional lines only for selected services:
   - `- n8n at https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}`
   - `- DBHub at https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}`
+  - `- Immich at https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}`
   - `- OpenClaw at https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}`
 
 Rendering guardrails:

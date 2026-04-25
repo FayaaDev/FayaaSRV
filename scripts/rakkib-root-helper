@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly HELPER_VERSION=1
+readonly HELPER_VERSION=2
 readonly HELPER_PATH="/usr/local/libexec/rakkib-root-helper"
 readonly LOCK_PATH="/run/lock/rakkib-root-helper.lock"
 
@@ -98,7 +98,7 @@ ensure_apt_prereqs() {
 }
 
 verb_probe() {
-  ok probe ',"version":1,"helper_path":"/usr/local/libexec/rakkib-root-helper","verbs":["probe","install-docker-engine-ubuntu","ensure-linux-layout","install-nodejs22-ubuntu","enable-linger","fix-ownership"]'
+  ok probe ',"version":'"$HELPER_VERSION"',"helper_path":"/usr/local/libexec/rakkib-root-helper","verbs":["probe","install-docker-engine-ubuntu","ensure-linux-layout","install-nodejs22-ubuntu","enable-linger","fix-ownership"]'
 }
 
 verb_install_docker_engine_ubuntu() {
@@ -153,7 +153,7 @@ verb_ensure_linux_layout() {
     [[ "$1" == "--with-service" ]] || fail 2 "unknown argument: $1"
     [[ "$#" -ge 2 ]] || fail 2 "missing service name"
     case "$2" in
-      caddy|cloudflared|postgres|nocodb|n8n|dbhub|openclaw)
+      caddy|cloudflared|postgres|nocodb|n8n|dbhub|immich|openclaw)
         services+=("$2")
         ;;
       *)

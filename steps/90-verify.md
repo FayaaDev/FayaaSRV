@@ -39,6 +39,7 @@ curl -I https://{{DOCKGE_SUBDOMAIN}}.{{DOMAIN}}/
 # Optional Services — run each only if the service is in selected_services
 curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/
+curl -I https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}/
 ```
 

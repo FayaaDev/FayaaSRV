@@ -17,7 +17,8 @@ Install or verify the base tools needed for the rest of the deployment.
 1. Verify `curl` is available.
 2. On Linux, detect whether root-required actions are still needed for this machine. At minimum, treat Docker Engine installation, `/srv` creation, Ubuntu Node.js installation for OpenClaw, and linger setup as helper-scoped work.
 3. On Linux, probe the helper before doing any root-required install work:
-   - helper already usable -> record its version and continue with helper verbs only.
+   - helper already usable and version is current -> record its version and continue with helper verbs only.
+   - helper already usable but older than the repo-local helper version -> rerun `./rakkib` so it upgrades the helper before launching the agent, then restart the install flow.
    - helper absent and `privilege_mode: root` -> run `./scripts/install-privileged-helper --admin-user {{ADMIN_USER}}` directly (no `sudo` prefix), then continue through the helper. The script will chown the repo back to `{{ADMIN_USER}}` after installing the helper.
    - helper absent and `privilege_mode: sudo` -> this state should not normally occur because `./rakkib` installs the helper before launching the agent. As a guardrail, print an instruction to run `./rakkib` or relaunch with `sudo -E <agent>` using the agent's absolute path, then stop. Do not print a manual command to run in another terminal.
    - helper absent and `privilege_mode: none` -> continue only if Docker is already installed and no remaining Step 00 action needs root; otherwise stop.

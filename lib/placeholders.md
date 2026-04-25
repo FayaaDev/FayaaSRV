@@ -50,6 +50,9 @@ Every template in this repository uses `{{PLACEHOLDER}}` syntax for direct strin
 - `{{N8N_DB_PASS}}`: n8n database password
 - `{{N8N_ENCRYPTION_KEY}}`: n8n encryption key, never rotate after first use
 - `{{DBHUB_SUBDOMAIN}}`: default `dbhub`
+- `{{IMMICH_SUBDOMAIN}}`: default `immich`
+- `{{IMMICH_DB_PASSWORD}}`: Immich dedicated Postgres password, never rotate after first use
+- `{{IMMICH_VERSION}}`: Immich container tag, default `release`
 - `{{OPENCLAW_SUBDOMAIN}}`: default `claw`
 - `{{CLAW_GATEWAY_PORT}}`: default `18789`, derived and recorded before rendering OpenClaw files
 - `{{CLOUDFLARED_METRICS_PORT}}`: default `20241`, derived and recorded before rendering Cloudflared files

@@ -8,7 +8,7 @@ type Service = {
   name: string
   description: string
   optional?: boolean
-  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'claw' | 'shield' | 'monitor' | 'docker'
+  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'claw' | 'shield' | 'monitor' | 'docker'
 }
 
 const services: Service[] = [
@@ -67,6 +67,12 @@ const services: Service[] = [
     description: 'Database MCP',
     optional: true,
     icon: 'mcp',
+  },
+  {
+    name: 'Immich',
+    description: 'Photo library',
+    optional: true,
+    icon: 'photos',
   },
   {
     name: 'OpenClaw',
@@ -133,6 +139,16 @@ function ServiceIcon({ icon }: { icon: Service['icon'] }) {
         <path d="M16 25c2-4 3-9 2-18" />
         <path d="M23 25c-1-4-1-9 1-17" />
         <path d="M7 25h18" />
+      </svg>
+    )
+  }
+
+  if (icon === 'photos') {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="5" y="8" width="22" height="17" rx="2" />
+        <circle cx="12" cy="14" r="3" />
+        <path d="M8 23l6-6 4 4 3-3 4 5" />
       </svg>
     )
   }
@@ -221,9 +237,8 @@ function App() {
           <p className="install-note">
             Paste the above command into your terminal. Rakkib detects your AI coding agent
             (Claude Code, Codex, or OpenCode), checks your system, opens an agent session, and
-            loads the setup prompt automatically. The install run launches the agent with{' '}
-            <code>sudo -E</code> so it can install Docker and the privilege helper. You just
-            answer the questions.
+            loads the setup prompt automatically. The wrapper installs the scoped privilege
+            helper first, then launches the agent unprivileged. You just answer the questions.
           </p>
         </section>
 

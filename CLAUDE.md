@@ -49,7 +49,7 @@ Platform-specific templates exist for `systemd` (Linux) and `launchd` (Mac) unde
 
 Always installed: **Caddy**, **Cloudflared**, **PostgreSQL** (`pgvector/pgvector:pg16`), **NocoDB**.
 
-Optional (user-selected): **n8n**, **DBHub**, **OpenClaw** (host service, not a container).
+Optional (user-selected): **n8n**, **DBHub**, **Immich** (CPU-only Docker stack), **OpenClaw** (host service, not a container).
 
 Only render templates and write compose files for selected services.
 

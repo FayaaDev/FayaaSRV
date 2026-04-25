@@ -10,6 +10,8 @@ Present the full service menu below as a TUI-style checklist. Collect selections
 1. **Foundation Bundle** — all pre-selected; user types numbers to deselect.
 2. **Optional Services** — none pre-selected; user types numbers to select.
 
+When rendering the checklist, the selectable label must always be the service name shown below (`NocoDB`, `Authentik`, `Homepage`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
+
 After both rounds, offer subdomain customization. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
 
 ---
@@ -36,7 +38,8 @@ Foundation Bundle (recommended):
 Optional Services:
   [ ] 6  n8n           — workflow automation    →  n8n.<domain>
   [ ] 7  DBHub         — database browser       →  dbhub.<domain>
-  [ ] 8  OpenClaw      — AI gateway             →  claw.<domain>
+  [ ] 8  Immich        — photo library          →  immich.<domain>
+  [ ] 9  OpenClaw      — AI gateway             →  claw.<domain>
 ```
 
 ---
@@ -60,7 +63,7 @@ Ask:
 
 > "Optional Services: type numbers to add (e.g. `6 8`), or press Enter to skip all:"
 
-- Parse the response as a space-separated list of integers (6–8).
+- Parse the response as a space-separated list of integers (6–9).
 - Add the corresponding services to the selection.
 - If the user presses Enter with no input, none are selected.
 
@@ -70,7 +73,7 @@ Ask:
 
 After both rounds, ask:
 
-> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, claw. (y/n)"
+> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, claw. (y/n)"
 
 If `y`:
 - For each selected service (foundation + optional), ask: "Subdomain for `<service>`? [default: `<default>`]"
@@ -99,6 +102,7 @@ subdomains:
   dockge: dockge                 # always present if dockge is in foundation_services
   n8n: n8n                       # only if n8n is in selected_services
   dbhub: dbhub                   # only if dbhub is in selected_services
+  immich: immich                 # only if immich is in selected_services
   claw: claw                     # only if openclaw is in selected_services
 ```
 
@@ -113,4 +117,5 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.dockge`     → `{{DOCKGE_SUBDOMAIN}}`
 - `subdomains.n8n`        → `{{N8N_SUBDOMAIN}}`
 - `subdomains.dbhub`      → `{{DBHUB_SUBDOMAIN}}`
+- `subdomains.immich`     → `{{IMMICH_SUBDOMAIN}}`
 - `subdomains.claw`       → `{{OPENCLAW_SUBDOMAIN}}`

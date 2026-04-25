@@ -17,6 +17,8 @@ Before rendering any templates, generate and record into `.fss-state.yaml` any s
 - `NOCODB_OIDC_CLIENT_SECRET` — 40-char random alphanumeric (if both nocodb and authentik are in `foundation_services`)
 - `N8N_ENCRYPTION_KEY` (if n8n is in `selected_services` and `n8n_mode` is `fresh`)
 - `N8N_DB_PASS` (if n8n is in `selected_services`)
+- `IMMICH_DB_PASSWORD` — 32-char random alphanumeric, never rotate after first run (if immich is in `selected_services`)
+- `IMMICH_VERSION` — default `release` unless already set (if immich is in `selected_services`)
 
 ### 60.2 — Deploy Foundation Bundle
 
@@ -109,7 +111,7 @@ Verify: `curl -s http://localhost/health` still returns OK and no Caddy error ou
 
 ### 60.4 — Deploy Optional Services
 
-Process in order: n8n → dbhub → openclaw. Skip any not in `selected_services`.
+Process in order: n8n → dbhub → immich → openclaw. Skip any not in `selected_services`.
 For each: render `.env`, render `docker-compose.yml` (and any extra config files), run `docker compose up -d`, then run the per-service verify. Reload Caddy once after all optional services are deployed.
 
 #### n8n
@@ -124,6 +126,17 @@ For each: render `.env`, render `docker-compose.yml` (and any extra config files
 - Render `dbhub.toml` from `templates/docker/dbhub/dbhub.toml.tmpl`.
 - Render `templates/caddy/routes/dbhub.caddy.tmpl`.
 - Verify: `docker ps | grep dbhub`.
+
+#### Immich
+
+- Use CPU-only mode. Do not render hardware acceleration overrides in v1.
+- Preserve `IMMICH_DB_PASSWORD` and `IMMICH_VERSION` if `.env` already exists on the target.
+- Create data directories: `{{DATA_ROOT}}/data/immich/library` and `{{DATA_ROOT}}/data/immich/postgres`.
+- Render `.env` from `templates/docker/immich/.env.example` into `{{DATA_ROOT}}/docker/immich/.env`.
+- Render `docker-compose.yml` from `templates/docker/immich/docker-compose.yml.tmpl`.
+- Render `templates/caddy/routes/immich.caddy.tmpl`.
+- Do not place Immich behind Authentik `forward_auth` by default; Immich has native auth and mobile/API clients can break behind an external auth gate.
+- Verify: `docker ps | grep immich_server` and `docker inspect --format '{{.State.Health.Status}}' immich_server` eventually returns `healthy`.
 
 #### OpenClaw
 
@@ -147,6 +160,11 @@ Authentik:
 n8n:
 - preserve `N8N_ENCRYPTION_KEY` if migrating; never overwrite an existing key
 
+Immich:
+- uses its own dedicated Postgres/Valkey stack because Immich requires a custom Postgres image with VectorChord/PgVectors support
+- preserve `IMMICH_DB_PASSWORD`; rotating it after data exists will break database access
+- CPU-only install in v1; hardware acceleration can be added later as a separate reviewed option
+
 ## Verify
 
 - `docker ps | grep nocodb` (if in foundation)
@@ -157,3 +175,4 @@ n8n:
 - `docker exec caddy caddy reload --config /etc/caddy/Caddyfile` returns exit 0
 - if selected: `docker ps | grep n8n`
 - if selected: `docker ps | grep dbhub`
+- if selected: `docker ps | grep immich_server`

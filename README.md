@@ -31,6 +31,7 @@ Always installed:
 Optional (pick what you want):
 - **n8n** — visual workflow automation, like your own Zapier
 - **DBHub** — expose your database to AI agents over MCP
+- **Immich** — self-hosted photo and video library
 - **OpenClaw** — bring Claude Code skills to your server
 
 ---
@@ -141,6 +142,7 @@ block until it is fixed.
 - `https://nocodb.yourdomain.com`
 - `https://n8n.yourdomain.com` *(if selected)*
 - `https://dbhub.yourdomain.com` *(if selected)*
+- `https://immich.yourdomain.com` *(if selected)*
 
 ---
 
