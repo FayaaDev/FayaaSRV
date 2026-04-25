@@ -60,15 +60,16 @@ On the machine you want to turn into your server:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-The bootstrapper handles everything:
-- Clones or updates this repo
+The remote bootstrapper clones or updates this repo, then hands off to the repo-local `./rakkib` wrapper.
+
+The wrapper handles everything:
 - Runs the doctor diagnostic
-- Installs the scoped privilege helper (uses passwordless sudo on cloud VMs, or prompts for your password interactively if needed)
-- Launches your AI coding agent with the installer prompt
+- Installs the scoped privilege helper before the agent starts (uses passwordless sudo on cloud VMs, or lets sudo prompt in your terminal if needed)
+- Launches your AI coding agent unprivileged with the installer prompt
 
 If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. The agent then interviews you and performs the actual deployment.
 
-> **Root required for install only.** The bootstrapper needs root once to install Docker and the privilege helper. On most cloud VMs this is automatic (passwordless sudo). On other machines it prompts for your password in the terminal. Day-to-day operation is unprivileged via the helper.
+> **Root required for install only.** `./rakkib` needs root once to install the scoped privilege helper. It does not read or store your sudo password; sudo prompts in the terminal. Day-to-day operation is unprivileged via the helper.
 
 You can override the checkout path if needed:
 
@@ -88,7 +89,7 @@ To force a specific agent:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash -s -- --agent opencode
 ```
 
-**Manual clone option** (if you prefer to clone first or the bootstrapper cannot get root access)
+**Manual clone option** (if you prefer to clone first)
 
 **1. Clone the repo**
 
@@ -97,7 +98,13 @@ git clone https://github.com/FayaaDev/Rakkib.git
 cd Rakkib
 ```
 
-**2. Start your coding agent with root privileges** from inside the `Rakkib` folder:
+**2. Run the local wrapper** from inside the `Rakkib` folder:
+
+```bash
+./rakkib
+```
+
+**Manual root-agent fallback** (only if the wrapper cannot get root access)
 
 ```bash
 sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(command -v codex)
@@ -105,7 +112,7 @@ sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(
 
 > If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed **only for the install run**; day-to-day operation is unprivileged via the helper.
 
-**3. Paste this prompt** into the agent:
+**3. Paste this prompt** only if you used the manual fallback or `--print-prompt`:
 
 ```text
 Read README.md and AGENT_PROTOCOL.md first, then use this repo as the installer:

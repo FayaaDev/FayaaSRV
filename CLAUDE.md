@@ -57,10 +57,11 @@ Only render templates and write compose files for selected services.
 
 The standard path is a root-owned helper at `/usr/local/libexec/rakkib-root-helper` with a scoped `sudoers.d` rule for that path only.
 
-- **Canonical install path:** Run `curl -fsSL .../install.sh | bash`. The bootstrapper installs the helper automatically, then launches the agent unprivileged.
-- **Manual fallback:** Launch the agent with `sudo -E <agent-cli>`. The agent detects `EUID=0`, records `privilege_mode: root`, and installs the helper directly in Step 00. Under this path, the agent may run as root for the entire install; Step 90 calls `fix-ownership` to ensure the repo is admin-owned for later unprivileged maintenance.
+- **Canonical install path:** Run `curl -fsSL .../install.sh | bash`. The remote bootstrapper clones/updates the repo, then hands off to `./rakkib`; the wrapper installs the helper automatically and launches the agent unprivileged.
+- **Local canonical path:** From an existing clone, run `./rakkib`.
+- **Manual fallback:** Launch the agent with `sudo -E <agent-cli>` only if the wrapper cannot get root access. The agent detects `EUID=0`, records `privilege_mode: root`, and installs the helper directly in Step 00. Under this path, the agent may run as root for the entire install; Step 90 calls `fix-ownership` to ensure the repo is admin-owned for later unprivileged maintenance.
 - Helper present → `privilege_strategy: helper`; route all root work through helper verbs.
-- Helper absent + agent not root → print relaunch instruction with the agent's absolute path and stop cleanly. Do not fall back to `sudo -S` or password-in-chat.
+- Helper absent + agent not root → print an instruction to run `./rakkib` or relaunch with the agent's absolute path under `sudo -E`, then stop cleanly. Do not fall back to `sudo -S` or password-in-chat.
 - After bootstrap, **do not use raw `sudo`** in later steps. Introduce a new reviewed helper verb instead.
 - `cloudflared` CLI installs without root into `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).

@@ -2,7 +2,7 @@
 
 Clone this repo onto the machine you want to turn into a Rakkib-style personal server kit.
 
-This repository is built for an AI coding agent to operate as the installer. It includes a thin `install.sh` bootstrapper, but not a one-shot shell installer. The bootstrapper may clone/update the repo, run doctor, and launch a supported agent CLI with the installer prompt; the agent should still interview the user, record answers in `.fss-state.yaml`, render the provided templates, and execute the step files in order.
+This repository is built for an AI coding agent to operate as the installer. It includes a thin remote `install.sh` bootstrapper and a repo-local `./rakkib` wrapper, but not a one-shot shell installer. The bootstrapper clones/updates the repo and hands off to `./rakkib`; the wrapper runs doctor, installs the scoped helper, and launches a supported agent CLI with the installer prompt. The agent should still interview the user, record answers in `.fss-state.yaml`, render the provided templates, and execute the step files in order.
 
 ## Agent Prompt
 
@@ -25,25 +25,32 @@ On a fresh machine:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 
-By default, the bootstrapper:
-- Clones or updates this repo
+By default, the bootstrapper clones or updates this repo, then hands off to `./rakkib`.
+
+By default, `./rakkib`:
 - Runs the doctor diagnostic
-- Installs the scoped privilege helper (via passwordless sudo on cloud VMs, or an interactive password prompt if needed)
-- Launches a supported agent CLI with the installer prompt
+- Installs the scoped privilege helper before the agent starts (via passwordless sudo on cloud VMs, or a normal terminal sudo prompt if needed)
+- Launches a supported agent CLI unprivileged with the installer prompt
 
 If multiple supported agents are installed, it asks which one to use; if only one is installed, it launches that one. Use `bash -s -- --print-prompt` to only print the prompt, or `bash -s -- --agent opencode` to force a specific agent.
 
-**Manual option** (if you prefer to clone first or the bootstrapper cannot get root access):
+**Manual clone option** (if you prefer to clone first):
 
 ```bash
 git clone https://github.com/FayaaDev/Rakkib.git
 cd Rakkib
+./rakkib
+```
+
+**Manual root-agent fallback** (only if the wrapper cannot get root access):
+
+```bash
 sudo -E $(command -v claude)    # or: sudo -E $(command -v opencode), sudo -E $(command -v codex)
 ```
 
 > If `command -v` returns nothing, use the full path where you installed the binary (e.g., `sudo -E /home/ubuntu/.local/bin/opencode`). The `-E` flag preserves your `HOME` and agent credentials. This root launch is needed **only for the install run**; day-to-day operation is unprivileged via the helper.
 
-Paste this prompt when using the manual path:
+Paste this prompt only when using the manual root-agent fallback or printed-prompt mode:
 
 ```text
 Read README.md and AGENT_PROTOCOL.md first.
@@ -60,7 +67,7 @@ Stop on any failed Verify block and fix it before continuing.
 Expected flow:
 
 1. The agent asks `questions/01-platform.md` through `questions/06-confirm.md`.
-2. On fresh Ubuntu Linux installs, the bootstrapper (`install.sh`) normally installs the privilege helper before launching the agent, so the agent starts unprivileged and proceeds smoothly. If the agent is started manually without a helper, it detects `EUID` in Phase 1. When running as root, it records `privilege_mode: root` and installs the helper directly in Step 00. When running unprivileged without a helper, it instructs the user to relaunch with `sudo -E <agent>` and stops cleanly.
+2. On fresh Ubuntu Linux installs, `install.sh` hands off to `./rakkib`, which installs the privilege helper before launching the agent. The agent starts unprivileged and proceeds smoothly. If the agent is started manually without a helper, it detects `EUID` in Phase 1. When running as root, it records `privilege_mode: root` and installs the helper directly in Step 00. When running unprivileged without a helper, it instructs the user to run `./rakkib` or relaunch with `sudo -E <agent>` and stops cleanly.
 3. After confirmation, the agent runs the deployment steps in numeric order, including Step 05 preflight.
 4. The run is complete only when `steps/90-verify.md` passes, including the final `fix-ownership` call that ensures the repo is owned by the admin user for later unprivileged maintenance.
 5. Record the run outcome in `DRY_RUN_REPORT.md` before calling the repo ready for outside users.
@@ -167,9 +174,10 @@ with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating s
 
 - Fresh Ubuntu Linux installs need a privileged account for Docker Engine installation and some service setup.
 - The standard Linux privilege path is a root-owned helper at `/usr/local/libexec/rakkib-root-helper` with a scoped `/etc/sudoers.d/rakkib-helper` rule for that path only.
-- **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`. The bootstrapper installs the privilege helper automatically (via passwordless sudo on cloud VMs, or an interactive terminal prompt if needed), then launches the agent unprivileged. The agent never has to break the conversation for a privilege prompt.
-- **Manual fallback:** If the bootstrapper cannot get root access, launch the agent manually with `sudo -E <agent-cli>` (e.g., `sudo -E claude`). The agent detects `EUID=0`, records `privilege_mode: root`, and installs the helper directly in Step 00 without any out-of-band command. Under this path, the agent may remain root for the entire install (Steps 00–90); Step 90 includes a final `fix-ownership` call to ensure the repo and state file are owned by the admin user for later unprivileged maintenance.
-- If the agent is running unprivileged and no helper is present, it prints a single relaunch instruction using the agent's absolute path and stops cleanly. Do not fall back to `sudo -S` or password-in-chat.
+- **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`. The remote bootstrapper clones or updates the repo, then executes `./rakkib`. The wrapper installs the privilege helper automatically (via passwordless sudo on cloud VMs, or a normal terminal sudo prompt if needed), then launches the agent unprivileged. The agent never has to break the conversation for a privilege prompt.
+- **Local canonical path:** If the repo is already cloned, run `./rakkib` from the repo root.
+- **Manual fallback:** If the wrapper cannot get root access, launch the agent manually with `sudo -E <agent-cli>` (e.g., `sudo -E claude`). The agent detects `EUID=0`, records `privilege_mode: root`, and installs the helper directly in Step 00 without any out-of-band command. Under this path, the agent may remain root for the entire install (Steps 00–90); Step 90 includes a final `fix-ownership` call to ensure the repo and state file are owned by the admin user for later unprivileged maintenance.
+- If the agent is running unprivileged and no helper is present, it prints a single instruction to run `./rakkib` or relaunch using the agent's absolute path with `sudo -E`, then stops cleanly. Do not fall back to `sudo -S` or password-in-chat.
 - The reviewed Ubuntu Docker helper path may install `acl` so it can bridge same-session Docker socket access without asking the user to run extra package installs by hand.
 - Do not require the user to hand-edit `/etc/sudoers` or grant blanket `NOPASSWD` access.
 - The host `cloudflared` CLI should be installed without root into `~/.local/bin/cloudflared` when it is missing.
