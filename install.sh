@@ -223,6 +223,8 @@ select_agent() {
 
     case "$AGENT_MODE" in
         auto)
+            ensure_opencode_on_path || true
+
             for candidate in opencode claude codex; do
                 if command_exists "$candidate"; then
                     installed+=("$candidate")
@@ -267,7 +269,11 @@ select_agent() {
             done
             ;;
         opencode|claude|codex)
-            command_exists "$AGENT_MODE" || die "requested agent is not installed or not on PATH: ${AGENT_MODE}"
+            if [[ "$AGENT_MODE" == "opencode" ]]; then
+                ensure_opencode_on_path || die "requested agent is not installed or not on PATH: ${AGENT_MODE}"
+            else
+                command_exists "$AGENT_MODE" || die "requested agent is not installed or not on PATH: ${AGENT_MODE}"
+            fi
             printf '%s\n' "$AGENT_MODE"
             ;;
         print|none)
@@ -313,7 +319,7 @@ EOF
                 log "Installing OpenCode"
                 curl -fsSL https://opencode.ai/install | bash
                 hash -r 2>/dev/null || true
-                ensure_opencode_on_path || die "OpenCode installer completed, but opencode was not found in PATH or the expected ~/.opencode/bin location. Add it to PATH, then re-run the Rakkib bootstrapper."
+                ensure_opencode_on_path || die "OpenCode installer completed, but opencode was not found in PATH or the expected user-scoped bin locations. Add it to PATH, then re-run the Rakkib bootstrapper."
                 return 0
                 ;;
             ''|n|N|no|NO|No)
@@ -331,12 +337,13 @@ ensure_opencode_on_path() {
     command_exists opencode && return 0
 
     local candidate admin_home
-    local candidates=("${HOME}/.opencode/bin")
+    local candidates=("${HOME}/.opencode/bin" "${HOME}/.local/bin")
 
     if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
         admin_home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
         if [[ -n "$admin_home" ]]; then
             candidates+=("${admin_home}/.opencode/bin")
+            candidates+=("${admin_home}/.local/bin")
         fi
     fi
 
