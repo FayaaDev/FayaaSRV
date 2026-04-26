@@ -37,6 +37,7 @@ admin_email: admin@example.com
 lan_ip: 192.168.1.100
 tz: UTC
 selected_services: [n8n, immich]
+host_addons: [vergo_terminal]
 subdomains:
   nocodb: nocodb
   n8n: n8n
@@ -123,6 +124,9 @@ Derived multiline placeholders:
   - `- DBHub at https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}`
   - `- Immich at https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}`
   - `- OpenClaw at https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}`
+- Build `{{HOST_ADDON_SUMMARY_LINES}}` before rendering `templates/agent-memory/SERVER_README.md.tmpl`.
+- If no host addons are selected, set it to `- None`.
+- If `vergo_terminal` is selected, include `- VErgo Terminal shell environment`.
 
 Rendering guardrails:
 
@@ -139,7 +143,7 @@ Run `questions/01-platform.md`.
 Run `questions/02-identity.md`.
 
 ### Phase 3
-Run `questions/03-services.md`.
+Run `questions/03-services.md` to collect services and host addons.
 
 ### Phase 4
 Run `questions/04-cloudflare.md`.
@@ -165,10 +169,11 @@ After confirmation, run these step files in numeric order:
 7. `steps/50-postgres.md`
 8. `steps/60-services.md`
 9. `steps/70-host-agents.md`
-10. `steps/80-backups.md`
-11. `steps/82-restore-test.md` when explicitly running a restore dry run or post-backup restore test; skip on first install unless the user asks
-12. `steps/85-health-crons.md`
-13. `steps/90-verify.md`
+10. `steps/72-host-customization.md`
+11. `steps/80-backups.md`
+12. `steps/82-restore-test.md` when explicitly running a restore dry run or post-backup restore test; skip on first install unless the user asks
+13. `steps/85-health-crons.md`
+14. `steps/90-verify.md`
 
 ## Rendering Rules
 
@@ -229,3 +234,4 @@ The deployment is complete only when:
 3. `~/.claude/CLAUDE.md` has been created or updated with the Rakkib block delimited by `<!-- RAKKIB START -->` and `<!-- RAKKIB END -->`.
 4. If `~/.config/github-copilot/AGENTS.md` or `~/.codex/AGENTS.md` already exist, the same Rakkib block has been synced into them.
 5. The selected services are reachable on their expected domains.
+6. The selected host addons pass their final verification checks.

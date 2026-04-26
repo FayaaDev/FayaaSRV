@@ -95,6 +95,9 @@ Optional per user choice:
 - Immich
 - OpenClaw
 
+Optional host addon per user choice:
+- VErgo Terminal
+
 OpenClaw install model in v1:
 - When selected, install OpenClaw from npm as a user-scoped binary at `~/.local/bin/openclaw`.
 - Require `node >= 22.14.0` and `npm` before rendering the host service wrapper.
@@ -146,6 +149,7 @@ Derived defaults that must be recorded before rendering:
 - `cloudflared_metrics_port: 20241`
 - `foundation_services`: list of selected foundation bundle services
 - `selected_services`: list of selected optional services
+- `host_addons`: list of selected host addons, such as `vergo_terminal`
 - `cloudflare.auth_method: browser_login | api_token | existing_tunnel`
 - `cloudflare.headless: true | false | null`
 - when `cloudflare.tunnel_uuid` is known:

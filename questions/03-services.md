@@ -6,13 +6,14 @@
 
 ## Instructions for the Agent
 
-Present the full service menu below as a TUI-style checklist. Collect selections in two rounds:
+Present the full service menu below as a TUI-style checklist. Collect selections in three rounds:
 1. **Foundation Bundle** — all pre-selected; user types numbers to deselect.
 2. **Optional Services** — none pre-selected; user types numbers to select.
+3. **Optional Host Addons** — none pre-selected; user types numbers to select.
 
-When rendering the checklist, the selectable label must always be the service name shown below (`NocoDB`, `Authentik`, `Homepage`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
+When rendering the checklist, the selectable label must always be the service or addon name shown below (`NocoDB`, `Authentik`, `Homepage`, `VErgo Terminal`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
 
-After both rounds, offer subdomain customization. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
+After all three rounds, offer subdomain customization for selected services only. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
 
 ---
 
@@ -40,6 +41,9 @@ Optional Services:
   [ ] 7  DBHub         — database browser       →  dbhub.<domain>
   [ ] 8  Immich        — photo library          →  immich.<domain>
   [ ] 9  OpenClaw      — AI gateway             →  claw.<domain>
+
+Optional Host Addons:
+  [ ] 10 VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
 
 ---
@@ -69,9 +73,24 @@ Ask:
 
 ---
 
+## Round 3 — Optional Host Addons
+
+Ask:
+
+> "Optional Host Addons: type numbers to add (e.g. `10`), or press Enter to skip all:"
+
+- Parse the response as a space-separated list of integers.
+- `10` selects `vergo_terminal`.
+- If the user presses Enter with no input, no host addons are selected.
+- Warn before recording `vergo_terminal`: "VErgo Terminal modifies the admin user's shell dotfiles (`~/.zshrc`, `~/.zshenv`, `~/.p10k.zsh`, and on Mac `~/.wezterm.lua`). Existing files are backed up before replacement."
+
+---
+
 ## Subdomain Customization
 
-After both rounds, ask:
+Host addons do not receive subdomains and must not be included in this section.
+
+After the service and host-addon rounds, ask:
 
 > "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, claw. (y/n)"
 
@@ -94,6 +113,8 @@ foundation_services:            # list only those kept from the foundation bundl
   - dockge
 selected_services:              # list only those the user added from optional services
   - n8n
+host_addons:                    # list only selected host addons; no subdomains are created
+  - vergo_terminal
 subdomains:
   nocodb: nocodb                 # always present if nocodb is in foundation_services
   auth: auth                     # always present if authentik is in foundation_services

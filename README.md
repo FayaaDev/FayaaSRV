@@ -34,6 +34,11 @@ Optional (pick what you want):
 - **Immich** — self-hosted photo and video library
 - **OpenClaw** — bring Claude Code skills to your server
 
+Optional host addon:
+- **VErgo Terminal** — user-scoped zsh, Powerlevel10k prompt, completions, CLI tools, Meslo Nerd Fonts, and macOS WezTerm config
+
+Host addons are not server services and do not receive public routes. VErgo Terminal modifies the admin user's shell dotfiles and backs up existing files before replacement.
+
 ---
 
 ## Before You Start
@@ -152,12 +157,12 @@ block until it is fixed.
 
 1. Platform (Linux or Mac)
 2. Your identity and where files should live
-3. Which optional services you want
+3. Which optional services and host addons you want
 4. Your Cloudflare domain and tunnel
 5. Secrets (database password, etc.)
 6. Final confirmation before anything is touched
 
-**5. Confirm, then let it run.** After Phase 6, the agent installs Docker, sets up the tunnel, provisions PostgreSQL, launches your chosen services, and wires up HTTPS routes.
+**5. Confirm, then let it run.** After Phase 6, the agent installs Docker, sets up the tunnel, provisions PostgreSQL, launches your chosen services, wires up HTTPS routes, and applies any selected host addons.
 
 **6. Done.** When the verification step passes, visit:
 

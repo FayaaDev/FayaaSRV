@@ -15,6 +15,7 @@ Every template in this repository uses `{{PLACEHOLDER}}` syntax for direct strin
 - `{{HOST_GATEWAY}}`: host address reachable from containers, `172.18.0.1` on Linux or `host.docker.internal` on Mac
 - `{{BACKUP_DIR}}`: default `{{DATA_ROOT}}/backups`
 - `{{SERVICE_SUMMARY_LINES}}`: multiline service summary built from the required services plus selected optional services before rendering the generated server README
+- `{{HOST_ADDON_SUMMARY_LINES}}`: multiline host-addon summary built from `host_addons` before rendering the generated server README
 
 ## Cloudflare
 
