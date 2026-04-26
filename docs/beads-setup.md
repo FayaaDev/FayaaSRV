@@ -1,0 +1,26 @@
+# Beads Setup On A New Machine
+
+- Install `bd` and `dolt` on the machine.
+- Clone the repo and enter it:
+  - `git clone git@github.com:FayaaDev/Rakkib.git`
+  - `cd Rakkib`
+- Make sure `.beads/config.yaml` contains:
+  - `sync.remote: "https://doltremoteapi.dolthub.com/fayaadev/fayaalink"`
+- Bootstrap the local Beads database from the shared remote:
+  - `bd bootstrap --yes`
+- Restart the local Beads Dolt server if needed:
+  - `bd dolt stop`
+  - `bd dolt start`
+- Verify the local setup:
+  - `bd ready --json`
+  - `bd status`
+  - `bd doctor`
+- Set the machine role:
+  - Maintainer: `git config beads.role maintainer`
+  - Contributor: `git config beads.role contributor`
+- Install Beads git hooks:
+  - `bd hooks install`
+- Before starting work, sync the latest issue state:
+  - `bd dolt pull`
+- After making Beads changes, push them back:
+  - `bd dolt push`
