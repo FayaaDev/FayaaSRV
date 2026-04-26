@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 
-const installCommand = 'curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash'
+const installCommand = 'curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash'
 const repoUrl = 'https://github.com/FayaaDev/Rakkib'
 
 type Service = {
@@ -212,6 +212,7 @@ function App() {
     <div className="shell">
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Rakkib home">
+          <img className="brand-logo" src="/logo.png" alt="Rakkib logo" width="28" height="28" />
           [rakkib]
         </a>
         <a className="github-link" href={repoUrl} target="_blank" rel="noreferrer" aria-label="Rakkib on GitHub">
@@ -225,7 +226,7 @@ function App() {
           <p className="eyebrow">personal server kit</p>
           <h1 id="hero-title">Your own server, installed by an AI agent.</h1>
           <p className="hero-text">
-            Rakkib turns a fresh machine into a clean self-hosted stack for apps, databases, automation, and secure access.
+            Rakkib transforms a fresh machine into a polished self-hosted stack for apps, data, automation, photos, and secure access.
           </p>
 
           <div className="install-box" aria-label="Install command">
@@ -235,10 +236,8 @@ function App() {
             </button>
           </div>
           <p className="install-note">
-            Paste the above command into your terminal. Rakkib detects your AI coding agent
-            (Claude Code, Codex, or OpenCode), checks your system, opens an agent session, and
-            loads the setup prompt automatically. On Linux, it stops with the exact sudo rerun
-            command if the bootstrapper is not running as root. You just answer the questions.
+            One command. Guided setup. Rakkib finds your agent, prepares the machine, and walks
+            you into a secure self-hosted stack.
           </p>
         </section>
 
