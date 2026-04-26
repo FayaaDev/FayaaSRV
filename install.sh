@@ -10,9 +10,18 @@ DOCTOR_ONLY=false
 AGENT_MODE="${RAKKIB_AGENT:-auto}"
 PRINT_PROMPT_ONLY=false
 ORIGINAL_ARGS=()
+BOOTSTRAP_USER=""
+BOOTSTRAP_USER_HOME=""
+
+if [[ "${EUID:-$(id -u)}" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    BOOTSTRAP_USER="$SUDO_USER"
+    BOOTSTRAP_USER_HOME="$(getent passwd "$BOOTSTRAP_USER" 2>/dev/null | cut -d: -f6 || true)"
+fi
 
 if [[ -z "${RAKKIB_DIR:-}" && -f "AGENT_PROTOCOL.md" && -d ".git" ]]; then
     INSTALL_DIR="$(pwd)"
+elif [[ -z "${RAKKIB_DIR:-}" && -n "$BOOTSTRAP_USER_HOME" ]]; then
+    INSTALL_DIR="${BOOTSTRAP_USER_HOME}/Rakkib"
 else
     INSTALL_DIR="${RAKKIB_DIR:-${HOME}/Rakkib}"
 fi
@@ -24,8 +33,8 @@ Usage: install.sh [--dir <path>] [--repo <url>] [--branch <name>]
                   [--agent <auto|opencode|claude|codex|none>] [--no-agent] [--print-prompt]
 
 Thin Rakkib remote bootstrapper. It verifies basic host support, clones or
-updates the installer repo, checks Linux root privileges, then runs doctor and
-launches a supported AI coding agent with the installer prompt.
+updates the installer repo as the normal admin user when possible, then hands
+off to `rakkib init` for diagnostics and agent launch.
 
 Environment overrides:
   RAKKIB_DIR       target checkout path, default: $HOME/Rakkib
@@ -52,12 +61,20 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+run_as_bootstrap_user() {
+    if [[ -n "$BOOTSTRAP_USER" ]]; then
+        sudo -u "$BOOTSTRAP_USER" -H "$@"
+    else
+        "$@"
+    fi
+}
+
 shell_quote() {
     printf '%q' "$1"
 }
 
 rerun_command() {
-    printf 'curl -fsSL %s | sudo -E bash' "$BOOTSTRAP_URL"
+    printf 'curl -fsSL %s | bash' "$BOOTSTRAP_URL"
     if [[ "${#ORIGINAL_ARGS[@]}" -gt 0 ]]; then
         printf ' -s --'
         local arg
@@ -125,13 +142,13 @@ ensure_linux_root() {
 
     cat >&2 <<EOF
 
-ERROR: Rakkib Linux installs must run as root.
+ERROR: This legacy root guard should not be reached in the current Rakkib CLI flow.
 
-Re-run the bootstrapper with sudo preserving your agent credentials:
+Re-run the bootstrapper as your normal admin user:
 
   $(rerun_command)
 
-If sudo is unavailable, open a root shell and run the same curl command without sudo.
+Rakkib requests sudo only after Phase 6 confirmation for specific privileged setup actions.
 
 EOF
     exit 1
@@ -161,7 +178,7 @@ Use this repo as the installer.
 Ask me the question files in order.
 Record answers in .fss-state.yaml.
 Do not write outside the repo until Phase 6 (questions/06-confirm.md).
-On Linux, this installer must run as root; use direct root commands after confirmation.
+On Linux, run the agent as the normal admin user and request sudo only for specific privileged setup actions after confirmation.
 After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
 Stop on any failed Verify block and fix it before continuing.
 PROMPT
@@ -398,7 +415,7 @@ is_empty_dir() {
 }
 
 repo_has_local_changes() {
-    [[ -n "$(git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]]
+    [[ -n "$(run_as_bootstrap_user git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]]
 }
 
 prepare_repo() {
@@ -410,13 +427,13 @@ prepare_repo() {
         fi
 
         log "Updating existing checkout from origin/${BRANCH}"
-        git -C "$INSTALL_DIR" fetch origin "$BRANCH"
-        if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-            git -C "$INSTALL_DIR" checkout "$BRANCH"
+        run_as_bootstrap_user git -C "$INSTALL_DIR" fetch origin "$BRANCH"
+        if run_as_bootstrap_user git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+            run_as_bootstrap_user git -C "$INSTALL_DIR" checkout "$BRANCH"
         else
-            git -C "$INSTALL_DIR" checkout -B "$BRANCH" "origin/${BRANCH}"
+            run_as_bootstrap_user git -C "$INSTALL_DIR" checkout -B "$BRANCH" "origin/${BRANCH}"
         fi
-        git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+        run_as_bootstrap_user git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
         return 0
     fi
 
@@ -424,9 +441,51 @@ prepare_repo() {
         die "target path exists and is not an empty git checkout: ${INSTALL_DIR}"
     fi
 
-    mkdir -p "$(dirname "$INSTALL_DIR")"
+    run_as_bootstrap_user mkdir -p "$(dirname "$INSTALL_DIR")"
     log "Cloning ${REPO_URL} into ${INSTALL_DIR}"
-    git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+    run_as_bootstrap_user git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+}
+
+install_cli_shim() {
+    local user_home target
+    user_home="${BOOTSTRAP_USER_HOME:-${HOME}}"
+    target="${user_home}/.local/bin/rakkib"
+
+    if [[ -e "$target" && ! -L "$target" ]]; then
+        warn "Skipping rakkib PATH shim because ${target} already exists and is not a symlink."
+        return 0
+    fi
+
+    run_as_bootstrap_user mkdir -p "${user_home}/.local/bin"
+    run_as_bootstrap_user ln -sfn "${INSTALL_DIR}/bin/rakkib" "$target"
+    log "Installed rakkib CLI shim at ${target}"
+}
+
+handoff_to_cli() {
+    local cli="${INSTALL_DIR}/bin/rakkib"
+    [[ -x "$cli" ]] || die "rakkib CLI is missing or not executable: ${cli}"
+
+    if [[ -n "$BOOTSTRAP_USER" ]]; then
+        log "Handing off to rakkib init as ${BOOTSTRAP_USER}"
+        exec sudo -u "$BOOTSTRAP_USER" -H env \
+            RAKKIB_DIR="$INSTALL_DIR" \
+            RAKKIB_REPO="$REPO_URL" \
+            RAKKIB_BRANCH="$BRANCH" \
+            RAKKIB_BOOTSTRAP_URL="$BOOTSTRAP_URL" \
+            "$cli" init "$@"
+    fi
+
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        warn "Running rakkib init as root. Prefer running the bootstrapper without sudo so the agent session stays unprivileged."
+    fi
+
+    log "Handing off to rakkib init"
+    exec env \
+        RAKKIB_DIR="$INSTALL_DIR" \
+        RAKKIB_REPO="$REPO_URL" \
+        RAKKIB_BRANCH="$BRANCH" \
+        RAKKIB_BOOTSTRAP_URL="$BOOTSTRAP_URL" \
+        "$cli" init "$@"
 }
 
 main() {
@@ -435,19 +494,8 @@ main() {
     detect_platform
     ensure_tooling
     prepare_repo
-    ensure_linux_root
-
-    if [[ "$RUN_DOCTOR" == true ]]; then
-        run_doctor
-    fi
-
-    if [[ "$DOCTOR_ONLY" == false ]]; then
-        if [[ "$PRINT_PROMPT_ONLY" == true || "$AGENT_MODE" == "print" || "$AGENT_MODE" == "none" ]]; then
-            print_agent_prompt
-        elif ! launch_agent; then
-            print_agent_prompt
-        fi
-    fi
+    install_cli_shim
+    handoff_to_cli "$@"
 }
 
 main "$@"

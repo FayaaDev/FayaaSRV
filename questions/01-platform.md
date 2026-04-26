@@ -21,20 +21,23 @@ If detection returns anything else, stop and ask the user before continuing.
 Before asking any questions on Linux, detect whether the agent is running as root:
 
 - On Linux, check `EUID` with `id -u` or `$EUID`.
+- If `EUID != 0`:
+  - Record:
+    ```yaml
+    privilege_mode: sudo
+    privilege_strategy: on_demand
+    ```
+  - Continue the interview as the normal admin user. Privileged system setup will be requested with `sudo` only after Phase 6 confirmation.
 - If `EUID == 0`:
   - Record:
     ```yaml
     privilege_mode: root
     privilege_strategy: root_process
     ```
-  - **Skip Q2 entirely.** The install will run as root after Phase 6 confirmation.
-- If `EUID != 0`:
-  - Stop cleanly before asking any questions.
-  - Print this instruction exactly enough for the user to act on it:
-    > "Rakkib Linux installs must run as root. Please re-run the bootstrapper with: `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`"
-  - Do **not** fall back to `sudo -S`, do not ask for a password in chat, and do not continue unprivileged.
+  - Warn that running the full agent session as root is intended only for repair/debug sessions. If `SUDO_USER` is set, offer to restart `rakkib init` as that admin user before continuing.
+  - Do **not** fall back to `sudo -S`, do not ask for a password in chat, and do not store sudo credentials.
 
-On Mac, do not perform Linux root enforcement. Record `privilege_mode: sudo` and `privilege_strategy: none`.
+On Mac, do not perform Linux root enforcement. Record `privilege_mode: sudo` and `privilege_strategy: on_demand`.
 
 ---
 
@@ -65,8 +68,8 @@ If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker
 ```yaml
 platform: linux        # or: mac
 arch: amd64            # or: arm64, auto-detected from `uname -m`
-privilege_mode: root   # Linux: root; Mac: sudo
-privilege_strategy: root_process  # Linux: root_process; Mac: none
+privilege_mode: sudo   # normal Linux/Mac flow; root only for repair/debug sessions
+privilege_strategy: on_demand  # request sudo only for specific post-confirmation actions
 docker_installed: true # or: false
 ```
 

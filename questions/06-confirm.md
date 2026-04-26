@@ -26,8 +26,8 @@ Before asking for confirmation, present a concise summary of the recorded state 
 - secret strategy
 
 For Linux, summarize privilege details without exposing internal state names unless the user asks:
-- If `privilege_mode` is `root`, show `System setup access: agent is running from a root/admin shell` and `Privilege handling: direct root setup, with user-owned files assigned back to the admin user`.
-- If `privilege_mode` is anything else, stop before confirmation and tell the user to re-run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
+- If `privilege_mode` is `sudo`, show `System setup access: agent is running as the normal admin user` and `Privilege handling: sudo is requested only for specific setup actions after confirmation`.
+- If `privilege_mode` is `root`, show `System setup access: agent is running from a root/admin shell` and `Privilege handling: direct root setup, with user-owned files assigned back to the admin user`; warn that this is intended only for repair/debug sessions.
 
 Make it clear in the summary when `architecture` and `LAN IP` were auto-detected from the host.
 

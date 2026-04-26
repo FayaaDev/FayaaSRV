@@ -12,8 +12,8 @@ The canonical operator prompt (paste this to kick off an install):
 Read README.md and AGENT_PROTOCOL.md first, then use this repo as the installer:
 ask the question files in order, record answers in `.fss-state.yaml`, auto-detect
 host values when instructed, do not write outside the repo until Phase 6
-(`questions/06-confirm.md`), run Linux installs as root, use direct root commands
-after confirmation, then execute
+(`questions/06-confirm.md`), run as the normal admin user and request sudo only
+for specific privileged setup actions after confirmation, then execute
 `steps/00-prereqs.md` through `steps/90-verify.md` in numeric order and stop on any
 failed `## Verify` block until it is fixed.
 ```
@@ -55,15 +55,14 @@ Only render templates and write compose files for selected services.
 
 ## Privilege Model (Linux)
 
-Linux installs are root-only for v1.
+Linux installs use unprivileged orchestration with explicit sudo for system changes.
 
-- **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
-- **Friendly first attempt:** `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash` may be used, but on Linux it must print the explicit `sudo -E bash` rerun command and exit when not root.
-- **Local clone path:** From an existing clone, run `sudo -E bash install.sh`.
-- Phase 1 must verify `id -u == 0`; otherwise stop and print the canonical rerun command. Do not fall back to `sudo -S` or password-in-chat.
-- When root, record `privilege_mode: root` and `privilege_strategy: root_process`.
-- After confirmation, Linux root-required work uses direct root commands.
-- Step 90 fixes repo and state-file ownership back to the admin user for later unprivileged maintenance.
+- **Canonical install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`.
+- **Local clone path:** From an existing clone, run `bash install.sh`.
+- Phase 1 should record `privilege_mode: sudo` and `privilege_strategy: on_demand` for the normal user-first flow. Do not fall back to `sudo -S` or password-in-chat.
+- If the agent is running as root, warn that root orchestration is intended only for repair/debug sessions. If `SUDO_USER` is available, prefer restarting as that user.
+- After confirmation, Linux root-required work uses ordinary `sudo` prompts or allowlisted `sudo rakkib privileged ...` helper actions.
+- Step 90 verifies repo and state-file ownership for later unprivileged maintenance.
 - `cloudflared` CLI installs into the admin user's `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).
 

@@ -23,8 +23,8 @@ Expected high-level sections:
 ```yaml
 platform: linux
 arch: amd64
-privilege_mode: root
-privilege_strategy: root_process
+privilege_mode: sudo
+privilege_strategy: on_demand
 docker_installed: true
 data_root: /srv
 docker_net: caddy_net
@@ -65,9 +65,9 @@ Derived value rules:
 - Always derive `claw_gateway_port` as `18789` unless the repo is explicitly changed to ask for a different value.
 - Always derive `cloudflared_metrics_port` as `20241` unless the repo is explicitly changed to ask for a different value.
 - Record Cloudflare auth as `cloudflare.auth_method` with one of `browser_login`, `api_token`, or `existing_tunnel`. Use `browser_login` as the normal path and record `cloudflare.headless` as `true` or `false` for new tunnels.
-- On Linux, the installer must run as root. Record `privilege_mode: root` and `privilege_strategy: root_process` after verifying `id -u` is `0`.
-- If Linux is not running as root, stop and instruct the user to re-run the bootstrapper as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
-- On Mac, record `privilege_mode: sudo` and `privilege_strategy: none` because the Linux root-only install path does not apply.
+- On Linux, the installer orchestration should run as the normal admin user. Record `privilege_mode: sudo` and `privilege_strategy: on_demand` unless the user is intentionally repairing from a root shell.
+- If Linux is running as root through `sudo` with `SUDO_USER` set, prefer re-running `rakkib init` as `SUDO_USER` before launching an agent. Do not run the full AI agent session as root by default.
+- On Mac, record `privilege_mode: sudo` and `privilege_strategy: on_demand`.
 - When `cloudflare.tunnel_uuid` is known, derive and record:
   - `cloudflare.tunnel_creds_host_path: {{DATA_ROOT}}/data/cloudflared/<tunnel_uuid>.json`
   - `cloudflare.tunnel_creds_container_path: /home/nonroot/.cloudflared/<tunnel_uuid>.json`
@@ -197,13 +197,14 @@ After confirmation, run these step files in numeric order:
 
 ## Privilege Rules
 
-1. Linux installs are root-only for v1. The bootstrapper should be run as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | sudo -E bash`.
-2. The plain `curl ... | bash` path is allowed as a friendly first attempt, but on Linux it must print the explicit `sudo -E bash` rerun command and exit before launching an agent.
-3. In Phase 1 on Linux, check `id -u`. If it is not `0`, stop and print the same `curl ... | sudo -E bash` rerun instruction. Do not try `sudo -S`, do not ask for passwords in chat, and do not continue unprivileged.
-4. If `id -u` is `0`, record `privilege_mode: root` and `privilege_strategy: root_process`, then continue. After Phase 6 confirmation, root-required work may use direct root commands.
-5. When running as root through `sudo -E`, use `SUDO_USER` as the default admin user suggestion. If `SUDO_USER` is absent, ask the user for the non-root admin account that should own the repo, `/srv` files, and user-scoped services.
-6. Step 90 must restore ownership of the repo and generated user-writable files to `{{ADMIN_USER}}` with direct root commands so later maintenance can run from the normal account.
-7. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed into the admin user's `~/.local/bin`.
+1. Linux orchestration is user-first. The bootstrapper should be run as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`.
+2. Do not run the full AI agent session as root by default. If a legacy `sudo -E bash` bootstrap is used and `SUDO_USER` is available, the bootstrapper should hand off to `rakkib init` as that user.
+3. In Phase 1 on Linux, check `id -u`. If it is not `0`, record `privilege_mode: sudo` and `privilege_strategy: on_demand`; continue the interview unprivileged.
+4. If `id -u` is `0`, record `privilege_mode: root` and `privilege_strategy: root_process`, but warn the user that root orchestration is intended only for repair/debug sessions. If `SUDO_USER` is set, ask whether to restart as that admin user before continuing.
+5. Do not try `sudo -S`, do not ask for passwords in chat, and do not store sudo credentials in `.fss-state.yaml`. Use `rakkib auth sudo` or ordinary `sudo` prompts so the operating system manages the sudo timestamp.
+6. After Phase 6 confirmation, privileged Linux actions may use `sudo` or `sudo rakkib privileged <allowlisted-action>` after briefly explaining what system area will change. Prefer `rakkib privileged` helpers when they exist.
+7. Use `{{ADMIN_USER}}` as the owner for the repo, `/srv` files that should be user-writable, and user-scoped services. Step 90 must verify ownership for later unprivileged maintenance.
+8. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed into the admin user's `~/.local/bin`.
 
 ## Platform Rules
 
