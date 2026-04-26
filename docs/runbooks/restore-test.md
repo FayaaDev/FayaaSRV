@@ -1,6 +1,6 @@
-# Step 82 — Restore Test
+# Restore Test Runbook
 
-Optional restore verification. Skip this step on first install unless the user explicitly asks for a restore dry run or a real restore round-trip test.
+Optional restore verification. Skip this runbook on first install unless the user explicitly asks for a restore dry run or a real restore round-trip test.
 
 ## Actions
 

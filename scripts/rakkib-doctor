@@ -2,11 +2,16 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+
+# shellcheck source=../lib/common.sh
+. "${REPO_DIR}/lib/common.sh"
+
 OUTPUT_JSON=false
 STATE_FILE=".fss-state.yaml"
 DOMAIN=""
 DATA_ROOT=""
-CLOUDFLARE_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -20,13 +25,8 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/rakkib-doctor [--json] [--state <path>] [--domain <domain>] [--data-root <path>]
 
-Runs Rakkib host preflight checks. Set CF_API_TOKEN or CLOUDFLARE_API_TOKEN
-to verify the Cloudflare token before tunnel/DNS work.
+Runs Rakkib host preflight checks.
 USAGE
-}
-
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
 }
 
 json_escape() {
@@ -37,22 +37,6 @@ json_escape() {
   value=${value//$'\r'/\\r}
   value=${value//$'\t'/\\t}
   printf '%s' "$value"
-}
-
-state_value() {
-  local key="$1"
-  [[ -f "$STATE_FILE" ]] || return 1
-  awk -F: -v wanted="$key" '
-    $1 == wanted {
-      value=$0
-      sub("^[^:]*:", "", value)
-      sub("^[[:space:]]*", "", value)
-      sub("[[:space:]]*$", "", value)
-      gsub(/^"|"$/, "", value)
-      print value
-      exit
-    }
-  ' "$STATE_FILE"
 }
 
 add_check() {
@@ -135,10 +119,10 @@ parse_args() {
 
 init_context() {
   if [[ -z "$DOMAIN" ]]; then
-    DOMAIN="$(state_value domain 2>/dev/null || true)"
+    DOMAIN="$(state_value "$STATE_FILE" domain 2>/dev/null || true)"
   fi
   if [[ -z "$DATA_ROOT" ]]; then
-    DATA_ROOT="$(state_value data_root 2>/dev/null || true)"
+    DATA_ROOT="$(state_value "$STATE_FILE" data_root 2>/dev/null || true)"
   fi
   if [[ -z "$DATA_ROOT" ]]; then
     if [[ "$(uname -s 2>/dev/null || true)" == "Darwin" ]]; then
@@ -365,26 +349,6 @@ check_domain_dns() {
   fi
 }
 
-check_cloudflare_token() {
-  if [[ -z "$CLOUDFLARE_TOKEN" ]]; then
-    add_check warn cloudflare_token false "set CF_API_TOKEN to verify Cloudflare token validity before Step 40"
-    return
-  fi
-
-  if ! command_exists curl; then
-    add_check warn cloudflare_token false "curl is missing; cannot verify Cloudflare token"
-    return
-  fi
-
-  local response
-  response="$(curl -fsS --max-time 10 -H "Authorization: Bearer ${CLOUDFLARE_TOKEN}" https://api.cloudflare.com/client/v4/user/tokens/verify 2>/dev/null || true)"
-  if printf '%s' "$response" | grep -q '"success":true'; then
-    add_check ok cloudflare_token false "Cloudflare token is valid; DNS and tunnel permissions are exercised in Step 40"
-  else
-    add_check warn cloudflare_token false "Cloudflare token verification failed or returned an unexpected response"
-  fi
-}
-
 check_conflicts() {
   local conflicts=()
   local service
@@ -414,18 +378,6 @@ check_conflicts() {
   fi
 }
 
-check_firewall() {
-  if command_exists ufw; then
-    local status
-    status="$(ufw status 2>/dev/null | head -n 1 || true)"
-    add_check ok firewall false "${status:-ufw installed, status unavailable}"
-  elif command_exists iptables; then
-    add_check ok firewall false "iptables is available; review host rules if public ports are blocked"
-  else
-    add_check warn firewall false "no ufw or iptables command found"
-  fi
-}
-
 main() {
   parse_args "$@"
   init_context
@@ -439,9 +391,7 @@ main() {
   check_public_ports
   check_ssh_port
   check_domain_dns
-  check_cloudflare_token
   check_conflicts
-  check_firewall
 
   if [[ "$OUTPUT_JSON" == true ]]; then
     emit_json

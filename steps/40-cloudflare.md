@@ -8,7 +8,7 @@ Render and deploy the Cloudflare tunnel after the user confirms the setup.
 1. Confirm the host `cloudflared` CLI is installed and runnable with `cloudflared --version` before doing any tunnel work. If it was installed into `~/.local/bin`, invoke that path directly when the shell `PATH` has not been refreshed yet.
 2. Use the recorded Cloudflare connection method:
    - `browser_login`: use `cloudflared tunnel login`. If `cloudflare.headless` is `true`, tell the user to open the printed Cloudflare URL on another device, approve the domain, return to the terminal, and press Enter if prompted. No API token is needed.
-   - `api_token`: ask for a temporary Cloudflare API token only now, export it only for the commands that require it, and unset it after Cloudflare work is complete. Do not write the token into `.fss-state.yaml` or rendered files.
+   - `api_token`: ask for a temporary Cloudflare API token only now, export it only for the commands that require it, verify it with Cloudflare's token verification endpoint before tunnel or DNS changes, and unset it after Cloudflare work is complete. Do not write the token into `.fss-state.yaml` or rendered files.
    - `existing_tunnel`: prefer the existing credentials and UUID. Use browser login only if needed to repair missing credentials or DNS routes.
 3. If `cloudflare.tunnel_strategy` is `new`, first run `cloudflared tunnel list` and look for the recorded `<tunnel_name>`. If it already exists, record its UUID and reuse it instead of creating another tunnel.
 4. If no tunnel with that name exists, guide the user through `cloudflared tunnel login` when using browser login, then run `cloudflared tunnel create <tunnel_name>`.
@@ -49,6 +49,7 @@ Only use the advanced API token method if `cloudflare.auth_method` is `api_token
 ```bash
 read -r -s -p "Cloudflare API token: " CLOUDFLARE_API_TOKEN
 export CLOUDFLARE_API_TOKEN
+curl -fsS --max-time 10 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" https://api.cloudflare.com/client/v4/user/tokens/verify
 # Run only the Cloudflare commands that require the token.
 unset CLOUDFLARE_API_TOKEN
 ```

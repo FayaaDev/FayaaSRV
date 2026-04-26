@@ -22,13 +22,14 @@ Install or verify the base tools needed for the rest of the deployment.
 6. Verify the Docker daemon is running.
 7. Verify a local host `cloudflared` binary is available. Step 40 uses the host CLI for tunnel login, creation, and DNS routing, so the Docker image alone is not sufficient.
 8. If `cloudflared` is missing, install it into the admin user's `~/.local/bin/cloudflared` without requiring a system package, then ensure later steps can invoke it either through `PATH` or by absolute path.
+9. Run `./scripts/rakkib-doctor --json` from the repo root after prerequisites are available. Stop on any check with `"status":"fail"`; treat warnings as advisory unless they invalidate the selected install path.
 
 ## Platform Notes
 
 Linux:
 - Prefer Docker Engine on headless Ubuntu hosts using Docker's official docs: `https://docs.docker.com/engine/install/ubuntu/`
 - This documented path assumes Ubuntu and explicit sudo for package/service changes.
-- Do not run the full agent as root by default. `rakkib init` should pre-authorize sudo before launching the agent when the user agrees. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast instead of hanging inside the agent session.
+- Do not run the full agent as root by default. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast instead of hanging inside the agent session.
 - Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
 - A portable install path is acceptable. For example, download the matching release archive for `linux-$ARCH`, extract `cloudflared`, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 
@@ -46,3 +47,5 @@ Mac:
 - `docker info`
 - `curl --version`
 - `cloudflared --version` or `~/.local/bin/cloudflared --version`
+- `./scripts/rakkib-doctor`
+- `./scripts/rakkib-doctor --json`

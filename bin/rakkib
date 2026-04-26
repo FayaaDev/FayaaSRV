@@ -16,28 +16,21 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd -P)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 
-REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
-BRANCH="${RAKKIB_BRANCH:-main}"
-BOOTSTRAP_URL="${RAKKIB_BOOTSTRAP_URL:-https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh}"
-INSTALL_DIR="${RAKKIB_DIR:-${REPO_DIR}}"
+# shellcheck source=../lib/common.sh
+. "${REPO_DIR}/lib/common.sh"
+
 AGENT_MODE="${RAKKIB_AGENT:-auto}"
-RUN_DOCTOR=true
-DOCTOR_ONLY=false
 PRINT_PROMPT_ONLY=false
-SUDO_PREAUTH="${RAKKIB_SUDO_PREAUTH:-auto}"
-SUDO_KEEPALIVE_PID=""
 
 usage() {
   cat <<'USAGE'
 Usage: rakkib <command> [options]
 
 Commands:
-  init         Prepare the repo, run diagnostics, and launch or print the agent prompt
+  init         Run diagnostics and launch or print the agent prompt
   doctor       Run host diagnostics
-  auth         Check or prepare external auth prerequisites
-  agent        Launch a supported AI agent with the installer prompt
+  auth         Check sudo readiness
   prompt       Print the installer prompt
-  install      Launch the agent in confirmed install execution mode
   privileged   Run a small allowlisted root-only helper action
   uninstall    Remove the user-scoped rakkib command shim
   version      Print version information
@@ -48,34 +41,21 @@ USAGE
 
 init_usage() {
   cat <<'USAGE'
-Usage: rakkib init [--dir <path>] [--repo <url>] [--branch <name>]
-                   [--skip-doctor] [--doctor-only]
-                   [--agent <auto|opencode|claude|codex|none>] [--no-agent]
-                   [--print-prompt] [--sudo-preauth <auto|always|never>]
+Usage: rakkib init [--agent <auto|opencode|claude|codex|none>] [--no-agent]
+                   [--print-prompt]
 
 Runs the unprivileged Rakkib orchestration flow. On Linux, this command should
 run as your normal admin user. Privileged setup happens later through explicit
-sudo prompts after Phase 6 confirmation.
-
-By default, Rakkib asks to authorize sudo before launching the agent, then keeps
-the sudo timestamp alive only while the agent session is running. The sudo
-password is never stored by Rakkib.
+sudo commands after Phase 6 confirmation.
 USAGE
 }
 
 auth_usage() {
   cat <<'USAGE'
-Usage: rakkib auth <sudo|agent|cloudflare> [subcommand]
+Usage: rakkib auth sudo
 
-Subcommands:
-  sudo [--keepalive]   Validate sudo for this terminal with sudo -v
-  agent                Show supported AI agent CLIs found on PATH
-  cloudflare status    Check cloudflared CLI and login file presence
-  cloudflare login     Run cloudflared tunnel login as the current user
-
-Rakkib never stores your sudo password. `rakkib auth sudo` only asks sudo to
-cache credentials according to the operating system's normal sudo policy.
-With `--keepalive`, Rakkib refreshes the sudo timestamp until interrupted.
+Validates sudo for this terminal with sudo -v. Rakkib never stores your sudo
+password; sudo manages its own timestamp cache according to system policy.
 USAGE
 }
 
@@ -108,83 +88,21 @@ or any target-machine configuration created after install confirmation.
 USAGE
 }
 
-log() {
-  printf '==> %s\n' "$*"
-}
-
-warn() {
-  printf 'WARNING: %s\n' "$*" >&2
-}
-
-die() {
-  printf 'ERROR: %s\n' "$*" >&2
-  exit 1
-}
-
-cleanup_sudo_keepalive() {
-  if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
-    kill "$SUDO_KEEPALIVE_PID" >/dev/null 2>&1 || true
-    wait "$SUDO_KEEPALIVE_PID" >/dev/null 2>&1 || true
-    SUDO_KEEPALIVE_PID=""
-  fi
-}
-
-trap cleanup_sudo_keepalive EXIT
-
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
-shell_quote() {
-  printf '%q' "$1"
-}
-
-state_value() {
-  local state_file="$1"
-  local key="$2"
-  [[ -f "$state_file" ]] || return 1
-  awk -F: -v wanted="$key" '
-    $1 == wanted {
-      value=$0
-      sub("^[^:]*:", "", value)
-      sub("^[[:space:]]*", "", value)
-      sub("[[:space:]]*$", "", value)
-      gsub(/^"|"$/, "", value)
-      print value
-      exit
-    }
-  ' "$state_file"
-}
-
 rerun_command() {
-  printf 'curl -fsSL %s | bash' "$BOOTSTRAP_URL"
-  printf '\n'
+  printf 'curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/Simplify/install.sh | bash\n'
 }
 
 agent_prompt() {
   cat <<'PROMPT'
-Read README.md and AGENT_PROTOCOL.md first.
+Read AGENT_PROTOCOL.md first.
 
 Use this repo as the installer.
 Ask me the question files in order.
 Record answers in .fss-state.yaml.
 Do not write outside the repo until Phase 6 (questions/06-confirm.md).
 Run the agent as the normal admin user. On Linux, do not run the full agent session as root; after confirmation, request sudo only for specific privileged setup actions.
-If Rakkib pre-authorized sudo before launch, use sudo -n for privileged commands so expired authorization fails fast instead of hanging for a password inside the agent session.
-After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
-Stop on any failed Verify block and fix it before continuing.
-PROMPT
-}
-
-install_prompt() {
-  cat <<'PROMPT'
-Read README.md and AGENT_PROTOCOL.md first.
-
-Use this repo as the installer and continue from the confirmed .fss-state.yaml.
-Do not re-run the interview unless required values are missing or confirmed is not true.
-Execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
-Run as the normal admin user and request sudo only for specific privileged setup actions after explaining what will change.
-If Rakkib pre-authorized sudo before launch, use sudo -n for privileged commands so expired authorization fails fast instead of hanging for a password inside the agent session.
+For privileged commands, use sudo -n so expired authorization fails fast instead of hanging for a password inside the agent session.
+After confirmation, execute the numbered files in steps/ in order. Run docs/runbooks/restore-test.md only if restore testing is explicitly requested.
 Stop on any failed Verify block and fix it before continuing.
 PROMPT
 }
@@ -197,7 +115,7 @@ Rakkib is ready for the agent-driven install flow.
 Repo path:
   ${REPO_DIR}
 
-Unprivileged bootstrap entrypoint:
+Bootstrap entrypoint:
   $(rerun_command)
 
 Paste this prompt if your agent was not launched automatically:
@@ -208,65 +126,41 @@ $(agent_prompt)
 EOF
 }
 
-agent_label() {
-  case "$1" in
-    opencode) printf 'OpenCode\n' ;;
-    claude) printf 'Claude Code\n' ;;
-    codex) printf 'Codex\n' ;;
-    *) printf '%s\n' "$1" ;;
-  esac
+ensure_opencode_on_path() {
+  command_exists opencode && return 0
+
+  local candidate sudo_home
+  local candidates=("${HOME}/.opencode/bin" "${HOME}/.local/bin" "/root/.opencode/bin")
+  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    sudo_home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
+    if [[ -n "$sudo_home" ]]; then
+      candidates+=("${sudo_home}/.opencode/bin" "${sudo_home}/.local/bin")
+    fi
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -x "${candidate}/opencode" ]]; then
+      export PATH="${candidate}:${PATH}"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 select_agent() {
-  local candidate choice index
-  local installed=()
+  local candidate
 
   case "$AGENT_MODE" in
     auto)
       ensure_opencode_on_path || true
-
       for candidate in opencode claude codex; do
         if command_exists "$candidate"; then
-          installed+=("$candidate")
-        fi
-      done
-
-      if [[ "${#installed[@]}" -eq 0 ]]; then
-        return 1
-      fi
-
-      if [[ "${#installed[@]}" -eq 1 ]]; then
-        printf '%s\n' "${installed[0]}"
-        return 0
-      fi
-
-      if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
-        warn "Multiple supported agent CLIs found, but no interactive /dev/tty is available for choosing one."
-        return 3
-      fi
-
-      printf '\nRakkib found these AI agent CLIs:\n\n' > /dev/tty
-      index=1
-      for candidate in "${installed[@]}"; do
-        printf '%s. %s\n' "$index" "$(agent_label "$candidate")" > /dev/tty
-        index=$((index + 1))
-      done
-      printf '%s. Do not launch an agent; print the prompt instead\n\n' "$index" > /dev/tty
-
-      while true; do
-        printf 'Which one do you want to use? [1-%s] ' "$index" > /dev/tty
-        IFS= read -r choice < /dev/tty || return 1
-
-        if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= index )); then
-          if (( choice == index )); then
-            return 2
-          fi
-          printf '%s\n' "${installed[$((choice - 1))]}"
+          printf '%s\n' "$candidate"
           return 0
         fi
-
-        warn "Invalid choice: ${choice:-empty}"
       done
+      return 1
       ;;
     opencode|claude|codex)
       if [[ "$AGENT_MODE" == "opencode" ]]; then
@@ -285,205 +179,62 @@ select_agent() {
   esac
 }
 
-ensure_opencode_on_path() {
-  command_exists opencode && return 0
-
-  local candidate admin_home
-  local candidates=("${HOME}/.opencode/bin" "${HOME}/.local/bin")
-
-  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
-    admin_home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
-    if [[ -n "$admin_home" ]]; then
-      candidates+=("${admin_home}/.opencode/bin")
-      candidates+=("${admin_home}/.local/bin")
-    fi
-  fi
-
-  candidates+=("/root/.opencode/bin")
-
-  for candidate in "${candidates[@]}"; do
-    if [[ -x "${candidate}/opencode" ]]; then
-      export PATH="${candidate}:${PATH}"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
 offer_install_opencode() {
   local answer
 
-  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
-    cat >&2 <<'EOF'
-WARNING: No supported agent CLI found on PATH. Looked for: opencode, claude, codex.
-
-No interactive terminal is available to confirm installing OpenCode. Install it manually with:
-
-  curl -fsSL https://opencode.ai/install | bash
-
-Then re-run `rakkib init`.
-
-EOF
-    return 1
-  fi
-
-  cat > /dev/tty <<'EOF'
-
-Rakkib could not find a supported agent CLI on PATH. Looked for: opencode, claude, codex.
-
-Would you like to install OpenCode for the current user now?
-Installer command: curl -fsSL https://opencode.ai/install | bash
-
-EOF
-
-  while true; do
-    printf 'Install OpenCode? [y/N] ' > /dev/tty
-    IFS= read -r answer < /dev/tty || return 1
-    case "$answer" in
-      y|Y|yes|YES|Yes)
-        log "Installing OpenCode"
-        curl -fsSL https://opencode.ai/install | bash
-        hash -r 2>/dev/null || true
-        ensure_opencode_on_path || die "OpenCode installer completed, but opencode was not found in PATH or the expected user-scoped bin locations. Add it to PATH, then re-run rakkib init."
-        return 0
-        ;;
-      ''|n|N|no|NO|No)
-        warn "OpenCode was not installed. Install opencode, claude, or codex, then re-run rakkib init."
-        return 1
-        ;;
-      *)
-        warn "Invalid choice: ${answer:-empty}"
-        ;;
-    esac
-  done
-}
-
-sudo_preauth_supported() {
-  [[ "$(uname -s 2>/dev/null || true)" == "Linux" ]] || return 1
-  [[ "${EUID:-$(id -u)}" -ne 0 ]] || return 1
-  command_exists sudo || return 1
-  [[ -r /dev/tty && -w /dev/tty ]] || return 1
-}
-
-start_sudo_keepalive() {
-  cleanup_sudo_keepalive
-  (
-    while sudo -n -v >/dev/null 2>&1; do
-      sleep 60
-    done
-  ) &
-  SUDO_KEEPALIVE_PID="$!"
-}
-
-authorize_sudo() {
-  if ! sudo_preauth_supported; then
-    return 1
-  fi
-
-  cat > /dev/tty <<'EOF'
-
-Rakkib will need sudo after final confirmation for system setup actions such as
-installing Docker, creating /srv directories, and configuring system services.
-
-Authorize sudo now so the agent session does not stop later for a password.
-Rakkib does not store your sudo password; sudo manages its own timestamp cache.
-
-EOF
-
-  if sudo -v < /dev/tty; then
-    start_sudo_keepalive
-    log "Sudo authorized for this terminal; keepalive is active for the agent session."
+  if ensure_opencode_on_path; then
     return 0
   fi
+  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+    warn "No supported AI agent found on PATH: opencode, claude, codex."
+    return 1
+  fi
 
-  warn "Sudo authorization failed or was cancelled. The agent can still start, but privileged steps may stop later."
-  return 1
-}
-
-maybe_authorize_sudo_for_agent() {
-  local answer
-
-  case "$SUDO_PREAUTH" in
-    never)
-      return 0
-      ;;
-    always)
-      authorize_sudo || return 0
-      return 0
-      ;;
-    auto)
+  printf 'No supported AI agent found on PATH: opencode, claude, codex.\n' > /dev/tty
+  printf 'Install OpenCode now? y/N ' > /dev/tty
+  IFS= read -r answer < /dev/tty || return 1
+  case "$answer" in
+    y|Y)
+      if ensure_opencode_on_path; then
+        return 0
+      fi
+      log "Installing OpenCode"
+      curl -fsSL https://opencode.ai/install | bash
+      hash -r 2>/dev/null || true
+      ensure_opencode_on_path
       ;;
     *)
-      die "unsupported sudo preauthorization mode: ${SUDO_PREAUTH}; expected auto, always, or never"
+      return 1
       ;;
   esac
-
-  sudo_preauth_supported || return 0
-
-  while true; do
-    printf 'Authorize sudo before launching the agent? [Y/n] ' > /dev/tty
-    IFS= read -r answer < /dev/tty || return 0
-    case "$answer" in
-      ''|y|Y|yes|YES|Yes)
-        authorize_sudo || true
-        return 0
-        ;;
-      n|N|no|NO|No)
-        warn "Skipping sudo preauthorization. Privileged steps may require manual intervention later."
-        return 0
-        ;;
-      *)
-        warn "Invalid choice: ${answer:-empty}"
-        ;;
-    esac
-  done
 }
 
 launch_agent_with_prompt() {
   local prompt="$1"
-  local agent status
-
+  local agent
   if agent="$(select_agent)"; then
     :
+  elif [[ "$AGENT_MODE" == "auto" ]] && offer_install_opencode; then
+    agent="opencode"
   else
-    status="$?"
-    if [[ "$AGENT_MODE" == "auto" && "$status" -eq 1 ]] && offer_install_opencode; then
-      agent="opencode"
-    else
-      return 1
-    fi
+    return 1
   fi
 
   if [[ ! -r /dev/tty ]]; then
     warn "No interactive /dev/tty is available; cannot launch ${agent} safely."
     return 1
   fi
-
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     warn "Launching the full AI agent as root is not recommended. Re-run as your normal admin user unless you are intentionally debugging."
   fi
 
-  maybe_authorize_sudo_for_agent
-
   log "Launching ${agent} from ${REPO_DIR}"
   cd "$REPO_DIR"
-
   case "$agent" in
-    opencode)
-      opencode . --prompt "$prompt" < /dev/tty
-      ;;
-    claude)
-      claude "$prompt" < /dev/tty
-      ;;
-    codex)
-      codex "$prompt" < /dev/tty
-      ;;
+    opencode) opencode . --prompt "$prompt" < /dev/tty ;;
+    claude) claude "$prompt" < /dev/tty ;;
+    codex) codex "$prompt" < /dev/tty ;;
   esac
-
-  status="$?"
-  cleanup_sudo_keepalive
-  return "$status"
 }
 
 run_doctor() {
@@ -491,34 +242,7 @@ run_doctor() {
   [[ -x "$doctor" ]] || die "doctor script is missing or not executable: ${doctor}"
 
   log "Running Rakkib doctor"
-  if "$doctor" --state "${REPO_DIR}/.fss-state.yaml"; then
-    return 0
-  fi
-
-  if [[ "$DOCTOR_ONLY" == true ]]; then
-    return 1
-  fi
-
-  warn "Doctor reported failures. This can be normal before Step 00 installs Docker; review the report before proceeding."
-}
-
-detect_platform() {
-  local kernel arch normalized_arch
-  kernel="$(uname -s 2>/dev/null || true)"
-  arch="$(uname -m 2>/dev/null || true)"
-
-  case "$kernel" in
-    Linux|Darwin) ;;
-    *) die "unsupported OS: ${kernel:-unknown}; expected Linux or Mac" ;;
-  esac
-
-  case "$arch" in
-    x86_64|amd64) normalized_arch="amd64" ;;
-    aarch64|arm64) normalized_arch="arm64" ;;
-    *) die "unsupported architecture: ${arch:-unknown}; expected amd64 or arm64" ;;
-  esac
-
-  log "Detected ${kernel}/${normalized_arch}"
+  "$doctor" --state "${REPO_DIR}/.fss-state.yaml" || warn "Doctor reported failures. This can be normal before Step 00 installs Docker; review the report before proceeding."
 }
 
 ensure_tooling() {
@@ -529,29 +253,6 @@ ensure_tooling() {
 parse_init_args() {
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
-      --dir)
-        [[ "$#" -ge 2 ]] || die "missing value for --dir"
-        INSTALL_DIR="$2"
-        shift 2
-        ;;
-      --repo)
-        [[ "$#" -ge 2 ]] || die "missing value for --repo"
-        REPO_URL="$2"
-        shift 2
-        ;;
-      --branch)
-        [[ "$#" -ge 2 ]] || die "missing value for --branch"
-        BRANCH="$2"
-        shift 2
-        ;;
-      --skip-doctor)
-        RUN_DOCTOR=false
-        shift
-        ;;
-      --doctor-only)
-        DOCTOR_ONLY=true
-        shift
-        ;;
       --no-agent)
         AGENT_MODE="print"
         shift
@@ -564,11 +265,6 @@ parse_init_args() {
       --agent)
         [[ "$#" -ge 2 ]] || die "missing value for --agent"
         AGENT_MODE="$2"
-        shift 2
-        ;;
-      --sudo-preauth)
-        [[ "$#" -ge 2 ]] || die "missing value for --sudo-preauth"
-        SUDO_PREAUTH="$2"
         shift 2
         ;;
       -h|--help)
@@ -588,19 +284,13 @@ cmd_init() {
   ensure_tooling
 
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    warn "Rakkib init is designed to run unprivileged. Root will be requested later only for specific setup actions."
+    warn "Rakkib init is designed to run unprivileged. Root should be used only for repair/debug sessions."
   fi
-
-  if [[ "$RUN_DOCTOR" == true ]]; then
-    run_doctor
-  fi
-
-  if [[ "$DOCTOR_ONLY" == false ]]; then
-    if [[ "$PRINT_PROMPT_ONLY" == true || "$AGENT_MODE" == "print" || "$AGENT_MODE" == "none" ]]; then
-      print_agent_prompt
-    elif ! launch_agent_with_prompt "$(agent_prompt)"; then
-      print_agent_prompt
-    fi
+  run_doctor
+  if [[ "$PRINT_PROMPT_ONLY" == true || "$AGENT_MODE" == "print" || "$AGENT_MODE" == "none" ]]; then
+    print_agent_prompt
+  elif ! launch_agent_with_prompt "$(agent_prompt)"; then
+    print_agent_prompt
   fi
 }
 
@@ -616,23 +306,9 @@ cmd_auth() {
 
   case "$topic" in
     sudo)
-      local keepalive=false
-      while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-          --keepalive)
-            keepalive=true
-            shift
-            ;;
-          -h|--help)
-            auth_usage
-            return 0
-            ;;
-          *)
-            die "unknown sudo auth option: $1"
-            ;;
-        esac
-      done
-
+      if [[ "$#" -gt 0 ]]; then
+        die "unknown sudo auth option: $1"
+      fi
       if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
         log "Already running as root; no sudo validation needed."
         return 0
@@ -645,63 +321,6 @@ cmd_auth() {
         sudo -v
       fi
       log "Sudo is ready for this terminal according to your system sudo policy."
-      if [[ "$keepalive" == true ]]; then
-        log "Keeping sudo alive until you press Ctrl-C."
-        while sudo -n -v >/dev/null 2>&1; do
-          sleep 60
-        done
-      fi
-      ;;
-    agent)
-      local found=false candidate
-      for candidate in opencode claude codex; do
-        if command_exists "$candidate"; then
-          found=true
-          printf '[ok] %s: %s\n' "$candidate" "$(command -v "$candidate")"
-        else
-          printf '[missing] %s\n' "$candidate"
-        fi
-      done
-      [[ "$found" == true ]] || return 1
-      ;;
-    cloudflare)
-      local action="${1:-status}"
-      case "$action" in
-        status)
-          if command_exists cloudflared; then
-            printf '[ok] cloudflared: %s\n' "$(command -v cloudflared)"
-            cloudflared --version || true
-          elif [[ -x "${HOME}/.local/bin/cloudflared" ]]; then
-            printf '[ok] cloudflared: %s\n' "${HOME}/.local/bin/cloudflared"
-            "${HOME}/.local/bin/cloudflared" --version || true
-          else
-            printf '[missing] cloudflared CLI\n'
-            return 1
-          fi
-
-          if [[ -f "${HOME}/.cloudflared/cert.pem" ]]; then
-            printf '[ok] Cloudflare login certificate: %s\n' "${HOME}/.cloudflared/cert.pem"
-          else
-            printf '[missing] Cloudflare login certificate: %s\n' "${HOME}/.cloudflared/cert.pem"
-            return 1
-          fi
-          ;;
-        login)
-          if command_exists cloudflared; then
-            exec cloudflared tunnel login
-          elif [[ -x "${HOME}/.local/bin/cloudflared" ]]; then
-            exec "${HOME}/.local/bin/cloudflared" tunnel login
-          else
-            die "cloudflared CLI is missing. Run Step 00 or install cloudflared into ~/.local/bin first."
-          fi
-          ;;
-        -h|--help)
-          auth_usage
-          ;;
-        *)
-          die "unknown cloudflare auth action: ${action}"
-          ;;
-      esac
       ;;
     -h|--help|'')
       auth_usage
@@ -727,13 +346,11 @@ resolve_admin_user() {
     printf '%s' "$explicit_user"
     return 0
   fi
-
   user="$(state_value "$state_file" admin_user 2>/dev/null || true)"
   if [[ -n "$user" ]]; then
     printf '%s' "$user"
     return 0
   fi
-
   if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
     printf '%s' "$SUDO_USER"
     return 0
@@ -826,27 +443,6 @@ cmd_privileged() {
   esac
 }
 
-cmd_install() {
-  local state_file="${REPO_DIR}/.fss-state.yaml"
-  local confirmed
-  confirmed="$(state_value "$state_file" confirmed 2>/dev/null || true)"
-  if [[ "$confirmed" != "true" ]]; then
-    die "${state_file} is not confirmed. Run rakkib init and complete Phase 6 first."
-  fi
-  launch_agent_with_prompt "$(install_prompt)" || {
-    cat <<EOF
-
-Rakkib has confirmed state but could not launch an agent automatically.
-
-Paste this prompt into your agent from ${REPO_DIR}:
-
---- PROMPT START ---
-$(install_prompt)
---- PROMPT END ---
-EOF
-  }
-}
-
 cmd_uninstall() {
   local target="${HOME}/.local/bin/rakkib"
   local profile="${HOME}/.bashrc"
@@ -857,7 +453,6 @@ cmd_uninstall() {
     uninstall_usage
     return 0
   fi
-
   if [[ "$#" -gt 0 ]]; then
     die "unknown uninstall option: $1"
   fi
@@ -878,7 +473,7 @@ cmd_uninstall() {
       skipping && $0 == "esac" { skipping = 0; next }
       !skipping { print }
     ' "$profile" > "$tmp"
-    cat "$tmp" > "$profile"
+    cp "$tmp" "$profile"
     rm -f "$tmp"
     log "Removed managed Rakkib PATH block from ${profile}"
   else
@@ -891,7 +486,6 @@ Rakkib CLI shim uninstall is complete.
 
 If this terminal still resolves rakkib, refresh your shell command cache or open a new terminal:
   hash -r
-
 EOF
 }
 
@@ -913,9 +507,7 @@ main() {
     init) cmd_init "$@" ;;
     doctor) cmd_doctor "$@" ;;
     auth) cmd_auth "$@" ;;
-    agent) launch_agent_with_prompt "$(agent_prompt)" ;;
     prompt) print_agent_prompt ;;
-    install) cmd_install "$@" ;;
     privileged) cmd_privileged "$@" ;;
     uninstall) cmd_uninstall "$@" ;;
     version|--version|-v) cmd_version ;;
