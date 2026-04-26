@@ -29,10 +29,14 @@ fi
 
 if [[ -z "${RAKKIB_DIR:-}" && -f "AGENT_PROTOCOL.md" && -d ".git" ]]; then
   INSTALL_DIR="$(pwd)"
-elif [[ -z "${RAKKIB_DIR:-}" && "${EUID:-$(id -u)}" -eq 0 && -n "$SUDO_USER_HOME" ]]; then
+elif [[ -n "${RAKKIB_DIR:-}" ]]; then
+  INSTALL_DIR="${RAKKIB_DIR}"
+elif [[ "${EUID:-$(id -u)}" -eq 0 && -n "$SUDO_USER_HOME" ]]; then
   INSTALL_DIR="${SUDO_USER_HOME}/Rakkib"
+elif [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+  INSTALL_DIR="/opt/rakkib"
 else
-  INSTALL_DIR="${RAKKIB_DIR:-${HOME}/Rakkib}"
+  INSTALL_DIR="${HOME}/Rakkib"
 fi
 
 usage() {
