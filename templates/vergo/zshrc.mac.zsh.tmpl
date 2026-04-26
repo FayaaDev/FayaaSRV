@@ -60,6 +60,38 @@ if [[ -o interactive ]] && command -v openclaw >/dev/null 2>&1; then
   source <(openclaw completion --shell zsh 2>/dev/null)
 fi
 
+if [[ -o interactive ]] && command -v agent-browser >/dev/null 2>&1; then
+  if [[ -f "$HOME/MyProjects/agenting/browser-agent/stream.html" ]] && command -v open >/dev/null 2>&1; then
+    alias view-browser="open $HOME/MyProjects/agenting/browser-agent/stream.html"
+  fi
+
+  agent-browser() {
+    if [[ "$1" == "stream" ]]; then
+      shift
+      export AGENT_BROWSER_STREAM_PORT=${AGENT_BROWSER_STREAM_PORT:-9223}
+
+      echo 'Enter the port number to open (e.g., 3000, 8080):'
+      read -r target_port
+
+      if [[ -z "$target_port" ]]; then
+        target_url='about:blank'
+      else
+        target_url="http://localhost:$target_port"
+      fi
+
+      command agent-browser open "$target_url" wait 9999999 "$@"
+    elif [[ "$1" == "view" ]]; then
+      if [[ -f "$HOME/MyProjects/agenting/browser-agent/stream.html" ]] && command -v open >/dev/null 2>&1; then
+        open "$HOME/MyProjects/agenting/browser-agent/stream.html"
+      fi
+    else
+      command agent-browser "$@"
+    fi
+  }
+
+  alias browser-agent="agent-browser"
+fi
+
 # Keep syntax highlighting last so it sees the final widget state.
 if [[ -o interactive ]]; then
   ziplugin light zdharma-continuum/fast-syntax-highlighting
