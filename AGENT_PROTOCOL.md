@@ -4,7 +4,7 @@ This file defines the exact operating procedure for any coding agent using this 
 
 ## Global Rules
 
-1. Read `README.md`, `registry.yaml`, `lib/placeholders.md`, and the current question file before acting.
+1. Read `AGENT_PROTOCOL.md`, `registry.yaml`, `lib/placeholders.md`, and the current question file before acting.
 2. Use `.fss-state.yaml` as the single source of truth for collected answers and derived values.
 3. Do not write outside the repo during Phases 1 through 6.
 4. Ask questions exactly in order. Validate and normalize answers before recording them. When a value is marked as host-detected, run the required local command instead of asking the user.
@@ -171,19 +171,17 @@ Only after `confirmed: true` may the agent modify the target machine.
 After confirmation, run these step files in numeric order:
 
 1. `steps/00-prereqs.md`
-2. `steps/05-preflight.md`
-3. `steps/10-layout.md`
-4. `steps/20-network.md`
-5. `steps/30-caddy.md`
-6. `steps/40-cloudflare.md`
-7. `steps/50-postgres.md`
-8. `steps/60-services.md`
-9. `steps/70-host-agents.md`
-10. `steps/72-host-customization.md`
-11. `steps/80-backups.md`
-12. `steps/82-restore-test.md` when explicitly running a restore dry run or post-backup restore test; skip on first install unless the user asks
-13. `steps/85-health-crons.md`
-14. `steps/90-verify.md`
+2. `steps/10-layout.md`
+3. `steps/30-caddy.md`
+4. `steps/40-cloudflare.md`
+5. `steps/50-postgres.md`
+6. `steps/60-services.md`
+7. `steps/70-host-agents.md`
+8. `steps/72-host-customization.md`
+9. `steps/80-cron-jobs.md`
+10. `steps/90-verify.md`
+
+Run `docs/runbooks/restore-test.md` only when explicitly performing a restore dry run or restore round-trip test. It is not part of the first-install step sequence.
 
 ## Rendering Rules
 
@@ -208,16 +206,16 @@ After confirmation, run these step files in numeric order:
 3. Render Caddy changes to a candidate file and validate before replacing the active Caddyfile. Restore the previous file and stop if validation fails.
 4. Replace cron entries by Rakkib marker comments rather than appending new lines.
 5. Detect existing Cloudflare tunnels by name before creating a new tunnel.
-6. Use `./scripts/rakkib-doctor` as a standalone diagnostic and as the Step 05 install gate.
+6. Use `./scripts/rakkib-doctor` as a standalone diagnostic and as the final Step 00 install gate.
 
 ## Privilege Rules
 
-1. Linux orchestration is user-first. The bootstrapper should be run as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`.
-2. Do not run the full AI agent session as root by default. If a legacy `sudo -E bash` bootstrap is used and `SUDO_USER` is available, the bootstrapper should hand off to `rakkib init` as that user.
+1. Linux orchestration is user-first. The bootstrapper should be run as `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/Simplify/install.sh | bash`.
+2. Do not run the full AI agent session as root by default. If the bootstrapper is run as root, it exits and tells the user to rerun as the normal admin user.
 3. In Phase 1 on Linux, check `id -u`. If it is not `0`, record `privilege_mode: sudo` and `privilege_strategy: on_demand`; continue the interview unprivileged.
 4. If `id -u` is `0`, record `privilege_mode: root` and `privilege_strategy: root_process`, but warn the user that root orchestration is intended only for repair/debug sessions. If `SUDO_USER` is set, ask whether to restart as that admin user before continuing.
-5. Do not try `sudo -S`, do not ask for passwords in chat, and do not store sudo credentials in `.fss-state.yaml`. `rakkib init` should pre-authorize sudo before launching the agent when the user agrees, and keep the sudo timestamp alive only while the agent session is running.
-6. After Phase 6 confirmation, privileged Linux actions should use `sudo -n` or `sudo -n rakkib privileged <allowlisted-action>` after briefly explaining what system area will change. If sudo authorization has expired, stop and ask the user to run `rakkib auth sudo --keepalive` in a terminal or restart with `rakkib init`; do not hang on an interactive password prompt inside the agent session. Prefer `rakkib privileged` helpers when they exist.
+5. Do not try `sudo -S`, do not ask for passwords in chat, and do not store sudo credentials in `.fss-state.yaml`. If the user wants to pre-authorize sudo, ask them to run `rakkib auth sudo` in the terminal before confirmed privileged work starts.
+6. After Phase 6 confirmation, privileged Linux actions should use `sudo -n` or `sudo -n rakkib privileged <allowlisted-action>` after briefly explaining what system area will change. If sudo authorization has expired, stop and ask the user to run `rakkib auth sudo`; do not hang on an interactive password prompt inside the agent session. Prefer `rakkib privileged` helpers when they exist.
 7. Use `{{ADMIN_USER}}` as the owner for the repo, `/srv` files that should be user-writable, and user-scoped services. Step 90 must verify ownership for later unprivileged maintenance.
 8. Prefer user-scoped installs when they satisfy the requirement. The host `cloudflared` CLI should be installed into the admin user's `~/.local/bin`.
 
