@@ -51,7 +51,7 @@ Always installed: **Caddy**, **Cloudflared**, **PostgreSQL** (`pgvector/pgvector
 
 Foundation bundle (preselected, user may deselect): **NocoDB**, **Authentik**, **Homepage**, **Uptime Kuma**, **Dockge**.
 
-Optional (user-selected): **n8n**, **DBHub**, **Immich** (CPU-only Docker stack with dedicated Postgres/Valkey), **OpenClaw** (host service, not a container).
+Optional (user-selected): **n8n**, **DBHub**, **Immich** (CPU-only Docker stack with dedicated Postgres/Valkey), **OpenClaw** (host service, not a container), **Hermes** (host dashboard protected by Authentik).
 
 Only render templates, compose files, blueprints, and public routes for services that remain selected.
 
@@ -67,6 +67,7 @@ Linux installs use unprivileged orchestration with explicit sudo for system chan
 - Step 90 verifies repo and state-file ownership for later unprivileged maintenance.
 - `cloudflared` CLI installs into the admin user's `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).
+- Hermes installs from the official installer into `~/.local/bin/hermes` and runs its dashboard as a user service on the Docker host gateway port 9119.
 
 ## State File
 
@@ -78,8 +79,8 @@ Linux installs use unprivileged orchestration with explicit sudo for system chan
 - `foundation_services` — kept from the recommended foundation bundle
 - `selected_services` — optional add-on services the user chose
 - foundation subdomains for selected services: `subdomains.nocodb`, `subdomains.auth`, `subdomains.home`, `subdomains.status`, `subdomains.dockge`
-- optional subdomains for selected services: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`
-- `claw_gateway_port: 18789`, `cloudflared_metrics_port: 20241` (always these defaults)
+- optional subdomains for selected services: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`, `subdomains.hermes`
+- `claw_gateway_port: 18789`, `hermes_dashboard_port: 9119`, `cloudflared_metrics_port: 20241` (always these defaults)
 - `cloudflare.auth_method` — prefer `browser_login`; do not store raw Cloudflare API tokens in state
 - `cloudflare.tunnel_creds_host_path` and `cloudflare.tunnel_creds_container_path` — derive from `tunnel_uuid` once known
 

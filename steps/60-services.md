@@ -60,6 +60,7 @@ Skip any service not present in `foundation_services`. After each service starts
    - `uptime-kuma` in `foundation_services` → render `templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl`
    - `dockge` in `foundation_services` → render `templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl`
    - `n8n` in `selected_services` → render `templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl`
+   - `hermes` in `selected_services` → render `templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl`
 4. Render `.env` from `templates/docker/authentik/.env.example` into `{{DATA_ROOT}}/docker/authentik/.env`.
 5. Render `docker-compose.yml` from `templates/docker/authentik/docker-compose.yml.tmpl`.
 6. Run `docker compose up -d`.
@@ -111,7 +112,7 @@ Verify: `curl -s http://localhost/health` still returns OK and no Caddy error ou
 
 ### 60.4 — Deploy Optional Services
 
-Process in order: n8n → dbhub → immich → openclaw. Skip any not in `selected_services`.
+Process in order: n8n → dbhub → immich → openclaw → hermes. Skip any not in `selected_services`.
 For each: render `.env`, render `docker-compose.yml` (and any extra config files), run `docker compose up -d`, then run the per-service verify. Reload Caddy once after all optional services are deployed.
 
 #### n8n
@@ -145,6 +146,16 @@ For each: render `.env`, render `docker-compose.yml` (and any extra config files
 - Render `templates/caddy/routes/claw.caddy.tmpl`.
 - Verify: `curl -sf http://{{HOST_GATEWAY}}:{{CLAW_GATEWAY_PORT}}/health`.
 
+#### Hermes
+
+- Require `authentik` to remain in `foundation_services`; stop rather than exposing the dashboard without Authentik protection.
+- Install Hermes from the official installer as the admin user with setup skipped: `curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup`.
+- Verify the real entrypoint exists at `~/.local/bin/hermes` before writing the service wrapper.
+- Install and enable the systemd user unit (Linux) or launchd plist (Mac) from `templates/systemd/hermes-dashboard.service.tmpl` or `templates/launchd/hermes-dashboard.plist.tmpl`.
+- Render `templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl`.
+- Render `templates/caddy/routes/hermes.caddy.tmpl`.
+- Verify: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`.
+
 ## Service Notes
 
 NocoDB:
@@ -165,6 +176,10 @@ Immich:
 - preserve `IMMICH_DB_PASSWORD`; rotating it after data exists will break database access
 - CPU-only install in v1; hardware acceleration can be added later as a separate reviewed option
 
+Hermes:
+- keep the dashboard bound to `{{HOST_GATEWAY}}` on Linux so only the Docker bridge can reach it directly; Caddy applies Authentik forward auth before public access
+- run `hermes setup` or `hermes model` manually after install to configure providers and credentials
+
 ## Verify
 
 - `docker ps | grep nocodb` (if in foundation)
@@ -176,3 +191,5 @@ Immich:
 - if selected: `docker ps | grep n8n`
 - if selected: `docker ps | grep dbhub`
 - if selected: `docker ps | grep immich_server`
+- if selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
+- if selected: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`

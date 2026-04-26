@@ -8,7 +8,7 @@ type Service = {
   name: string
   description: string
   optional?: boolean
-  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'claw' | 'shield' | 'monitor' | 'docker'
+  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
 }
 
 const services: Service[] = [
@@ -80,6 +80,12 @@ const services: Service[] = [
     optional: true,
     icon: 'claw',
   },
+  {
+    name: 'Hermes',
+    description: 'AI agent dashboard',
+    optional: true,
+    icon: 'hermes',
+  },
 ]
 
 function ServiceIcon({ icon }: { icon: Service['icon'] }) {
@@ -139,6 +145,17 @@ function ServiceIcon({ icon }: { icon: Service['icon'] }) {
         <path d="M16 25c2-4 3-9 2-18" />
         <path d="M23 25c-1-4-1-9 1-17" />
         <path d="M7 25h18" />
+      </svg>
+    )
+  }
+
+  if (icon === 'hermes') {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 4l8 5v8c0 5-3 9-8 11-5-2-8-6-8-11V9l8-5Z" />
+        <path d="M11 16h10" />
+        <path d="M16 10v12" />
+        <path d="M12 8c1 2 7 2 8 0" />
       </svg>
     )
   }

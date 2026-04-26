@@ -1,0 +1,22 @@
+[Unit]
+Description=Hermes Agent Dashboard
+After=network-online.target
+Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+WorkingDirectory=%h
+ExecStart=%h/.local/bin/hermes dashboard --host {{HOST_GATEWAY}} --port {{HERMES_DASHBOARD_PORT}} --no-open
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+TimeoutStartSec=30
+SuccessExitStatus=0 143
+KillMode=control-group
+Environment=TMPDIR=/tmp
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HERMES_DASHBOARD_PORT={{HERMES_DASHBOARD_PORT}}
+
+[Install]
+WantedBy=default.target

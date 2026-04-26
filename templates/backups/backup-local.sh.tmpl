@@ -103,6 +103,9 @@ discover_services() {
             SERVICES+=("$service")
         fi
     done
+    if [[ -d "$HOME/.hermes" ]]; then
+        SERVICES+=("hermes")
+    fi
 }
 
 docker_container_running() {
@@ -264,6 +267,7 @@ discover_postgres_databases
 archive_dir "${DATA_ROOT}/docker" "docker" --exclude 'docker/*/.env'
 archive_dir "${DATA_ROOT}/data" "data" --exclude 'data/postgres' --exclude 'data/postgres/*' --exclude 'data/cloudflared/*.json' --exclude 'data/cloudflared/cert.pem'
 archive_dir "${DATA_ROOT}/MDs" "docs"
+archive_dir "$HOME/.hermes" "hermes" --exclude 'hermes/.env'
 archive_secrets
 dump_postgres
 write_manifest_text

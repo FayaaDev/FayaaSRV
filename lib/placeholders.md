@@ -56,6 +56,8 @@ Every template in this repository uses `{{PLACEHOLDER}}` syntax for direct strin
 - `{{IMMICH_VERSION}}`: Immich container tag, default `release`
 - `{{OPENCLAW_SUBDOMAIN}}`: default `claw`
 - `{{CLAW_GATEWAY_PORT}}`: default `18789`, derived and recorded before rendering OpenClaw files
+- `{{HERMES_SUBDOMAIN}}`: default `hermes`
+- `{{HERMES_DASHBOARD_PORT}}`: default `9119`, derived and recorded before rendering Hermes files
 - `{{CLOUDFLARED_METRICS_PORT}}`: default `20241`, derived and recorded before rendering Cloudflared files
 
 ## Rule

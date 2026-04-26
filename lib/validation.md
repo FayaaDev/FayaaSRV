@@ -57,13 +57,18 @@ Use these checks after each deployment step. Do not continue if a required check
 
 ## Step 70
 
-- `node --version`
-- `npm --version`
-- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/openclaw"`
-- `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/openclaw" --version`
-- Linux: `systemctl --user status openclaw-gateway.service --no-pager`
-- Mac: `launchctl print gui/$(id -u)/openclaw-gateway`
-- `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`
+- if OpenClaw is selected: `node --version`
+- if OpenClaw is selected: `npm --version`
+- if OpenClaw is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/openclaw"`
+- if OpenClaw is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/openclaw" --version`
+- if OpenClaw is selected on Linux: `systemctl --user status openclaw-gateway.service --no-pager`
+- if OpenClaw is selected on Mac: `launchctl print gui/$(id -u)/openclaw-gateway`
+- if OpenClaw is selected: `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`
+- if Hermes is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
+- if Hermes is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/hermes" --version`
+- if Hermes is selected on Linux: `systemctl --user status hermes-dashboard.service --no-pager`
+- if Hermes is selected on Mac: `launchctl print gui/$(id -u)/hermes-dashboard`
+- if Hermes is selected: `curl -I http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`
 
 ## Step 80
 
@@ -93,6 +98,7 @@ Use these checks after each deployment step. Do not continue if a required check
 - if selected: `curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}/`
+- if selected: `curl -I https://{{HERMES_SUBDOMAIN}}.{{DOMAIN}}/`
 - `test -f {{DATA_ROOT}}/README.md`
 - `test -f ~/.claude/CLAUDE.md`
 

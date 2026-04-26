@@ -42,6 +42,7 @@ subdomains:
   nocodb: nocodb
   n8n: n8n
   immich: immich
+  hermes: hermes
 cloudflare:
   zone_in_cloudflare: true
   auth_method: browser_login
@@ -53,6 +54,7 @@ cloudflare:
   tunnel_creds_host_path: null
   tunnel_creds_container_path: null
 claw_gateway_port: 18789
+hermes_dashboard_port: 9119
 cloudflared_metrics_port: 20241
 secrets:
   mode: generate
@@ -64,7 +66,9 @@ Derived value rules:
 - Detect `arch` from the host with `uname -m` during Phase 1 and normalize it to `amd64` or `arm64` before recording it.
 - Detect `lan_ip` from the host during Phase 2 and record the first usable LAN IPv4 address before rendering templates.
 - Always derive `claw_gateway_port` as `18789` unless the repo is explicitly changed to ask for a different value.
+- Always derive `hermes_dashboard_port` as `9119` unless the repo is explicitly changed to ask for a different value.
 - Always derive `cloudflared_metrics_port` as `20241` unless the repo is explicitly changed to ask for a different value.
+- If `hermes` is selected, `authentik` must remain in `foundation_services`; do not expose the Hermes dashboard without Authentik protection in v1.
 - Record Cloudflare auth as `cloudflare.auth_method` with one of `browser_login`, `api_token`, or `existing_tunnel`. Use `browser_login` as the normal path and record `cloudflare.headless` as `true` or `false` for new tunnels.
 - On Linux, the installer orchestration should run as the normal admin user. Record `privilege_mode: sudo` and `privilege_strategy: on_demand` unless the user is intentionally repairing from a root shell.
 - If Linux is running as root through `sudo` with `SUDO_USER` set, prefer re-running `rakkib init` as `SUDO_USER` before launching an agent. Do not run the full AI agent session as root by default.
@@ -91,6 +95,7 @@ Required direct mappings:
 - `host_gateway` -> `{{HOST_GATEWAY}}`
 - `backup_dir` -> `{{BACKUP_DIR}}`
 - `claw_gateway_port` -> `{{CLAW_GATEWAY_PORT}}`
+- `hermes_dashboard_port` -> `{{HERMES_DASHBOARD_PORT}}`
 - `cloudflared_metrics_port` -> `{{CLOUDFLARED_METRICS_PORT}}`
 
 Nested mappings:
@@ -104,6 +109,7 @@ Nested mappings:
 - if `dbhub` is selected: `subdomains.dbhub` -> `{{DBHUB_SUBDOMAIN}}`
 - if `immich` is selected: `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
 - if `openclaw` is selected: `subdomains.claw` -> `{{OPENCLAW_SUBDOMAIN}}`
+- if `hermes` is selected: `subdomains.hermes` -> `{{HERMES_SUBDOMAIN}}`
 
 Secrets mapping:
 
@@ -124,6 +130,7 @@ Derived multiline placeholders:
   - `- DBHub at https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}`
   - `- Immich at https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}`
   - `- OpenClaw at https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}`
+  - `- Hermes at https://{{HERMES_SUBDOMAIN}}.{{DOMAIN}}`
 - Build `{{HOST_ADDON_SUMMARY_LINES}}` before rendering `templates/agent-memory/SERVER_README.md.tmpl`.
 - If no host addons are selected, set it to `- None`.
 - If `vergo_terminal` is selected, include `- VErgo Terminal shell environment`.

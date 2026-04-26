@@ -94,6 +94,7 @@ Optional per user choice:
 - DBHub
 - Immich
 - OpenClaw
+- Hermes
 
 Optional host addon per user choice:
 - VErgo Terminal
@@ -101,6 +102,11 @@ Optional host addon per user choice:
 OpenClaw install model in v1:
 - When selected, install OpenClaw from npm as a user-scoped binary at `~/.local/bin/openclaw`.
 - Require `node >= 22.14.0` and `npm` before rendering the host service wrapper.
+
+Hermes install model in v1:
+- When selected, install Hermes Agent from the official installer as a user-scoped binary at `~/.local/bin/hermes`.
+- Run the Hermes dashboard on `{{HOST_GATEWAY}}:9119` as a host user service and expose it only behind Authentik.
+- Require `authentik` to remain in `foundation_services` when `hermes` is selected.
 
 Immich install model in v1:
 - When selected, install CPU-only Immich using its dedicated Docker Compose stack.
@@ -146,6 +152,7 @@ Derived defaults that must be recorded before rendering:
 - `privilege_mode: sudo` for the normal Linux/Mac flow
 - `privilege_strategy: on_demand` for the normal Linux/Mac flow
 - `claw_gateway_port: 18789`
+- `hermes_dashboard_port: 9119`
 - `cloudflared_metrics_port: 20241`
 - `foundation_services`: list of selected foundation bundle services
 - `selected_services`: list of selected optional services
@@ -157,7 +164,7 @@ Derived defaults that must be recorded before rendering:
   - `cloudflare.tunnel_creds_container_path: /home/nonroot/.cloudflared/<tunnel_uuid>.json`
 - subdomain keys for selected services only:
   - foundation: `subdomains.nocodb`, `subdomains.auth`, `subdomains.home`, `subdomains.status`, `subdomains.dockge`
-  - optional: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`
+  - optional: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`, `subdomains.hermes`
 
 ## Agent Memory Outputs
 
@@ -200,6 +207,7 @@ On a fresh machine, an agent should be able to use only this repo plus the user'
   - `https://{{DBHUB_SUBDOMAIN}}.<domain>`
   - `https://{{IMMICH_SUBDOMAIN}}.<domain>`
   - `https://{{OPENCLAW_SUBDOMAIN}}.<domain>`
+  - `https://{{HERMES_SUBDOMAIN}}.<domain>`
 
 with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating style as the source server.
 

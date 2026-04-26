@@ -33,6 +33,7 @@ Optional (pick what you want):
 - **DBHub** — expose your database to AI agents over MCP
 - **Immich** — self-hosted photo and video library
 - **OpenClaw** — bring Claude Code skills to your server
+- **Hermes** — NousResearch AI agent dashboard, protected by Authentik
 
 Optional host addon:
 - **VErgo Terminal** — user-scoped zsh, Powerlevel10k prompt, completions, CLI tools, Meslo Nerd Fonts, and macOS WezTerm config
