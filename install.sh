@@ -466,6 +466,36 @@ install_cli_shim() {
     log "Installed rakkib CLI shim at ${target}"
 }
 
+ensure_bash_path() {
+    local user_home profile local_bin marker
+    user_home="${BOOTSTRAP_USER_HOME:-${HOME}}"
+    profile="${user_home}/.bashrc"
+    local_bin="${user_home}/.local/bin"
+    marker="# Added by Rakkib: user-local bin on PATH"
+
+    if [[ ":${PATH}:" == *":${local_bin}:"* ]]; then
+        return 0
+    fi
+
+    if [[ -f "$profile" ]] && run_as_bootstrap_user grep -Fq "$marker" "$profile"; then
+        return 0
+    fi
+
+    run_as_bootstrap_user touch "$profile"
+    run_as_bootstrap_user bash -c '
+        profile="$1"
+        marker="$2"
+        {
+            printf "\n%s\n" "$marker"
+            printf "%s\n" "case \":\$PATH:\" in"
+            printf "%s\n" "  *\":\$HOME/.local/bin:\"*) ;;"
+            printf "%s\n" "  *) export PATH=\"\$HOME/.local/bin:\$PATH\" ;;"
+            printf "%s\n" "esac"
+        } >> "$profile"
+    ' bash "$profile" "$marker"
+    log "Added ~/.local/bin to PATH in ${profile}"
+}
+
 print_next_steps() {
     local cli="${INSTALL_DIR}/bin/rakkib"
     local user_home target
@@ -493,6 +523,10 @@ Next step:
   rakkib init
 
 If rakkib is not on PATH yet, run:
+  source ~/.bashrc
+  rakkib init
+
+Or run it directly:
   ${target} init
 
 EOF
@@ -505,6 +539,7 @@ main() {
     ensure_tooling
     prepare_repo
     install_cli_shim
+    ensure_bash_path
     print_next_steps
 }
 

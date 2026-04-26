@@ -39,6 +39,7 @@ Commands:
   prompt       Print the installer prompt
   install      Launch the agent in confirmed install execution mode
   privileged   Run a small allowlisted root-only helper action
+  uninstall    Remove the user-scoped rakkib command shim
   version      Print version information
 
 Run `rakkib <command> --help` for command-specific options.
@@ -92,6 +93,18 @@ Options:
   --data-root <path>   Data root override, default from state or /srv
   --admin-user <user>  Admin user override, default from state or SUDO_USER
   --repo-dir <path>    Repo path for fix-repo-owner, default: current repo
+USAGE
+}
+
+uninstall_usage() {
+  cat <<'USAGE'
+Usage: rakkib uninstall
+
+Removes the user-scoped rakkib command shim at ~/.local/bin/rakkib and the
+managed Rakkib PATH block from ~/.bashrc when present.
+
+This does not delete the Rakkib repository, deployed services, Docker data,
+or any target-machine configuration created after install confirmation.
 USAGE
 }
 
@@ -827,6 +840,54 @@ EOF
   }
 }
 
+cmd_uninstall() {
+  local target="${HOME}/.local/bin/rakkib"
+  local profile="${HOME}/.bashrc"
+  local marker="# Added by Rakkib: user-local bin on PATH"
+  local tmp
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    uninstall_usage
+    return 0
+  fi
+
+  if [[ "$#" -gt 0 ]]; then
+    die "unknown uninstall option: $1"
+  fi
+
+  if [[ -L "$target" ]]; then
+    rm "$target"
+    log "Removed rakkib CLI shim at ${target}"
+  elif [[ -e "$target" ]]; then
+    warn "Not removing ${target} because it is not a symlink. Remove it manually if you own it."
+  else
+    log "No rakkib CLI shim found at ${target}"
+  fi
+
+  if [[ -f "$profile" ]] && grep -Fq "$marker" "$profile"; then
+    tmp="$(mktemp)"
+    awk -v marker="$marker" '
+      $0 == marker { skipping = 1; next }
+      skipping && $0 == "esac" { skipping = 0; next }
+      !skipping { print }
+    ' "$profile" > "$tmp"
+    cat "$tmp" > "$profile"
+    rm -f "$tmp"
+    log "Removed managed Rakkib PATH block from ${profile}"
+  else
+    log "No managed Rakkib PATH block found in ${profile}"
+  fi
+
+  cat <<'EOF'
+
+Rakkib CLI shim uninstall is complete.
+
+If this terminal still resolves rakkib, refresh your shell command cache or open a new terminal:
+  hash -r
+
+EOF
+}
+
 cmd_version() {
   local git_ref="unknown"
   if command_exists git && git -C "$REPO_DIR" rev-parse --short HEAD >/dev/null 2>&1; then
@@ -849,6 +910,7 @@ main() {
     prompt) print_agent_prompt ;;
     install) cmd_install "$@" ;;
     privileged) cmd_privileged "$@" ;;
+    uninstall) cmd_uninstall "$@" ;;
     version|--version|-v) cmd_version ;;
     help|--help|-h|'') usage ;;
     *) die "unknown command: ${command}" ;;
