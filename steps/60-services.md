@@ -112,7 +112,7 @@ Verify: `curl -s http://localhost/health` still returns OK and no Caddy error ou
 
 ### 60.4 — Deploy Optional Services
 
-Process in order: n8n → dbhub → immich → openclaw → hermes. Skip any not in `selected_services`.
+Process in order: n8n → dbhub → immich → transfer → openclaw → hermes. Skip any not in `selected_services`.
 For each: render `.env`, render `docker-compose.yml` (and any extra config files), run `docker compose up -d`, then run the per-service verify. Reload Caddy once after all optional services are deployed.
 
 #### n8n
@@ -138,6 +138,16 @@ For each: render `.env`, render `docker-compose.yml` (and any extra config files
 - Render `templates/caddy/routes/immich.caddy.tmpl`.
 - Do not place Immich behind Authentik `forward_auth` by default; Immich has native auth and mobile/API clients can break behind an external auth gate.
 - Verify: `docker ps | grep immich_server` and `docker inspect --format '{{.State.Health.Status}}' immich_server` eventually returns `healthy`.
+
+#### transfer.sh
+
+- Warn again before deployment: transfer.sh is intentionally not behind Authentik or HTTP basic auth, so anyone who can reach `https://{{TRANSFER_SUBDOMAIN}}.{{DOMAIN}}` can upload files.
+- Create data directory: `{{DATA_ROOT}}/data/transfer`.
+- Ensure the directory is writable by the no-root container UID/GID `5000:5000`; on Linux use `sudo -n chown -R 5000:5000 {{DATA_ROOT}}/data/transfer` if needed.
+- Render `.env` from `templates/docker/transfer/.env.example` into `{{DATA_ROOT}}/docker/transfer/.env`.
+- Render `docker-compose.yml` from `templates/docker/transfer/docker-compose.yml.tmpl`.
+- Render `templates/caddy/routes/transfer.caddy.tmpl`.
+- Verify: `docker ps | grep transfer` and `curl -sf http://localhost:8081/`.
 
 #### OpenClaw
 
@@ -176,6 +186,11 @@ Immich:
 - preserve `IMMICH_DB_PASSWORD`; rotating it after data exists will break database access
 - CPU-only install in v1; hardware acceleration can be added later as a separate reviewed option
 
+transfer.sh:
+- intentionally public and unauthenticated in Rakkib because external auth breaks common `curl --upload-file` workflows and the transfer.sh API behavior
+- use local filesystem storage at `{{DATA_ROOT}}/data/transfer`
+- default retention is 14 days with hourly purge checks; change `TRANSFER_PURGE_DAYS` in the rendered `.env` if the owner accepts the storage risk
+
 Hermes:
 - keep the dashboard bound to `{{HOST_GATEWAY}}` on Linux so only the Docker bridge can reach it directly; Caddy applies Authentik forward auth before public access
 - run `hermes setup` or `hermes model` manually after install to configure providers and credentials
@@ -191,5 +206,6 @@ Hermes:
 - if selected: `docker ps | grep n8n`
 - if selected: `docker ps | grep dbhub`
 - if selected: `docker ps | grep immich_server`
+- if selected: `docker ps | grep transfer`
 - if selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
 - if selected: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`

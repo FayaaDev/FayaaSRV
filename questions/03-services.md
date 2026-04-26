@@ -40,11 +40,12 @@ Optional Services:
   [ ] 6  n8n           — workflow automation    →  n8n.<domain>
   [ ] 7  DBHub         — database browser       →  dbhub.<domain>
   [ ] 8  Immich        — photo library          →  immich.<domain>
-  [ ] 9  OpenClaw      — AI gateway             →  claw.<domain>
-  [ ] 10 Hermes        — AI agent dashboard     →  hermes.<domain>
+  [ ] 9  transfer.sh   — public file sharing    →  transfer.<domain>
+  [ ] 10 OpenClaw      — AI gateway             →  claw.<domain>
+  [ ] 11 Hermes        — AI agent dashboard     →  hermes.<domain>
 
 Optional Host Addons:
-  [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
+  [ ] 12 VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
 
 ---
@@ -66,12 +67,13 @@ Ask:
 
 Ask:
 
-> "Optional Services: type numbers to add (e.g. `6 8 10`), or press Enter to skip all:"
+> "Optional Services: type numbers to add (e.g. `6 8 11`), or press Enter to skip all:"
 
-- Parse the response as a space-separated list of integers (6–10).
+- Parse the response as a space-separated list of integers (6–11).
 - Add the corresponding services to the selection.
 - If the user presses Enter with no input, none are selected.
-- If `10` selects `hermes`, require `authentik` to remain in the foundation bundle. If Authentik was deselected, warn: "Hermes dashboard exposure requires Authentik protection in Rakkib v1. Re-select Authentik or deselect Hermes." Do not record `hermes` without `authentik`.
+- If `9` selects `transfer`, warn before recording it: "transfer.sh will be deployed as a public unauthenticated upload endpoint. Anyone who can reach the URL can upload files. Rakkib does not put transfer.sh behind Authentik or HTTP basic auth because that interferes with its CLI/API behavior." Ask the user to confirm they accept this risk before recording `transfer`; do not record it if they decline.
+- If `11` selects `hermes`, require `authentik` to remain in the foundation bundle. If Authentik was deselected, warn: "Hermes dashboard exposure requires Authentik protection in Rakkib v1. Re-select Authentik or deselect Hermes." Do not record `hermes` without `authentik`.
 
 ---
 
@@ -79,10 +81,10 @@ Ask:
 
 Ask:
 
-> "Optional Host Addons: type numbers to add (e.g. `11`), or press Enter to skip all:"
+> "Optional Host Addons: type numbers to add (e.g. `12`), or press Enter to skip all:"
 
 - Parse the response as a space-separated list of integers.
-- `11` selects `vergo_terminal`.
+- `12` selects `vergo_terminal`.
 - If the user presses Enter with no input, no host addons are selected.
 - Warn before recording `vergo_terminal`: "VErgo Terminal modifies the admin user's shell dotfiles (`~/.zshrc`, `~/.zshenv`, `~/.p10k.zsh`, and on Mac `~/.wezterm.lua`). Existing files are backed up before replacement."
 
@@ -94,7 +96,7 @@ Host addons do not receive subdomains and must not be included in this section.
 
 After the service and host-addon rounds, ask:
 
-> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, claw, hermes. (y/n)"
+> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, transfer, claw, hermes. (y/n)"
 
 If `y`:
 - For each selected service (foundation + optional), ask: "Subdomain for `<service>`? [default: `<default>`]"
@@ -126,6 +128,7 @@ subdomains:
   n8n: n8n                       # only if n8n is in selected_services
   dbhub: dbhub                   # only if dbhub is in selected_services
   immich: immich                 # only if immich is in selected_services
+  transfer: transfer             # only if transfer is in selected_services
   claw: claw                     # only if openclaw is in selected_services
   hermes: hermes                 # only if hermes is in selected_services
 ```
@@ -142,5 +145,6 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.n8n`        → `{{N8N_SUBDOMAIN}}`
 - `subdomains.dbhub`      → `{{DBHUB_SUBDOMAIN}}`
 - `subdomains.immich`     → `{{IMMICH_SUBDOMAIN}}`
+- `subdomains.transfer`   → `{{TRANSFER_SUBDOMAIN}}`
 - `subdomains.claw`       → `{{OPENCLAW_SUBDOMAIN}}`
 - `subdomains.hermes`     → `{{HERMES_SUBDOMAIN}}`

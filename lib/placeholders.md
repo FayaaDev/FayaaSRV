@@ -54,6 +54,7 @@ Every template in this repository uses `{{PLACEHOLDER}}` syntax for direct strin
 - `{{IMMICH_SUBDOMAIN}}`: default `immich`
 - `{{IMMICH_DB_PASSWORD}}`: Immich dedicated Postgres password, never rotate after first use
 - `{{IMMICH_VERSION}}`: Immich container tag, default `release`
+- `{{TRANSFER_SUBDOMAIN}}`: default `transfer`
 - `{{OPENCLAW_SUBDOMAIN}}`: default `claw`
 - `{{CLAW_GATEWAY_PORT}}`: default `18789`, derived and recorded before rendering OpenClaw files
 - `{{HERMES_SUBDOMAIN}}`: default `hermes`

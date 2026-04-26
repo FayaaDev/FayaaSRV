@@ -41,6 +41,7 @@ curl -I https://{{DOCKGE_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}/
+curl -I https://{{TRANSFER_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}/
 curl -I https://{{HERMES_SUBDOMAIN}}.{{DOMAIN}}/
 ```

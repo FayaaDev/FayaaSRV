@@ -8,7 +8,7 @@ type Service = {
   name: string
   description: string
   optional?: boolean
-  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
+  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
 }
 
 const services: Service[] = [
@@ -73,6 +73,12 @@ const services: Service[] = [
     description: 'Photo library',
     optional: true,
     icon: 'photos',
+  },
+  {
+    name: 'transfer.sh',
+    description: 'Public file sharing',
+    optional: true,
+    icon: 'transfer',
   },
   {
     name: 'OpenClaw',
@@ -166,6 +172,17 @@ function ServiceIcon({ icon }: { icon: Service['icon'] }) {
         <rect x="5" y="8" width="22" height="17" rx="2" />
         <circle cx="12" cy="14" r="3" />
         <path d="M8 23l6-6 4 4 3-3 4 5" />
+      </svg>
+    )
+  }
+
+  if (icon === 'transfer') {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5v15" />
+        <path d="M10 11l6-6 6 6" />
+        <rect x="6" y="20" width="20" height="7" rx="2" />
+        <path d="M21 24h1" />
       </svg>
     )
   }

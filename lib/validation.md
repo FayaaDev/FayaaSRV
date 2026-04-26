@@ -53,6 +53,7 @@ Use these checks after each deployment step. Do not continue if a required check
 - `docker ps | grep nocodb`
 - if selected: `docker ps | grep n8n`
 - if selected: `docker ps | grep dbhub`
+- if selected: `docker ps | grep transfer`
 - local proxy check through Caddy for each selected route
 
 ## Step 70
@@ -97,6 +98,7 @@ Use these checks after each deployment step. Do not continue if a required check
 - `curl -I https://{{NOCODB_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}/`
+- if selected: `curl -I https://{{TRANSFER_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}/`
 - if selected: `curl -I https://{{HERMES_SUBDOMAIN}}.{{DOMAIN}}/`
 - `test -f {{DATA_ROOT}}/README.md`

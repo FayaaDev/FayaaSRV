@@ -32,6 +32,7 @@ Optional (pick what you want):
 - **n8n** — visual workflow automation, like your own Zapier
 - **DBHub** — expose your database to AI agents over MCP
 - **Immich** — self-hosted photo and video library
+- **transfer.sh** — public unauthenticated file sharing endpoint
 - **OpenClaw** — bring Claude Code skills to your server
 - **Hermes** — NousResearch AI agent dashboard, protected by Authentik
 
@@ -171,6 +172,7 @@ block until it is fixed.
 - `https://n8n.yourdomain.com` *(if selected)*
 - `https://dbhub.yourdomain.com` *(if selected)*
 - `https://immich.yourdomain.com` *(if selected)*
+- `https://transfer.yourdomain.com` *(if selected; public unauthenticated uploads)*
 
 ---
 

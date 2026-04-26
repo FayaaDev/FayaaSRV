@@ -93,6 +93,7 @@ Optional per user choice:
 - n8n
 - DBHub
 - Immich
+- transfer.sh
 - OpenClaw
 - Hermes
 
@@ -111,6 +112,10 @@ Hermes install model in v1:
 Immich install model in v1:
 - When selected, install CPU-only Immich using its dedicated Docker Compose stack.
 - Use Immich's dedicated Postgres/Valkey services rather than the shared Rakkib PostgreSQL instance.
+
+transfer.sh install model in v1:
+- When selected, install `dutchcoders/transfer.sh:latest-noroot` with local filesystem storage under `{{DATA_ROOT}}/data/transfer`.
+- Do not put transfer.sh behind Authentik or HTTP basic auth; document that it is a public unauthenticated upload endpoint and confirm the user accepts that risk before recording it.
 
 Foundation bundle model in v1:
 - Present the foundation bundle as a preselected checklist group in `questions/03-services.md`.
@@ -164,7 +169,7 @@ Derived defaults that must be recorded before rendering:
   - `cloudflare.tunnel_creds_container_path: /home/nonroot/.cloudflared/<tunnel_uuid>.json`
 - subdomain keys for selected services only:
   - foundation: `subdomains.nocodb`, `subdomains.auth`, `subdomains.home`, `subdomains.status`, `subdomains.dockge`
-  - optional: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`, `subdomains.hermes`
+  - optional: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.transfer`, `subdomains.claw`, `subdomains.hermes`
 
 ## Agent Memory Outputs
 
@@ -206,6 +211,7 @@ On a fresh machine, an agent should be able to use only this repo plus the user'
   - `https://{{N8N_SUBDOMAIN}}.<domain>`
   - `https://{{DBHUB_SUBDOMAIN}}.<domain>`
   - `https://{{IMMICH_SUBDOMAIN}}.<domain>`
+  - `https://{{TRANSFER_SUBDOMAIN}}.<domain>`
   - `https://{{OPENCLAW_SUBDOMAIN}}.<domain>`
   - `https://{{HERMES_SUBDOMAIN}}.<domain>`
 

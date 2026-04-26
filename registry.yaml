@@ -139,6 +139,17 @@ services:
     host_service: false
     notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
 
+  - id: transfer
+    required: false
+    optional: true
+    image: dutchcoders/transfer.sh:latest-noroot
+    default_port: 8080
+    default_subdomain: transfer
+    env_keys: []
+    depends_on: []
+    host_service: false
+    notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
+
   - id: openclaw
     required: false
     optional: true

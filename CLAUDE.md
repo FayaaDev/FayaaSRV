@@ -79,7 +79,7 @@ Linux installs use unprivileged orchestration with explicit sudo for system chan
 - `foundation_services` — kept from the recommended foundation bundle
 - `selected_services` — optional add-on services the user chose
 - foundation subdomains for selected services: `subdomains.nocodb`, `subdomains.auth`, `subdomains.home`, `subdomains.status`, `subdomains.dockge`
-- optional subdomains for selected services: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.claw`, `subdomains.hermes`
+- optional subdomains for selected services: `subdomains.n8n`, `subdomains.dbhub`, `subdomains.immich`, `subdomains.transfer`, `subdomains.claw`, `subdomains.hermes`
 - `claw_gateway_port: 18789`, `hermes_dashboard_port: 9119`, `cloudflared_metrics_port: 20241` (always these defaults)
 - `cloudflare.auth_method` — prefer `browser_login`; do not store raw Cloudflare API tokens in state
 - `cloudflare.tunnel_creds_host_path` and `cloudflare.tunnel_creds_container_path` — derive from `tunnel_uuid` once known

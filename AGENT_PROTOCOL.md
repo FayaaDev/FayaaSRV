@@ -42,6 +42,7 @@ subdomains:
   nocodb: nocodb
   n8n: n8n
   immich: immich
+  transfer: transfer
   hermes: hermes
 cloudflare:
   zone_in_cloudflare: true
@@ -108,6 +109,7 @@ Nested mappings:
 - if `n8n` is selected: `subdomains.n8n` -> `{{N8N_SUBDOMAIN}}`
 - if `dbhub` is selected: `subdomains.dbhub` -> `{{DBHUB_SUBDOMAIN}}`
 - if `immich` is selected: `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
+- if `transfer` is selected: `subdomains.transfer` -> `{{TRANSFER_SUBDOMAIN}}`
 - if `openclaw` is selected: `subdomains.claw` -> `{{OPENCLAW_SUBDOMAIN}}`
 - if `hermes` is selected: `subdomains.hermes` -> `{{HERMES_SUBDOMAIN}}`
 
@@ -129,6 +131,7 @@ Derived multiline placeholders:
   - `- n8n at https://{{N8N_SUBDOMAIN}}.{{DOMAIN}}`
   - `- DBHub at https://{{DBHUB_SUBDOMAIN}}.{{DOMAIN}}`
   - `- Immich at https://{{IMMICH_SUBDOMAIN}}.{{DOMAIN}}`
+  - `- transfer.sh at https://{{TRANSFER_SUBDOMAIN}}.{{DOMAIN}}`
   - `- OpenClaw at https://{{OPENCLAW_SUBDOMAIN}}.{{DOMAIN}}`
   - `- Hermes at https://{{HERMES_SUBDOMAIN}}.{{DOMAIN}}`
 - Build `{{HOST_ADDON_SUMMARY_LINES}}` before rendering `templates/agent-memory/SERVER_README.md.tmpl`.
