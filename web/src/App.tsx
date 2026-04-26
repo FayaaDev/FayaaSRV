@@ -9,7 +9,6 @@ const repoUrl = 'https://github.com/FayaaDev/Rakkib'
 
 type Service = {
   name: string
-  optional?: boolean
   icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
 }
 
@@ -18,16 +17,16 @@ const services: Service[] = [
   { name: 'Cloudflared', icon: 'cloud' },
   { name: 'PostgreSQL', icon: 'database' },
   { name: 'NocoDB', icon: 'table' },
-  { name: 'Authentik', optional: true, icon: 'shield' },
-  { name: 'Homepage', optional: true, icon: 'monitor' },
-  { name: 'Uptime Kuma', optional: true, icon: 'monitor' },
-  { name: 'Dockge', optional: true, icon: 'docker' },
-  { name: 'n8n', optional: true, icon: 'workflow' },
-  { name: 'DBHub', optional: true, icon: 'mcp' },
-  { name: 'Immich', optional: true, icon: 'photos' },
-  { name: 'transfer.sh', optional: true, icon: 'transfer' },
-  { name: 'OpenClaw', optional: true, icon: 'claw' },
-  { name: 'Hermes', optional: true, icon: 'hermes' },
+  { name: 'Authentik', icon: 'shield' },
+  { name: 'Homepage', icon: 'monitor' },
+  { name: 'Uptime Kuma', icon: 'monitor' },
+  { name: 'Dockge', icon: 'docker' },
+  { name: 'n8n', icon: 'workflow' },
+  { name: 'DBHub', icon: 'mcp' },
+  { name: 'Immich', icon: 'photos' },
+  { name: 'transfer.sh', icon: 'transfer' },
+  { name: 'OpenClaw', icon: 'claw' },
+  { name: 'Hermes', icon: 'hermes' },
 ]
 
 function ServiceIcon({ icon }: { icon: Service['icon'] }) {
@@ -228,7 +227,6 @@ function AppContent() {
                   <h3>{service.name}</h3>
                   <p>{ts(service.name)}</p>
                 </div>
-                {service.optional ? <span className="badge">{t('optional')}</span> : null}
               </article>
             ))}
           </div>
