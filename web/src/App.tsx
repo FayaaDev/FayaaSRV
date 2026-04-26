@@ -170,12 +170,12 @@ function GitHubIcon() {
 
 function AppContent() {
   const { t, ts } = useI18n()
-  const [copyLabel, setCopyLabel] = useState(t('copy'))
+  const [copied, setCopied] = useState(false)
 
   async function copyInstallCommand() {
     await navigator.clipboard.writeText(installCommand)
-    setCopyLabel(t('copied'))
-    window.setTimeout(() => setCopyLabel(t('copy')), 1600)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1600)
   }
 
   return (
@@ -204,8 +204,8 @@ function AppContent() {
 
           <div className="install-box" aria-label="Install command">
             <code>{installCommand}</code>
-            <button type="button" onClick={copyInstallCommand} aria-live="polite">
-              {copyLabel}
+            <button type="button" onClick={copyInstallCommand} aria-live="polite" style={{ direction: 'ltr' }}>
+              {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
           <p className="install-note">

@@ -45,9 +45,18 @@ Mac:
 Both:
 - if OpenClaw is selected: `node --version`
 - if OpenClaw is selected: `npm --version`
+- if OpenClaw is selected: `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`
+
+Linux only:
 - if OpenClaw is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/openclaw"`
 - if OpenClaw is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/openclaw" --version`
-- if OpenClaw is selected: `curl -I http://localhost:{{CLAW_GATEWAY_PORT}}/`
 - if Hermes is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
 - if Hermes is selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; "$ADMIN_HOME/.local/bin/hermes" --version`
 - if Hermes is selected: `curl -I http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`
+
+Mac only:
+- if OpenClaw is selected: `test -x "$HOME/.local/bin/openclaw"`
+- if OpenClaw is selected: `"$HOME/.local/bin/openclaw" --version`
+- if Hermes is selected: `test -x "$HOME/.local/bin/hermes"`
+- if Hermes is selected: `"$HOME/.local/bin/hermes" --version`
+- if Hermes is selected: `curl -I http://127.0.0.1:{{HERMES_DASHBOARD_PORT}}/`

@@ -2,6 +2,88 @@
 
 **Phase 1 of 6. No writes outside the repo occur during this phase.**
 
+## AgentSchema
+
+```yaml
+schema_version: 1
+phase: 1
+reads_state: []
+writes_state:
+  - platform
+  - arch
+  - privilege_mode
+  - privilege_strategy
+  - docker_installed
+  - host_gateway
+fields:
+  - id: arch
+    type: derived
+    source: host
+    detect:
+      command: uname -m
+      normalize:
+        x86_64: amd64
+        aarch64: arm64
+        arm64: arm64
+    records:
+      - arch
+  - id: privilege_context
+    type: derived
+    source: host
+    when: platform == linux
+    detect:
+      command: id -u
+      normalize:
+        "0":
+          privilege_mode: root
+          privilege_strategy: root_process
+        default:
+          privilege_mode: sudo
+          privilege_strategy: on_demand
+    records:
+      - privilege_mode
+      - privilege_strategy
+  - id: mac_privilege_context
+    type: derived
+    source: host
+    when: platform == mac
+    value:
+      privilege_mode: sudo
+      privilege_strategy: on_demand
+    records:
+      - privilege_mode
+      - privilege_strategy
+  - id: platform
+    type: single_select
+    prompt: What platform are you installing on?
+    canonical_values: [linux, mac]
+    normalize: lowercase
+    aliases:
+      linux: [linux]
+      mac: [mac, macos, osx, darwin]
+    records:
+      - platform
+  - id: docker_installed
+    type: confirm
+    prompt: Is Docker already installed and running on this machine? (y/n)
+    accepted_inputs:
+      y: true
+      n: false
+      yes: true
+      no: false
+    records:
+      - docker_installed
+  - id: host_gateway
+    type: derived
+    source: prior_answer
+    derive_from: platform
+    value:
+      linux: 172.18.0.1
+      mac: host.docker.internal
+    records:
+      - host_gateway
+```
+
 ---
 
 ## Instructions for the Agent
@@ -50,6 +132,9 @@ Ask: "What platform are you installing on?"
 Accepted answers (case-insensitive, normalize to lowercase):
 - `linux`
 - `mac`
+- `macos` -> `mac`
+- `osx` -> `mac`
+- `darwin` -> `mac`
 
 Re-ask if the user provides any other answer.
 

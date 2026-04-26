@@ -2,6 +2,70 @@
 
 **Phase 6 of 6. This is the last phase before any writes outside the repo.**
 
+## AgentSchema
+
+```yaml
+schema_version: 1
+phase: 6
+reads_state:
+  - platform
+  - arch
+  - privilege_mode
+  - privilege_strategy
+  - data_root
+  - server_name
+  - domain
+  - admin_user
+  - admin_email
+  - lan_ip
+  - tz
+  - foundation_services
+  - selected_services
+  - host_addons
+  - subdomains
+  - cloudflare.zone_in_cloudflare
+  - cloudflare.auth_method
+  - cloudflare.headless
+  - cloudflare.tunnel_strategy
+  - secrets.mode
+writes_state:
+  - confirmed
+fields:
+  - id: deployment_summary
+    type: summary
+    summary_fields:
+      - platform
+      - arch
+      - privilege_mode
+      - privilege_strategy
+      - data_root
+      - server_name
+      - domain
+      - admin_user
+      - admin_email
+      - lan_ip
+      - tz
+      - foundation_services
+      - selected_services
+      - host_addons
+      - subdomains
+      - cloudflare.zone_in_cloudflare
+      - cloudflare.auth_method
+      - cloudflare.headless
+      - cloudflare.tunnel_strategy
+      - secrets.mode
+  - id: confirmed
+    type: confirm
+    prompt: Proceed with deployment using the above configuration? (y/n)
+    accepted_inputs:
+      y: true
+      n: false
+      yes: true
+      no: false
+    records:
+      - confirmed
+```
+
 ---
 
 ## Instructions for the Agent
@@ -16,6 +80,7 @@ Before asking for confirmation, present a concise summary of the recorded state 
 - server name
 - domain
 - admin user
+- admin email
 - LAN IP
 - timezone
 - foundation bundle services (and any deselected from the default)
@@ -34,10 +99,12 @@ Make it clear in the summary when `architecture` and `LAN IP` were auto-detected
 If `cloudflare.zone_in_cloudflare` is `false`, the summary must explicitly say that the domain still needs Cloudflare zone setup in the intended account and that public DNS routing plus HTTPS verification will remain blocked until that is done.
 
 For Cloudflare connection method, use friendly wording:
-- If `cloudflare.auth_method` is `browser_login` and `cloudflare.headless` is `false`, show `Cloudflare connection: browser login during setup; no API token needed`.
-- If `cloudflare.auth_method` is `browser_login` and `cloudflare.headless` is `true`, show `Cloudflare connection: login link opened on another device; no API token needed`.
-- If `cloudflare.auth_method` is `api_token`, show `Cloudflare connection: advanced temporary API token during Step 40; token will not be stored in state`.
-- If `cloudflare.auth_method` is `existing_tunnel`, show `Cloudflare connection: existing tunnel details`.
+- If `cloudflare.auth_method` is `browser_login` and `cloudflare.headless` is `false`, show `Cloudflare connection: browser login during Step 40; the install will pause until approval finishes; no API token needed`.
+- If `cloudflare.auth_method` is `browser_login` and `cloudflare.headless` is `true`, show `Cloudflare connection: login link opened on another device during Step 40; keep a signed-in laptop or phone ready; the install will pause until approval finishes; no API token needed`.
+- If `cloudflare.auth_method` is `api_token`, show `Cloudflare connection: advanced temporary API token during Step 40; used only when needed and not stored in state`.
+- If `cloudflare.auth_method` is `existing_tunnel`, show `Cloudflare connection: existing tunnel details; Step 40 may still pause if login is needed to repair DNS routes or missing credentials`.
+
+For Cloudflare tunnel strategy, make it clear whether Rakkib will try to reuse an existing tunnel or create a new one after authentication succeeds.
 
 Then ask for one final yes/no confirmation.
 

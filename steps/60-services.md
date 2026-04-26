@@ -10,7 +10,7 @@ Before rendering any templates, generate and record into `.fss-state.yaml` any s
 
 - `POSTGRES_PASSWORD` (if not set)
 - `NOCODB_ADMIN_PASS`, `NOCODB_DB_PASS` (if nocodb is in `foundation_services`)
-- `AUTHENTIK_SECRET_KEY` — 50-char random alphanumeric, never rotate after first run
+- `AUTHENTIK_SECRET_KEY` — 50-char random alphanumeric, never rotate after first run (if authentik is in `foundation_services`)
 - `AUTHENTIK_DB_PASS` (if authentik is in `foundation_services`)
 - `AUTHENTIK_ADMIN_PASS` (if authentik is in `foundation_services`)
 - `NOCODB_OIDC_CLIENT_ID` — UUID v4 (if both nocodb and authentik are in `foundation_services`)
@@ -27,12 +27,7 @@ Skip any service not present in `foundation_services`. After each service starts
 
 #### NocoDB
 
-1. Create postgres database and user:
-   ```sql
-   CREATE DATABASE nocodb_db;
-   CREATE USER nocodb WITH PASSWORD '<NOCODB_DB_PASS>';
-   GRANT ALL ON DATABASE nocodb_db TO nocodb;
-   ```
+1. Use the NocoDB database and role prepared in Step 50.
 2. Render `.env` from `templates/docker/nocodb/.env.example` into `{{DATA_ROOT}}/docker/nocodb/.env`.
    - If `authentik` is also in `foundation_services`, uncomment the four `NC_OIDC_*` lines; otherwise leave them commented.
 3. Render `docker-compose.yml` from `templates/docker/nocodb/docker-compose.yml.tmpl`.
@@ -42,18 +37,13 @@ Skip any service not present in `foundation_services`. After each service starts
 
 #### Authentik
 
-1. Create postgres database and user:
-   ```sql
-   CREATE DATABASE authentik;
-   CREATE USER authentik WITH PASSWORD '<AUTHENTIK_DB_PASS>';
-   GRANT ALL ON DATABASE authentik TO authentik;
-   ```
+1. Use the Authentik database and role prepared in Step 50.
 2. Create data directories:
-   ```
-   {{DATA_ROOT}}/data/authentik/media
-   {{DATA_ROOT}}/data/authentik/custom-templates
-   {{DATA_ROOT}}/data/authentik/blueprints/custom
-   ```
+    ```
+    {{DATA_ROOT}}/data/authentik/media
+    {{DATA_ROOT}}/data/authentik/custom-templates
+    {{DATA_ROOT}}/data/authentik/blueprints/custom
+    ```
 3. Render blueprints — for each service listed below, render its template and write the output to `{{DATA_ROOT}}/data/authentik/blueprints/custom/`. Only render a blueprint if the corresponding service is selected:
    - `nocodb` in `foundation_services` → render `templates/docker/authentik/blueprints/nocodb.yaml.tmpl`
    - `homepage` in `foundation_services` → render `templates/docker/authentik/blueprints/proxy-homepage.yaml.tmpl`
@@ -71,12 +61,12 @@ Skip any service not present in `foundation_services`. After each service starts
 #### Homepage
 
 1. Create config directory: `{{DATA_ROOT}}/data/homepage/config`.
-2. Generate `services.yaml`: render `templates/docker/homepage/services.yaml.tmpl` and remove any commented entries for services not selected. Write to `{{DATA_ROOT}}/data/homepage/config/services.yaml`.
+2. Generate `services.yaml`: render `templates/docker/homepage/services.yaml.tmpl`, keep only the blocks for services actually present in `foundation_services` or `selected_services`, and remove every deselected service block before writing `{{DATA_ROOT}}/data/homepage/config/services.yaml`.
 3. Render `docker-compose.yml` from `templates/docker/homepage/docker-compose.yml.tmpl`.
 4. Run `docker compose up -d`.
 5. **Caddy route:**
    - If `authentik` is in `foundation_services`: render `templates/caddy/routes/homepage.caddy.tmpl` (includes `forward_auth` block).
-   - Otherwise: render a plain route without `forward_auth` (same pattern as nocodb.caddy.tmpl but pointing to `homepage:3000`).
+   - Otherwise: render `templates/caddy/routes/homepage-public.caddy.tmpl`.
 6. Verify: `docker ps | grep homepage`.
 
 #### Uptime Kuma
@@ -86,7 +76,7 @@ Skip any service not present in `foundation_services`. After each service starts
 3. Run `docker compose up -d`.
 4. **Caddy route:**
    - If `authentik` is in `foundation_services`: render `templates/caddy/routes/uptime-kuma.caddy.tmpl`.
-   - Otherwise: render a plain route pointing to `uptime-kuma:3001`.
+   - Otherwise: render `templates/caddy/routes/uptime-kuma-public.caddy.tmpl`.
 5. Verify: `docker ps | grep uptime-kuma`.
 
 #### Dockge
@@ -97,7 +87,7 @@ Skip any service not present in `foundation_services`. After each service starts
 4. Run `docker compose up -d`.
 5. **Caddy route:**
    - If `authentik` is in `foundation_services`: render `templates/caddy/routes/dockge.caddy.tmpl`.
-   - Otherwise: render a plain route pointing to `dockge:5001`.
+   - Otherwise: render `templates/caddy/routes/dockge-public.caddy.tmpl`.
 6. Verify: `docker ps | grep dockge`.
 
 ### 60.3 — Reload Caddy
@@ -113,11 +103,13 @@ Verify: `curl -s http://localhost/health` still returns OK and no Caddy error ou
 ### 60.4 — Deploy Optional Services
 
 Process in order: n8n → dbhub → immich → transfer → openclaw → hermes. Skip any not in `selected_services`.
-For each: render `.env`, render `docker-compose.yml` (and any extra config files), run `docker compose up -d`, then run the per-service verify. Reload Caddy once after all optional services are deployed.
+For Docker-backed optional services (`n8n`, `dbhub`, `immich`, `transfer`): render `.env` when needed, render `docker-compose.yml` and any extra config files, run `docker compose up -d`, then run the per-service verify.
+For host-backed optional services (`openclaw`, `hermes`): Step 70 owns the binary install and service-manager setup. In this step, render any dependent Caddy or Authentik files and use the local HTTP verify only after Step 70 has started the service.
+Reload Caddy once after all optional service routes are in place.
 
 #### n8n
 
-- Create postgres database and user (`n8n` / `N8N_DB_PASS`).
+- Use the n8n database and role prepared in Step 50.
 - Preserve `N8N_ENCRYPTION_KEY` if `.env` already exists on the target.
 - Render `templates/caddy/routes/n8n.caddy.tmpl`.
 - Verify: `docker ps | grep n8n` and `curl -sf http://localhost:5678/healthz`.
@@ -151,20 +143,17 @@ For each: render `.env`, render `docker-compose.yml` (and any extra config files
 
 #### OpenClaw
 
-- Install from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).
-- Install and enable the systemd user unit (Linux) or launchd plist (Mac) from `templates/systemd/claw-gateway.service.tmpl` or `templates/launchd/claw-gateway.plist.tmpl`.
+- Step 70 installs OpenClaw into `~/.local/bin/openclaw` and enables the user service.
 - Render `templates/caddy/routes/claw.caddy.tmpl`.
-- Verify: `curl -sf http://{{HOST_GATEWAY}}:{{CLAW_GATEWAY_PORT}}/health`.
+- Verify after Step 70 starts the service: on Linux run `curl -sf http://{{HOST_GATEWAY}}:{{CLAW_GATEWAY_PORT}}/health`; on Mac run `curl -sf http://127.0.0.1:{{CLAW_GATEWAY_PORT}}/health`.
 
 #### Hermes
 
 - Require `authentik` to remain in `foundation_services`; stop rather than exposing the dashboard without Authentik protection.
-- Install Hermes from the official installer as the admin user with setup skipped: `curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup`.
-- Verify the real entrypoint exists at `~/.local/bin/hermes` before writing the service wrapper.
-- Install and enable the systemd user unit (Linux) or launchd plist (Mac) from `templates/systemd/hermes-dashboard.service.tmpl` or `templates/launchd/hermes-dashboard.plist.tmpl`.
+- Step 70 installs Hermes as the admin user, verifies `~/.local/bin/hermes`, and enables the user service wrapper.
 - Render `templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl`.
 - Render `templates/caddy/routes/hermes.caddy.tmpl`.
-- Verify: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`.
+- Verify after Step 70 starts the service: on Linux run `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`; on Mac run `curl -sf http://127.0.0.1:{{HERMES_DASHBOARD_PORT}}/`.
 
 ## Service Notes
 
@@ -207,5 +196,7 @@ Hermes:
 - if selected: `docker ps | grep dbhub`
 - if selected: `docker ps | grep immich_server`
 - if selected: `docker ps | grep transfer`
-- if selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
-- if selected: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`
+- on Linux if selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
+- on Mac if selected: `test -x "$HOME/.local/bin/hermes"`
+- on Linux if selected: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`
+- on Mac if selected: `curl -sf http://127.0.0.1:{{HERMES_DASHBOARD_PORT}}/`

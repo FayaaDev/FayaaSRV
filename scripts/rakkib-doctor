@@ -12,6 +12,10 @@ OUTPUT_JSON=false
 STATE_FILE=".fss-state.yaml"
 DOMAIN=""
 DATA_ROOT=""
+CLOUDFLARE_ZONE_IN_CLOUDFLARE=""
+CLOUDFLARE_AUTH_METHOD=""
+CLOUDFLARE_TUNNEL_UUID=""
+CLOUDFLARE_TUNNEL_CREDS_HOST_PATH=""
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -117,6 +121,35 @@ parse_args() {
   done
 }
 
+nested_state_value() {
+  local state_file="$1"
+  local section="$2"
+  local key="$3"
+  [[ -f "$state_file" ]] || return 1
+
+  awk -F: -v wanted_section="$section" -v wanted_key="$key" '
+    $0 ~ "^" wanted_section ":[[:space:]]*$" {
+      in_section=1
+      next
+    }
+    in_section && $0 ~ "^[^[:space:]]" {
+      in_section=0
+    }
+    in_section {
+      line=$0
+      sub("^[[:space:]]+", "", line)
+      if (line ~ "^" wanted_key ":[[:space:]]*") {
+        sub("^[^:]*:", "", line)
+        sub("^[[:space:]]*", "", line)
+        sub("[[:space:]]*$", "", line)
+        gsub(/^"|"$/, "", line)
+        print line
+        exit
+      }
+    }
+  ' "$state_file"
+}
+
 init_context() {
   if [[ -z "$DOMAIN" ]]; then
     DOMAIN="$(state_value "$STATE_FILE" domain 2>/dev/null || true)"
@@ -131,6 +164,11 @@ init_context() {
       DATA_ROOT="/srv"
     fi
   fi
+
+  CLOUDFLARE_ZONE_IN_CLOUDFLARE="$(nested_state_value "$STATE_FILE" cloudflare zone_in_cloudflare 2>/dev/null || true)"
+  CLOUDFLARE_AUTH_METHOD="$(nested_state_value "$STATE_FILE" cloudflare auth_method 2>/dev/null || true)"
+  CLOUDFLARE_TUNNEL_UUID="$(nested_state_value "$STATE_FILE" cloudflare tunnel_uuid 2>/dev/null || true)"
+  CLOUDFLARE_TUNNEL_CREDS_HOST_PATH="$(nested_state_value "$STATE_FILE" cloudflare tunnel_creds_host_path 2>/dev/null || true)"
 }
 
 normalize_arch() {
@@ -274,6 +312,16 @@ check_compose() {
   fi
 }
 
+check_cloudflared_binary() {
+  if command_exists cloudflared; then
+    add_check ok cloudflared_cli "false" "cloudflared is on PATH"
+  elif [[ -x "$HOME/.local/bin/cloudflared" ]]; then
+    add_check ok cloudflared_cli "false" "cloudflared is available at $HOME/.local/bin/cloudflared"
+  else
+    add_check warn cloudflared_cli "false" "cloudflared host CLI is missing; Step 00 should install it before Step 40"
+  fi
+}
+
 port_listeners() {
   local port="$1"
   if command_exists ss; then
@@ -349,6 +397,53 @@ check_domain_dns() {
   fi
 }
 
+check_cloudflare_readiness() {
+  if [[ "$CLOUDFLARE_ZONE_IN_CLOUDFLARE" == "false" ]]; then
+    add_check warn cloudflare_zone false "domain is not yet active in Cloudflare for this install; Step 40 public routing will stay blocked"
+  elif [[ "$CLOUDFLARE_ZONE_IN_CLOUDFLARE" == "true" ]]; then
+    add_check ok cloudflare_zone false "domain is marked as active in Cloudflare"
+  else
+    add_check warn cloudflare_zone false "Cloudflare zone state is not recorded yet"
+  fi
+
+  if [[ -z "$CLOUDFLARE_AUTH_METHOD" || "$CLOUDFLARE_AUTH_METHOD" == "null" ]]; then
+    add_check warn cloudflare_auth false "Cloudflare auth method is not recorded yet"
+    return
+  fi
+
+  case "$CLOUDFLARE_AUTH_METHOD" in
+    browser_login)
+      local cert_path="${DATA_ROOT}/data/cloudflared/cert.pem"
+      if [[ -f "$cert_path" ]]; then
+        add_check ok cloudflare_auth false "browser-login auth cert is present at ${cert_path}"
+      else
+        add_check warn cloudflare_auth false "browser-login auth cert is missing at ${cert_path}; Step 40 will need cloudflared tunnel login"
+      fi
+      ;;
+    api_token)
+      add_check ok cloudflare_auth false "advanced API token mode recorded; token should be requested only during Step 40"
+      ;;
+    existing_tunnel)
+      add_check ok cloudflare_auth false "existing tunnel mode recorded"
+      ;;
+    *)
+      add_check warn cloudflare_auth false "unrecognized Cloudflare auth method recorded: ${CLOUDFLARE_AUTH_METHOD}"
+      ;;
+  esac
+
+  if [[ -n "$CLOUDFLARE_TUNNEL_CREDS_HOST_PATH" && "$CLOUDFLARE_TUNNEL_CREDS_HOST_PATH" != "null" ]]; then
+    if [[ -f "$CLOUDFLARE_TUNNEL_CREDS_HOST_PATH" ]]; then
+      add_check ok cloudflare_creds false "tunnel credentials JSON is present at ${CLOUDFLARE_TUNNEL_CREDS_HOST_PATH}"
+    else
+      add_check warn cloudflare_creds false "tunnel credentials JSON is recorded but missing at ${CLOUDFLARE_TUNNEL_CREDS_HOST_PATH}"
+    fi
+  elif [[ -n "$CLOUDFLARE_TUNNEL_UUID" && "$CLOUDFLARE_TUNNEL_UUID" != "null" ]]; then
+    add_check warn cloudflare_creds false "tunnel UUID is recorded but the standardized credentials path is not recorded yet"
+  else
+    add_check warn cloudflare_creds false "tunnel credentials are not recorded yet; Step 40 must create or recover them"
+  fi
+}
+
 check_conflicts() {
   local conflicts=()
   local service
@@ -388,9 +483,11 @@ main() {
   check_disk
   check_docker
   check_compose
+  check_cloudflared_binary
   check_public_ports
   check_ssh_port
   check_domain_dns
+  check_cloudflare_readiness
   check_conflicts
 
   if [[ "$OUTPUT_JSON" == true ]]; then

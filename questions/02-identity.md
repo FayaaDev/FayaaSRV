@@ -2,6 +2,111 @@
 
 **Phase 2 of 6. No writes outside the repo occur during this phase.**
 
+## AgentSchema
+
+```yaml
+schema_version: 1
+phase: 2
+reads_state:
+  - platform
+  - privilege_mode
+  - host_gateway
+writes_state:
+  - server_name
+  - domain
+  - cloudflare.zone_in_cloudflare
+  - admin_user
+  - admin_email
+  - lan_ip
+  - tz
+  - data_root
+  - docker_net
+  - backup_dir
+  - host_gateway
+fields:
+  - id: server_name
+    type: text
+    prompt: What is your server name? (e.g. myserver — used in configs and backup manifests)
+    validate:
+      pattern: ^[a-z0-9-]+$
+      message: Use lowercase letters, numbers, and hyphens only.
+    records:
+      - server_name
+  - id: domain
+    type: text
+    prompt: What is your base domain? (e.g. example.com — all services will be subdomains of this)
+    validate:
+      pattern: ^(?!https?://).+\..+$
+      message: Use a bare domain like example.com, without http:// or https://.
+    records:
+      - domain
+  - id: zone_in_cloudflare
+    type: confirm
+    prompt: Is this base domain already managed in Cloudflare in the same account you will use for this server? (y/n)
+    accepted_inputs:
+      y: true
+      n: false
+      yes: true
+      no: false
+    records:
+      - cloudflare.zone_in_cloudflare
+  - id: admin_user
+    type: text
+    prompt: What is the admin username on this machine? (e.g. ubuntu — used in file paths and service ownership)
+    validate:
+      non_empty: true
+    default_from_host:
+      linux: id -un
+      sudo_linux: SUDO_USER
+    records:
+      - admin_user
+  - id: admin_email
+    type: text
+    prompt: What is the admin email address? (used for NocoDB admin account and service notifications)
+    validate:
+      pattern: .+@.+
+      message: Enter a valid email address.
+    records:
+      - admin_email
+  - id: tz
+    type: text
+    prompt: What is your timezone in IANA format? (e.g. America/New_York, Europe/London, Asia/Riyadh, Asia/Tokyo, Australia/Sydney, UTC)
+    validate:
+      non_empty: true
+    records:
+      - tz
+  - id: lan_ip
+    type: derived
+    source: host
+    detect:
+      linux: hostname -I
+      mac: ipconfig getifaddr en0
+    normalize: first_non_loopback_ipv4
+    records:
+      - lan_ip
+  - id: data_root
+    type: derived
+    source: prior_answer
+    derive_from: platform
+    value:
+      linux: /srv
+      mac: $HOME/srv
+    records:
+      - data_root
+  - id: docker_net
+    type: derived
+    value: caddy_net
+    records:
+      - docker_net
+  - id: backup_dir
+    type: derived
+    source: prior_answer
+    derive_from: data_root
+    template: "{{data_root}}/backups"
+    records:
+      - backup_dir
+```
+
 ---
 
 ## Instructions for the Agent

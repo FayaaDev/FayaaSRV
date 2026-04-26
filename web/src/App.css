@@ -138,6 +138,7 @@
 
 .install-box button {
   align-self: stretch;
+  direction: ltr;
   padding: 4px 20px;
   border: 0;
   border-left: 1px solid var(--color-border-strong);
