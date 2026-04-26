@@ -52,6 +52,12 @@
   text-align: center;
 }
 
+.hero-logo {
+  width: 240px;
+  height: 240px;
+  object-fit: contain;
+}
+
 .eyebrow,
 .section-label,
 .badge {

@@ -223,7 +223,7 @@ function App() {
 
       <main id="top">
         <section className="hero" aria-labelledby="hero-title">
-          <p className="eyebrow">personal server kit</p>
+          <img className="hero-logo" src="/logo-hero.png" alt="Rakkib" width="240" height="240" />
           <h1 id="hero-title">Your own server, installed by an AI agent.</h1>
           <p className="hero-text">
             Rakkib transforms a fresh machine into a polished self-hosted stack for apps, data, automation, photos, and secure access.
