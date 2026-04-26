@@ -165,10 +165,13 @@ Useful commands:
 rakkib init                 # start or resume the agent-led setup
 rakkib doctor               # run host diagnostics
 rakkib auth sudo            # validate sudo for this terminal without storing a password
+rakkib auth sudo --keepalive # keep sudo warm in a terminal until Ctrl-C
 rakkib auth cloudflare      # check Cloudflare CLI login readiness
 rakkib prompt               # print the agent prompt
 rakkib install              # launch the confirmed install execution prompt
 ```
+
+When `rakkib init` is about to launch an agent on Linux, it asks whether to authorize sudo first. If accepted, the user enters their password in the terminal before the agent starts, and Rakkib refreshes sudo in the background only while that agent session is running.
 
 Root-only helper actions are explicit and allowlisted:
 

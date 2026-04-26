@@ -31,6 +31,7 @@ usage() {
 Usage: install.sh [--dir <path>] [--repo <url>] [--branch <name>]
                   [--skip-doctor] [--doctor-only]
                   [--agent <auto|opencode|claude|codex|none>] [--no-agent] [--print-prompt]
+                  [--sudo-preauth <auto|always|never>]
 
 Thin Rakkib remote bootstrapper. It verifies basic host support, clones or
 updates the installer repo as the normal admin user when possible, then hands
@@ -123,6 +124,10 @@ parse_args() {
             --agent)
                 [[ "$#" -ge 2 ]] || die "missing value for --agent"
                 AGENT_MODE="$2"
+                shift 2
+                ;;
+            --sudo-preauth)
+                [[ "$#" -ge 2 ]] || die "missing value for --sudo-preauth"
                 shift 2
                 ;;
             -h|--help)

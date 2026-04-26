@@ -177,7 +177,7 @@ with Caddy, Cloudflare Tunnel, and PostgreSQL configured in the same operating s
 - Fresh Ubuntu Linux installs need a sudo-capable admin account for Docker Engine installation and some service setup.
 - **Canonical Linux install path:** Run `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`.
 - **Local clone path:** If the repo is already cloned, run `bash install.sh` from the repo root.
-- Do not run the full agent session as root by default. Use `rakkib auth sudo` or ordinary sudo prompts after Phase 6 confirmation. Do not fall back to `sudo -S` or password-in-chat.
+- Do not run the full agent session as root by default. `rakkib init` may pre-authorize sudo before launching the agent and keep sudo alive for that session. After Phase 6 confirmation, prefer `sudo -n` so expired authorization fails fast instead of prompting inside the agent session. Do not fall back to `sudo -S` or password-in-chat.
 - Step 90 must verify repo and state-file ownership for later unprivileged maintenance.
 - The host `cloudflared` CLI should be installed into the admin user's `~/.local/bin/cloudflared` when it is missing.
 

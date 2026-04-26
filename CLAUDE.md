@@ -61,7 +61,7 @@ Linux installs use unprivileged orchestration with explicit sudo for system chan
 - **Local clone path:** From an existing clone, run `bash install.sh`.
 - Phase 1 should record `privilege_mode: sudo` and `privilege_strategy: on_demand` for the normal user-first flow. Do not fall back to `sudo -S` or password-in-chat.
 - If the agent is running as root, warn that root orchestration is intended only for repair/debug sessions. If `SUDO_USER` is available, prefer restarting as that user.
-- After confirmation, Linux root-required work uses ordinary `sudo` prompts or allowlisted `sudo rakkib privileged ...` helper actions.
+- Before agent launch, `rakkib init` may pre-authorize sudo and keep the sudo timestamp alive for the session. After confirmation, Linux root-required work should use `sudo -n` or allowlisted `sudo -n rakkib privileged ...` helper actions so expired authorization fails fast instead of prompting inside the agent session.
 - Step 90 verifies repo and state-file ownership for later unprivileged maintenance.
 - `cloudflared` CLI installs into the admin user's `~/.local/bin/cloudflared`.
 - OpenClaw installs from npm into `~/.local/bin/openclaw` (requires node ≥ 22.14.0).

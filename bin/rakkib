@@ -24,6 +24,8 @@ AGENT_MODE="${RAKKIB_AGENT:-auto}"
 RUN_DOCTOR=true
 DOCTOR_ONLY=false
 PRINT_PROMPT_ONLY=false
+SUDO_PREAUTH="${RAKKIB_SUDO_PREAUTH:-auto}"
+SUDO_KEEPALIVE_PID=""
 
 usage() {
   cat <<'USAGE'
@@ -48,11 +50,15 @@ init_usage() {
 Usage: rakkib init [--dir <path>] [--repo <url>] [--branch <name>]
                    [--skip-doctor] [--doctor-only]
                    [--agent <auto|opencode|claude|codex|none>] [--no-agent]
-                   [--print-prompt]
+                   [--print-prompt] [--sudo-preauth <auto|always|never>]
 
 Runs the unprivileged Rakkib orchestration flow. On Linux, this command should
 run as your normal admin user. Privileged setup happens later through explicit
 sudo prompts after Phase 6 confirmation.
+
+By default, Rakkib asks to authorize sudo before launching the agent, then keeps
+the sudo timestamp alive only while the agent session is running. The sudo
+password is never stored by Rakkib.
 USAGE
 }
 
@@ -61,13 +67,14 @@ auth_usage() {
 Usage: rakkib auth <sudo|agent|cloudflare> [subcommand]
 
 Subcommands:
-  sudo                 Validate sudo for this terminal with sudo -v
+  sudo [--keepalive]   Validate sudo for this terminal with sudo -v
   agent                Show supported AI agent CLIs found on PATH
   cloudflare status    Check cloudflared CLI and login file presence
   cloudflare login     Run cloudflared tunnel login as the current user
 
 Rakkib never stores your sudo password. `rakkib auth sudo` only asks sudo to
 cache credentials according to the operating system's normal sudo policy.
+With `--keepalive`, Rakkib refreshes the sudo timestamp until interrupted.
 USAGE
 }
 
@@ -100,6 +107,16 @@ die() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
 }
+
+cleanup_sudo_keepalive() {
+  if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
+    kill "$SUDO_KEEPALIVE_PID" >/dev/null 2>&1 || true
+    wait "$SUDO_KEEPALIVE_PID" >/dev/null 2>&1 || true
+    SUDO_KEEPALIVE_PID=""
+  fi
+}
+
+trap cleanup_sudo_keepalive EXIT
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -140,6 +157,7 @@ Ask me the question files in order.
 Record answers in .fss-state.yaml.
 Do not write outside the repo until Phase 6 (questions/06-confirm.md).
 Run the agent as the normal admin user. On Linux, do not run the full agent session as root; after confirmation, request sudo only for specific privileged setup actions.
+If Rakkib pre-authorized sudo before launch, use sudo -n for privileged commands so expired authorization fails fast instead of hanging for a password inside the agent session.
 After confirmation, execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
 Stop on any failed Verify block and fix it before continuing.
 PROMPT
@@ -153,6 +171,7 @@ Use this repo as the installer and continue from the confirmed .fss-state.yaml.
 Do not re-run the interview unless required values are missing or confirmed is not true.
 Execute steps/00-prereqs.md through steps/90-verify.md in numeric order, skipping optional restore-test work unless explicitly requested.
 Run as the normal admin user and request sudo only for specific privileged setup actions after explaining what will change.
+If Rakkib pre-authorized sudo before launch, use sudo -n for privileged commands so expired authorization fails fast instead of hanging for a password inside the agent session.
 Stop on any failed Verify block and fix it before continuing.
 PROMPT
 }
@@ -320,6 +339,87 @@ EOF
   done
 }
 
+sudo_preauth_supported() {
+  [[ "$(uname -s 2>/dev/null || true)" == "Linux" ]] || return 1
+  [[ "${EUID:-$(id -u)}" -ne 0 ]] || return 1
+  command_exists sudo || return 1
+  [[ -r /dev/tty && -w /dev/tty ]] || return 1
+}
+
+start_sudo_keepalive() {
+  cleanup_sudo_keepalive
+  (
+    while sudo -n -v >/dev/null 2>&1; do
+      sleep 60
+    done
+  ) &
+  SUDO_KEEPALIVE_PID="$!"
+}
+
+authorize_sudo() {
+  if ! sudo_preauth_supported; then
+    return 1
+  fi
+
+  cat > /dev/tty <<'EOF'
+
+Rakkib will need sudo after final confirmation for system setup actions such as
+installing Docker, creating /srv directories, and configuring system services.
+
+Authorize sudo now so the agent session does not stop later for a password.
+Rakkib does not store your sudo password; sudo manages its own timestamp cache.
+
+EOF
+
+  if sudo -v < /dev/tty; then
+    start_sudo_keepalive
+    log "Sudo authorized for this terminal; keepalive is active for the agent session."
+    return 0
+  fi
+
+  warn "Sudo authorization failed or was cancelled. The agent can still start, but privileged steps may stop later."
+  return 1
+}
+
+maybe_authorize_sudo_for_agent() {
+  local answer
+
+  case "$SUDO_PREAUTH" in
+    never)
+      return 0
+      ;;
+    always)
+      authorize_sudo || return 0
+      return 0
+      ;;
+    auto)
+      ;;
+    *)
+      die "unsupported sudo preauthorization mode: ${SUDO_PREAUTH}; expected auto, always, or never"
+      ;;
+  esac
+
+  sudo_preauth_supported || return 0
+
+  while true; do
+    printf 'Authorize sudo before launching the agent? [Y/n] ' > /dev/tty
+    IFS= read -r answer < /dev/tty || return 0
+    case "$answer" in
+      ''|y|Y|yes|YES|Yes)
+        authorize_sudo || true
+        return 0
+        ;;
+      n|N|no|NO|No)
+        warn "Skipping sudo preauthorization. Privileged steps may require manual intervention later."
+        return 0
+        ;;
+      *)
+        warn "Invalid choice: ${answer:-empty}"
+        ;;
+    esac
+  done
+}
+
 launch_agent_with_prompt() {
   local prompt="$1"
   local agent status
@@ -344,21 +444,26 @@ launch_agent_with_prompt() {
     warn "Launching the full AI agent as root is not recommended. Re-run as your normal admin user unless you are intentionally debugging."
   fi
 
+  maybe_authorize_sudo_for_agent
+
   log "Launching ${agent} from ${REPO_DIR}"
   cd "$REPO_DIR"
-  exec < /dev/tty
 
   case "$agent" in
     opencode)
-      exec opencode . --prompt "$prompt"
+      opencode . --prompt "$prompt" < /dev/tty
       ;;
     claude)
-      exec claude "$prompt"
+      claude "$prompt" < /dev/tty
       ;;
     codex)
-      exec codex "$prompt"
+      codex "$prompt" < /dev/tty
       ;;
   esac
+
+  status="$?"
+  cleanup_sudo_keepalive
+  return "$status"
 }
 
 run_doctor() {
@@ -441,6 +546,11 @@ parse_init_args() {
         AGENT_MODE="$2"
         shift 2
         ;;
+      --sudo-preauth)
+        [[ "$#" -ge 2 ]] || die "missing value for --sudo-preauth"
+        SUDO_PREAUTH="$2"
+        shift 2
+        ;;
       -h|--help)
         init_usage
         exit 0
@@ -486,14 +596,41 @@ cmd_auth() {
 
   case "$topic" in
     sudo)
+      local keepalive=false
+      while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+          --keepalive)
+            keepalive=true
+            shift
+            ;;
+          -h|--help)
+            auth_usage
+            return 0
+            ;;
+          *)
+            die "unknown sudo auth option: $1"
+            ;;
+        esac
+      done
+
       if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
         log "Already running as root; no sudo validation needed."
         return 0
       fi
       command_exists sudo || die "sudo is required for privileged setup actions on Linux."
       log "Validating sudo for this terminal. Rakkib will not store your password."
-      sudo -v
+      if [[ -r /dev/tty ]]; then
+        sudo -v < /dev/tty
+      else
+        sudo -v
+      fi
       log "Sudo is ready for this terminal according to your system sudo policy."
+      if [[ "$keepalive" == true ]]; then
+        log "Keeping sudo alive until you press Ctrl-C."
+        while sudo -n -v >/dev/null 2>&1; do
+          sleep 60
+        done
+      fi
       ;;
     agent)
       local found=false candidate

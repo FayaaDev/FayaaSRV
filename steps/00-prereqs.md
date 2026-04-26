@@ -28,7 +28,7 @@ Install or verify the base tools needed for the rest of the deployment.
 Linux:
 - Prefer Docker Engine on headless Ubuntu hosts using Docker's official docs: `https://docs.docker.com/engine/install/ubuntu/`
 - This documented path assumes Ubuntu and explicit sudo for package/service changes.
-- Do not run the full agent as root by default. Use `rakkib auth sudo` to validate sudo for the current terminal, and use `sudo` only for the specific commands that need it.
+- Do not run the full agent as root by default. `rakkib init` should pre-authorize sudo before launching the agent when the user agrees. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast instead of hanging inside the agent session.
 - Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
 - A portable install path is acceptable. For example, download the matching release archive for `linux-$ARCH`, extract `cloudflared`, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 
