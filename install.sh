@@ -246,55 +246,9 @@ ensure_pipx() {
   fi
   log "pipx not found. Installing pipx..."
 
-  # 1. Try apt (preferred for PEP 668 distros like Ubuntu 23.04+)
   if _command_exists apt-get; then
-    if sudo apt-get update -qq >/dev/null 2>&1 && \
-       sudo apt-get install -y -qq pipx >/dev/null 2>&1; then
-      if command_exists pipx; then
-        pipx ensurepath >/dev/null 2>&1 || true
-        return 0
-      fi
-    fi
-  fi
-
-  # 2. Try dnf
-  if _command_exists dnf; then
-    if sudo dnf install -y pipx >/dev/null 2>&1; then
-      if command_exists pipx; then
-        pipx ensurepath >/dev/null 2>&1 || true
-        return 0
-      fi
-    fi
-  fi
-
-  # 3. Fallback: pip install --user (for non-PEP 668 or when apt/dnf fail)
-  if command_exists pip3; then
-    pip3 install --user --yes pipx >/dev/null 2>&1 || true
-  fi
-  if ! command_exists pipx && command_exists python3; then
-    python3 -m pip install --user --yes pipx >/dev/null 2>&1 || true
-  fi
-
-  # 4. Check if pipx is now available
-  if command_exists pipx; then
-    python3 -m pipx ensurepath >/dev/null 2>&1 || true
-    return 0
-  fi
-  if [[ -x "${HOME}/.local/bin/pipx" ]]; then
-    export PATH="${HOME}/.local/bin:${PATH}"
-    python3 -m pipx ensurepath >/dev/null 2>&1 || true
-    return 0
-  fi
-
-  # 5. Try venv bootstrap as final fallback (PEP 668 workaround from pipx docs)
-  if _command_exists python3; then
-    log "Trying venv bootstrap for pipx..."
-    if python3 -m venv ~/.local/share/pipx-venv >/dev/null 2>&1 && \
-       ~/.local/share/pipx-venv/bin/pip install pipx >/dev/null 2>&1 && \
-       ln -sf ~/.local/share/pipx-venv/bin/pipx ~/.local/bin/pipx 2>/dev/null; then
-      pipx ensurepath >/dev/null 2>&1 || true
-      command_exists pipx && return 0
-    fi
+    sudo apt update && sudo apt install -y pipx && pipx ensurepath -y
+    command_exists pipx && return 0
   fi
 
   command_exists pipx || die "pipx installation failed. Install pipx manually (https://pypa.github.io/pipx/) and rerun."
