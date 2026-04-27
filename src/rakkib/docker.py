@@ -159,6 +159,25 @@ def network_exists(network_name: str) -> bool:
         return False
 
 
+def capture_container_logs(container_name: str, log_path: Path | str, tail: int = 200) -> None:
+    """Append the last *tail* lines of container logs to *log_path*."""
+    log_file = Path(log_path)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = subprocess.run(
+            ["docker", "logs", "--tail", str(tail), container_name],
+            capture_output=True,
+            text=True,
+        )
+        with log_file.open("a") as fh:
+            fh.write(f"\n--- logs: {container_name} (last {tail} lines) ---\n")
+            fh.write(result.stdout)
+            if result.stderr:
+                fh.write(result.stderr)
+    except Exception:
+        pass
+
+
 def create_network(network_name: str, driver: str = "bridge") -> None:
     """Create a docker network if it does not already exist."""
     if network_exists(network_name):

@@ -11,7 +11,13 @@ from pathlib import Path
 
 import yaml
 
-from rakkib.docker import compose_up, container_publishes_port, container_running, health_check
+from rakkib.docker import (
+    capture_container_logs,
+    compose_up,
+    container_publishes_port,
+    container_running,
+    health_check,
+)
 from rakkib.render import render_file
 from rakkib.secrets import (
     generate_oidc_client_id,
@@ -273,6 +279,42 @@ def _handle_dbhub(state: State, repo: Path, data_root: Path) -> None:
         render_file(tmpl, svc_dir / "dbhub.toml", state)
 
 
+def _preflight_authentik_postgres(log_path: Path) -> None:
+    """Fail fast if the shared postgres container doesn't have the authentik DB."""
+    result = subprocess.run(
+        ["docker", "exec", "postgres", "pg_isready", "-U", "authentik", "-d", "authentik"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "authentik postgres pre-flight failed: the 'authentik' database/role is not ready "
+            "in the postgres container. Ensure Step 4 completed successfully.\n"
+            f"pg_isready output: {result.stdout.strip() or result.stderr.strip()}"
+        )
+
+
+_AUTHENTIK_HEALTH_TIMEOUT = 360
+
+
+def _wait_authentik_healthy(log_path: Path) -> None:
+    """Wait for authentik-server to become healthy; capture logs on failure."""
+    if not health_check("authentik-server", timeout=_AUTHENTIK_HEALTH_TIMEOUT):
+        capture_container_logs("authentik-server", log_path)
+        capture_container_logs("authentik-worker", log_path)
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Health.Status}}", "authentik-server"],
+            capture_output=True,
+            text=True,
+        )
+        last_status = result.stdout.strip() or "unknown"
+        raise RuntimeError(
+            f"authentik-server health check timed out after {_AUTHENTIK_HEALTH_TIMEOUT}s "
+            f"(last status: {last_status}). "
+            f"See {log_path} for container logs."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
@@ -316,13 +358,16 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     elif svc_id == "dbhub":
         _handle_dbhub(state, repo, data_root)
 
+    # --- Pre-start checks ------------------------------------------------
+    if svc_id == "authentik":
+        _preflight_authentik_postgres(log_path)
+
     # --- Start service ---------------------------------------------------
     compose_up(svc_dir, log_path=log_path)
 
     # --- Post-start special cases ----------------------------------------
     if svc_id == "authentik":
-        if not health_check("authentik-server", timeout=180):
-            raise RuntimeError("authentik-server health check timed out")
+        _wait_authentik_healthy(log_path)
 
     # --- Caddy route -----------------------------------------------------
     _render_caddy_route(state, svc, repo, data_root)
