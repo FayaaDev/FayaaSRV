@@ -10,16 +10,13 @@ Install local backup scripts, backup scheduling, and lightweight health monitori
 4. Choose a backup schedule with the user if none was provided. Default: daily at 02:30.
 5. Install or replace the backup cron entry using the marker `# RAKKIB: backup-local`.
 6. Always install the cloudflared health check script into a user-owned directory such as `~/.local/bin` and make it executable.
-7. If `openclaw` is selected on Linux, install the OpenClaw health check and memory alert helper into the same user-owned directory and make them executable.
-8. Add cron entries with conservative cadence using marker replacement. Remove existing lines with the matching marker before adding the current line.
+7. Add cron entries with conservative cadence using marker replacement. Remove existing lines with the matching marker before adding the current line.
 9. Retain local archives in daily, weekly, and monthly buckets. Do not configure cloud upload in v1.
 
 ## Default Cadence
 
 - backup-local: daily at 02:30 unless the user chose another schedule
 - cloudflared health check: every 5 minutes
-- OpenClaw health check: every 5 minutes
-- OpenClaw memory alert: every 10 minutes
 
 ## Cron Markers
 

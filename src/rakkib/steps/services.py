@@ -221,7 +221,6 @@ def _handle_authentik(state: State, repo: Path, data_root: Path) -> None:
         "uptime-kuma": "templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl",
         "dockge": "templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl",
         "n8n": "templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl",
-        "hermes": "templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl",
     }
 
     for svc_id, tmpl_rel in blueprint_map.items():

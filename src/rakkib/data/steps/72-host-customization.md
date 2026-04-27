@@ -7,7 +7,7 @@ Install user-scoped host customizations that are not Docker containers, network 
 Only run this step if `host_addons` contains `vergo_terminal`.
 
 General rules:
-1. Keep the installer agent running as the normal admin user.
+1. Keep the installer running as the normal admin user.
 2. Use repo-local VErgo assets from `templates/vergo/` and `files/vergo/`; do not run `VErgo/terminal.sh` and do not download shell templates from GitHub.
 3. Back up existing managed dotfiles before replacement only when the candidate content differs.
 4. Use a timestamped backup directory named `~/.backup-vergo/<YYYYmmddHHMMSS>/`.

@@ -135,25 +135,6 @@ def run(state: State) -> None:
             f"bash {cf_script}",
         )
 
-    # OpenClaw health checks (Linux only)
-    if "openclaw" in selected and platform == "linux":
-        claw_health = user_bin / "claw-healthcheck.sh"
-        if claw_health.exists():
-            lines = _install_cron_entry(
-                lines,
-                "# RAKKIB: claw-healthcheck",
-                "*/5 * * * *",
-                f"bash {claw_health}",
-            )
-        claw_mem = user_bin / "claw-memory-alert.sh"
-        if claw_mem.exists():
-            lines = _install_cron_entry(
-                lines,
-                "# RAKKIB: claw-memory-alert",
-                "*/10 * * * *",
-                f"bash {claw_mem}",
-            )
-
     _write_crontab(lines, crontab_user)
 
     log_path.write_text("cron step completed\n")
@@ -192,12 +173,6 @@ def verify(state: State) -> VerificationResult:
     cf_script = Path.home() / ".local" / "bin" / "cloudflared-healthcheck.sh"
     if cf_script.exists():
         required_markers.append("# RAKKIB: cloudflared-healthcheck")
-
-    if "openclaw" in selected and platform == "linux":
-        required_markers.extend([
-            "# RAKKIB: claw-healthcheck",
-            "# RAKKIB: claw-memory-alert",
-        ])
 
     for marker in required_markers:
         if marker not in crontab_text:

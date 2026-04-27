@@ -16,7 +16,6 @@ from typing import Any
 import click
 from rich.console import Console
 
-from rakkib.agent_handoff import handoff
 from rakkib.doctor import (
     attempt_fix_cloudflared,
     attempt_fix_docker,
@@ -56,49 +55,6 @@ def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
     console.print("[red]Admin user is required; pass --admin-user or record admin_user in state.[/red]")
     raise click.Abort()
 
-
-def _update_readme_agent_memory(repo_dir: Path, state: State) -> None:
-    """Append or update the Agent Memory block in README.md."""
-    readme_path = repo_dir / "README.md"
-    if not readme_path.exists():
-        return
-
-    foundation = state.get("foundation_services") or []
-    selected = state.get("selected_services") or []
-    data_root = state.get("data_root", "/srv")
-    domain = state.get("domain", "") or ""
-
-    foundation_str = ", ".join(foundation) if foundation else "None"
-    selected_str = ", ".join(selected) if selected else "None"
-
-    block = (
-        "<!-- BEGIN RAKKIB AGENT MEMORY -->\n"
-        "## Deployed Services\n"
-        "\n"
-        f"- **Foundation**: {foundation_str}\n"
-        f"- **Optional**: {selected_str}\n"
-        f"- **Data Root**: {data_root}\n"
-        f"- **Domain**: {domain}\n"
-        "\n"
-        "<!-- END RAKKIB AGENT MEMORY -->\n"
-    )
-
-    content = readme_path.read_text()
-    start_marker = "<!-- BEGIN RAKKIB AGENT MEMORY -->"
-    end_marker = "<!-- END RAKKIB AGENT MEMORY -->"
-
-    if start_marker in content and end_marker in content:
-        start_idx = content.index(start_marker)
-        end_idx = content.index(end_marker) + len(end_marker)
-        # Strip trailing whitespace/newlines from the remainder so we don't accumulate blanks
-        after = content[end_idx:]
-        content = content[:start_idx] + block + after
-    else:
-        if not content.endswith("\n"):
-            content += "\n"
-        content += "\n" + block
-
-    readme_path.write_text(content)
 
 
 def _check_docker() -> bool:
@@ -147,17 +103,42 @@ def _check_docker() -> bool:
     return True
 
 
-def _run_steps(
-    state: State,
-    repo_dir: Path,
-    agent: str = "auto",
-    print_prompt: bool = False,
-    no_agent: bool = False,
-) -> bool:
-    """Execute setup steps in order. Return True if all pass."""
+def _ensure_prereqs() -> bool:
+    """Install host prerequisites (Docker, cloudflared) if missing. Return False to abort."""
     if not _check_docker():
         return False
 
+    cf_ok = subprocess.run(
+        ["cloudflared", "--version"],
+        capture_output=True,
+        text=True,
+    ).returncode == 0
+    if not cf_ok:
+        # Try ~/.local/bin/cloudflared as well
+        local_cf = Path.home() / ".local" / "bin" / "cloudflared"
+        cf_ok = local_cf.is_file()
+
+    if not cf_ok:
+        console.print("[dim]cloudflared not found — installing automatically...[/dim]")
+        msg = attempt_fix_cloudflared()
+        console.print(f"[dim]{msg}[/dim]")
+        # Re-check
+        cf_ok = (
+            subprocess.run(["cloudflared", "--version"], capture_output=True, text=True).returncode == 0
+            or (Path.home() / ".local" / "bin" / "cloudflared").is_file()
+        )
+        if not cf_ok:
+            console.print(
+                "[bold red]cloudflared installation failed. "
+                "Install manually: https://github.com/cloudflare/cloudflared/releases[/bold red]"
+            )
+            return False
+
+    return True
+
+
+def _run_steps(state: State, repo_dir: Path) -> bool:
+    """Execute setup steps in order. Return True if all pass."""
     steps: list[tuple[str, str]] = [
         ("10", "rakkib.steps.layout"),
         ("30", "rakkib.steps.caddy"),
@@ -187,17 +168,6 @@ def _run_steps(
                     console.print(f"[bold red]  Step {label} verify failed:[/bold red] {result.message}")
                     if result.log_path:
                         console.print(f"[dim]  Log: {result.log_path}[/dim]")
-
-                    handoff(
-                        step=result.step,
-                        message=result.message,
-                        log_path=result.log_path,
-                        state=state,
-                        repo_dir=repo_dir,
-                        agent=agent,
-                        print_prompt=print_prompt,
-                        no_agent=no_agent,
-                    )
                     return False
                 console.print(f"[dim]  Step {label} verify passed[/dim]")
             else:
@@ -205,17 +175,6 @@ def _run_steps(
 
         except Exception as exc:
             console.print(f"[bold red]  Step {label} failed:[/bold red] {exc}")
-
-            handoff(
-                step=module_path.rsplit(".", 1)[-1],
-                message=f"{type(exc).__name__}: {exc}",
-                log_path=None,
-                state=state,
-                repo_dir=repo_dir,
-                agent=agent,
-                print_prompt=print_prompt,
-                no_agent=no_agent,
-            )
             return False
 
     console.print("[bold green]All steps completed successfully.[/bold green]")
@@ -231,48 +190,59 @@ def _run_steps(
 @click.version_option(version=__import__("rakkib").__version__, prog_name="rakkib")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """Rakkib — agent-driven personal server kit."""
+    """Rakkib — personal server installer."""
     ctx.ensure_object(dict)
     if "repo_dir" not in ctx.obj:
         ctx.obj["repo_dir"] = Path(__file__).resolve().parent
 
 
 @cli.command()
-@click.option("--agent", type=str, default="auto", help="Agent mode: auto, opencode, claude, codex, none")
-@click.option("--print-prompt", is_flag=True, help="Print the agent prompt and exit")
-@click.option("--no-agent", is_flag=True, help="Equivalent to --agent none")
-@click.option("--resume", is_flag=True, help="Skip interview and run steps directly if state is confirmed")
 @click.pass_context
-def init(ctx: click.Context, agent: str, print_prompt: bool, no_agent: bool, resume: bool) -> None:
-    """Run diagnostics and launch the setup wizard."""
-    if no_agent:
-        agent = "none"
+def init(ctx: click.Context) -> None:
+    """Gather configuration via interview and save to .fss-state.yaml.
 
+    Run `rakkib pull` afterwards to install everything.
+    """
     console.print("[bold green]Rakkib init[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
     state_path = repo_dir / ".fss-state.yaml"
     state = State.load(state_path)
 
-    # --resume explicitly skips the interview and runs steps directly
-    if resume:
-        if not state.is_confirmed():
-            console.print("[yellow]State is not confirmed — cannot resume. Run `rakkib init` without --resume to complete the interview.[/yellow]")
-            return
-        console.print("[dim]--resume set — skipping interview, resuming step execution.[/dim]")
-        _run_steps(state, repo_dir, agent=agent, print_prompt=print_prompt, no_agent=no_agent)
-        return
-
-    # Always go through run_interview — it handles the confirmed-state case
-    # by asking "Start over?" before proceeding
     state = run_interview(state, questions_dir=repo_dir / "data" / "questions")
     state.save(state_path)
     console.print("[bold green]Interview complete. State saved to .fss-state.yaml[/bold green]")
 
     if state.is_confirmed():
-        _run_steps(state, repo_dir, agent=agent, print_prompt=print_prompt, no_agent=no_agent)
+        console.print("[dim]Run [bold]rakkib pull[/bold] to install.[/dim]")
     else:
-        console.print("[yellow]State is not confirmed — run `rakkib init` again to confirm and execute steps.[/yellow]")
+        console.print("[yellow]State is not confirmed — run `rakkib init` again to complete the interview.[/yellow]")
+
+
+@cli.command()
+@click.pass_context
+def pull(ctx: click.Context) -> None:
+    """Install prerequisites and run all setup steps.
+
+    Requires a confirmed state from `rakkib init`.
+    """
+    console.print("[bold green]Rakkib pull[/bold green]")
+
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    if not state.is_confirmed():
+        console.print(
+            "[bold red]State is not confirmed.[/bold red] "
+            "Run [bold]rakkib init[/bold] first."
+        )
+        return
+
+    if not _ensure_prereqs():
+        return
+
+    _run_steps(state, repo_dir)
 
 
 @cli.command()
@@ -501,10 +471,6 @@ def add(ctx: click.Context, service: str) -> None:
     services_step.run_single_service(state, service)
     console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
 
-    # 8. Update README.md
-    _update_readme_agent_memory(repo_dir, state)
-    console.print(f"[dim]Updated README.md with deployed services.[/dim]")
-
 
 @cli.command()
 @click.confirmation_option(prompt="Remove the rakkib CLI shim and PATH entries?")
@@ -666,27 +632,6 @@ def privileged_fix_repo_owner(
     shutil.chown(repo_dir, user=user, group=None)
     console.print(f"[green]Repo ownership updated to {user}.[/green]")
 
-
-@cli.command()
-@click.pass_context
-def prompt(ctx: click.Context) -> None:
-    """Print the canonical installer prompt."""
-    console.print(
-        "\n[bold]Rakkib is ready for the agent-driven install flow.[/bold]\n"
-        f"\nRepo path:\n  {ctx.obj['repo_dir']}\n"
-        "\nPaste this prompt if your agent was not launched automatically:\n"
-        "\n--- PROMPT START ---\n"
-        "Read AGENT_PROTOCOL.md first.\n"
-        "Use this repo as the installer.\n"
-        "Ask me the question files in order.\n"
-        "Record answers in .fss-state.yaml.\n"
-        "Do not write outside the repo until Phase 6 (questions/06-confirm.md).\n"
-        "Run the agent as the normal admin user. On Linux, do not run the full agent session as root; after confirmation, request sudo only for specific privileged setup actions.\n"
-        "For privileged commands, use sudo -n so expired authorization fails fast instead of hanging for a password inside the agent session.\n"
-        "After confirmation, execute the numbered files in steps/ in order. Run docs/runbooks/restore-test.md only if restore testing is explicitly requested.\n"
-        "Stop on any failed Verify block and fix it before continuing.\n"
-        "--- PROMPT END ---\n"
-    )
 
 
 def main() -> None:

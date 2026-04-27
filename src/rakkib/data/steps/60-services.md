@@ -50,7 +50,6 @@ Skip any service not present in `foundation_services`. After each service starts
    - `uptime-kuma` in `foundation_services` → render `templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl`
    - `dockge` in `foundation_services` → render `templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl`
    - `n8n` in `selected_services` → render `templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl`
-   - `hermes` in `selected_services` → render `templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl`
 4. Render `.env` from `templates/docker/authentik/.env.example` into `{{DATA_ROOT}}/docker/authentik/.env`.
 5. Render `docker-compose.yml` from `templates/docker/authentik/docker-compose.yml.tmpl`.
 6. Run `docker compose up -d`.
@@ -102,9 +101,8 @@ Verify: `curl -s http://localhost/health` still returns OK and no Caddy error ou
 
 ### 60.4 — Deploy Optional Services
 
-Process in order: n8n → dbhub → immich → transfer → openclaw → hermes. Skip any not in `selected_services`.
-For Docker-backed optional services (`n8n`, `dbhub`, `immich`, `transfer`): render `.env` when needed, render `docker-compose.yml` and any extra config files, run `docker compose up -d`, then run the per-service verify.
-For host-backed optional services (`openclaw`, `hermes`): Step 70 owns the binary install and service-manager setup. In this step, render any dependent Caddy or Authentik files and use the local HTTP verify only after Step 70 has started the service.
+Process in order: n8n → dbhub → immich → transfer. Skip any not in `selected_services`.
+For each service: render `.env` when needed, render `docker-compose.yml` and any extra config files, run `docker compose up -d`, then run the per-service verify.
 Reload Caddy once after all optional service routes are in place.
 
 #### n8n
@@ -141,20 +139,6 @@ Reload Caddy once after all optional service routes are in place.
 - Render `templates/caddy/routes/transfer.caddy.tmpl`.
 - Verify: `docker ps | grep transfer` and `curl -sf http://localhost:8081/`.
 
-#### OpenClaw
-
-- Step 70 installs OpenClaw into `~/.local/bin/openclaw` and enables the user service.
-- Render `templates/caddy/routes/claw.caddy.tmpl`.
-- Verify after Step 70 starts the service: on Linux run `curl -sf http://{{HOST_GATEWAY}}:{{CLAW_GATEWAY_PORT}}/health`; on Mac run `curl -sf http://127.0.0.1:{{CLAW_GATEWAY_PORT}}/health`.
-
-#### Hermes
-
-- Require `authentik` to remain in `foundation_services`; stop rather than exposing the dashboard without Authentik protection.
-- Step 70 installs Hermes as the admin user, verifies `~/.local/bin/hermes`, and enables the user service wrapper.
-- Render `templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl`.
-- Render `templates/caddy/routes/hermes.caddy.tmpl`.
-- Verify after Step 70 starts the service: on Linux run `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`; on Mac run `curl -sf http://127.0.0.1:{{HERMES_DASHBOARD_PORT}}/`.
-
 ## Service Notes
 
 NocoDB:
@@ -180,10 +164,6 @@ transfer.sh:
 - use local filesystem storage at `{{DATA_ROOT}}/data/transfer`
 - default retention is 14 days with hourly purge checks; change `TRANSFER_PURGE_DAYS` in the rendered `.env` if the owner accepts the storage risk
 
-Hermes:
-- keep the dashboard bound to `{{HOST_GATEWAY}}` on Linux so only the Docker bridge can reach it directly; Caddy applies Authentik forward auth before public access
-- run `hermes setup` or `hermes model` manually after install to configure providers and credentials
-
 ## Verify
 
 - `docker ps | grep nocodb` (if in foundation)
@@ -196,7 +176,3 @@ Hermes:
 - if selected: `docker ps | grep dbhub`
 - if selected: `docker ps | grep immich_server`
 - if selected: `docker ps | grep transfer`
-- on Linux if selected: `ADMIN_HOME="$(getent passwd {{ADMIN_USER}} | cut -d: -f6)"; test -x "$ADMIN_HOME/.local/bin/hermes"`
-- on Mac if selected: `test -x "$HOME/.local/bin/hermes"`
-- on Linux if selected: `curl -sf http://{{HOST_GATEWAY}}:{{HERMES_DASHBOARD_PORT}}/`
-- on Mac if selected: `curl -sf http://127.0.0.1:{{HERMES_DASHBOARD_PORT}}/`

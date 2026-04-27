@@ -12,7 +12,7 @@ Install or verify the base tools needed for the rest of the deployment.
 ## Actions
 
 1. Verify `curl` is available.
-2. On Linux, verify the agent is running as the normal admin user when `privilege_strategy: on_demand` is recorded. Do not restart the full agent as root.
+2. On Linux, verify the installer is running as the normal admin user when `privilege_strategy: on_demand` is recorded. Do not restart the full installer as root.
 3. Verify `docker` and `docker compose` are available.
 4. If Docker is not installed, install Docker by platform:
    - Mac: use the normal Docker Desktop install flow.
@@ -29,7 +29,7 @@ Install or verify the base tools needed for the rest of the deployment.
 Linux:
 - Prefer Docker Engine on headless Ubuntu hosts using Docker's official docs: `https://docs.docker.com/engine/install/ubuntu/`
 - This documented path assumes Ubuntu and explicit sudo for package/service changes.
-- Do not run the full agent as root by default. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast instead of hanging inside the agent session.
+- Do not run the full installer as root by default. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast.
 - Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
 - A portable install path is acceptable. For example, download the matching release archive for `linux-$ARCH`, extract `cloudflared`, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 

@@ -43,7 +43,7 @@ if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
   SUDO_USER_HOME="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
 fi
 
-if [[ -z "${RAKKIB_DIR:-}" && -f "AGENT_PROTOCOL.md" && -d ".git" ]]; then
+if [[ -z "${RAKKIB_DIR:-}" && -f "pyproject.toml" && -d ".git" ]]; then
   INSTALL_DIR="$(pwd)"
 elif [[ -n "${RAKKIB_DIR:-}" ]]; then
   INSTALL_DIR="${RAKKIB_DIR}"

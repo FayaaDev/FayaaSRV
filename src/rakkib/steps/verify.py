@@ -24,6 +24,7 @@ def _collect_verifications(state: State) -> list[VerificationResult]:
     step_modules = [
         ("layout", "rakkib.steps.layout"),
         ("caddy", "rakkib.steps.caddy"),
+        ("cloudflare", "rakkib.steps.cloudflare"),
         ("postgres", "rakkib.steps.postgres"),
         ("services", "rakkib.steps.services"),
         ("cron", "rakkib.steps.cron"),
@@ -82,12 +83,11 @@ def _print_summary(results: list[VerificationResult]) -> None:
     print("")
 
     if failures:
-        print("HANDOFF PROMPT")
+        print("ACTION REQUIRED")
         print("-" * 60)
         print(
             "Some verification checks failed. Review the failures above, "
-            "check the relevant logs, and re-run the failed steps. "
-            "If the issue persists, hand off to the agent for diagnosis."
+            "check the relevant logs, and re-run `rakkib pull` to retry."
         )
         print("")
 

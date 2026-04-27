@@ -186,36 +186,6 @@ services:
     host_service: false
     notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
 
-  - id: openclaw
-    state_bucket: selected_services
-    required: false
-    optional: true
-    image: null
-    default_port: 18789
-    default_subdomain: claw
-    subdomain_key: openclaw
-    subdomain_placeholder: OPENCLAW_SUBDOMAIN
-    env_keys:
-      - CLAW_GATEWAY_PORT
-    depends_on: []
-    host_service: true
-    notes: "AI gateway. Install from npm with node >= 22.14.0 into ~/.local/bin/openclaw, then run as a systemd user unit (Linux) or launchd plist (Mac)."
-
-  - id: hermes
-    state_bucket: selected_services
-    required: false
-    optional: true
-    image: null
-    default_port: 9119
-    default_subdomain: hermes
-    subdomain_key: hermes
-    subdomain_placeholder: HERMES_SUBDOMAIN
-    env_keys:
-      - HERMES_DASHBOARD_PORT
-    depends_on: [authentik]
-    host_service: true
-    notes: "NousResearch Hermes Agent dashboard. Install from the official installer into ~/.local/bin/hermes, then run the dashboard as a systemd user unit (Linux) or launchd plist (Mac) behind Authentik."
-
   - id: jellyfin
     state_bucket: selected_services
     required: false
