@@ -92,7 +92,7 @@ ensure_python3_and_venv() {
   local need_python need_venv
   need_python=0; need_venv=0
   command_exists python3 || need_python=1
-  python3 -c "import venv" 2>/dev/null || need_venv=1
+  python3 -c "import venv, ensurepip" 2>/dev/null || need_venv=1
 
   if [[ $need_python -eq 0 && $need_venv -eq 0 ]]; then
     return 0
@@ -101,7 +101,12 @@ ensure_python3_and_venv() {
   if command_exists apt-get; then
     local pkgs=()
     [[ $need_python -eq 1 ]] && pkgs+=(python3)
-    [[ $need_venv   -eq 1 ]] && pkgs+=(python3-venv)
+    if [[ $need_venv -eq 1 ]]; then
+      local pyver
+      pyver=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "")
+      pkgs+=(python3-venv)
+      [[ -n "$pyver" ]] && pkgs+=("python${pyver}-venv")
+    fi
     log "Installing ${pkgs[*]} via apt-get..."
     sudo apt-get install -y -qq -o DPkg::Lock::Timeout=60 "${pkgs[@]}" \
       || die "Failed to install ${pkgs[*]}. Install them manually and rerun."
@@ -119,7 +124,7 @@ ensure_python3_and_venv() {
   fi
 
   command_exists python3 || die "python3 installation failed. Install manually and rerun."
-  python3 -c "import venv" 2>/dev/null || die "python3-venv unavailable. Install it manually and rerun."
+  python3 -c "import venv, ensurepip" 2>/dev/null || die "python3-venv unavailable (including ensurepip). Install it manually and rerun."
 }
 
 is_empty_dir() {
