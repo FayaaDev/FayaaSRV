@@ -179,7 +179,8 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) ->
 
     # Determine template filename
     tmpl_name: str | None = None
-    if svc_id in ("homepage", "uptime-kuma", "dockge"):
+    auth_switchable = ("homepage", "uptime-kuma", "dockge", "n8n", "dbhub")
+    if svc_id in auth_switchable:
         tmpl_name = f"{svc_id}.caddy.tmpl" if authentik_enabled else f"{svc_id}-public.caddy.tmpl"
     else:
         tmpl_name = f"{svc_id}.caddy.tmpl"
@@ -250,6 +251,7 @@ def _handle_authentik(state: State, repo: Path, data_root: Path) -> None:
         "uptime-kuma": "templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl",
         "dockge": "templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl",
         "n8n": "templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl",
+        "dbhub": "templates/docker/authentik/blueprints/proxy-dbhub.yaml.tmpl",
     }
 
     for svc_id, tmpl_rel in blueprint_map.items():
