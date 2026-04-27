@@ -59,23 +59,16 @@ def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
 
 
 def _check_docker() -> bool:
-    """Verify docker and docker compose are available. Offer to install if missing."""
+    """Verify docker and docker compose are available. Install if missing."""
     if shutil.which("docker") is None:
-        console.print("[bold red]Docker is required but not found on PATH.[/bold red]")
-        console.print(
-            "Install Docker: https://docs.docker.com/engine/install/ubuntu/#installation-methods"
-        )
-        from rakkib.tui import prompt_confirm
-        if prompt_confirm("Install Docker now? (uses get.docker.com convenience script)", default=True):
-            from rakkib.doctor import attempt_fix_compose, attempt_fix_docker
-            result = attempt_fix_docker()
-            console.print(f"[dim]{result}[/dim]")
-            if shutil.which("docker") is None:
-                console.print("[bold red]Docker installation did not succeed. Aborting.[/bold red]")
-                return False
-            console.print("[green]Docker installed successfully.[/green]")
-        else:
+        console.print("[dim]Docker not found — installing automatically...[/dim]")
+        from rakkib.doctor import attempt_fix_compose, attempt_fix_docker
+        result = attempt_fix_docker()
+        console.print(f"[dim]{result}[/dim]")
+        if shutil.which("docker") is None:
+            console.print("[bold red]Docker installation did not succeed. Aborting.[/bold red]")
             return False
+        console.print("[green]Docker installed successfully.[/green]")
 
     compose_check = subprocess.run(
         ["docker", "compose", "version"],
@@ -83,23 +76,19 @@ def _check_docker() -> bool:
         text=True,
     )
     if compose_check.returncode != 0:
-        console.print("[bold red]docker compose (v2 plugin) is required but not available.[/bold red]")
-        from rakkib.tui import prompt_confirm
-        if prompt_confirm("Install docker compose plugin now?", default=True):
-            from rakkib.doctor import attempt_fix_compose
-            result = attempt_fix_compose()
-            console.print(f"[dim]{result}[/dim]")
-            compose_check = subprocess.run(
-                ["docker", "compose", "version"],
-                capture_output=True,
-                text=True,
-            )
-            if compose_check.returncode != 0:
-                console.print("[bold red]docker compose plugin installation did not succeed. Aborting.[/bold red]")
-                return False
-            console.print("[green]docker compose plugin installed successfully.[/green]")
-        else:
+        console.print("[dim]docker compose plugin not found — installing automatically...[/dim]")
+        from rakkib.doctor import attempt_fix_compose
+        result = attempt_fix_compose()
+        console.print(f"[dim]{result}[/dim]")
+        compose_check = subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True,
+            text=True,
+        )
+        if compose_check.returncode != 0:
+            console.print("[bold red]docker compose plugin installation did not succeed. Aborting.[/bold red]")
             return False
+        console.print("[green]docker compose plugin installed successfully.[/green]")
 
     return True
 
