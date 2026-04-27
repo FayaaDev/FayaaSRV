@@ -405,6 +405,63 @@ def run_single_service(state: State, svc_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Restart
+# ---------------------------------------------------------------------------
+
+
+def restart_service(state: State, svc_id: str) -> None:
+    """Restart a single service by running docker compose restart in its directory."""
+    data_root = Path(state.get("data_root", "/srv"))
+    svc_dir = data_root / "docker" / svc_id
+    if not (svc_dir / "docker-compose.yml").exists():
+        raise ValueError(f"No docker-compose.yml found for service '{svc_id}' at {svc_dir}")
+    subprocess.run(
+        ["docker", "compose", "--project-directory", str(svc_dir), "restart"],
+        check=True,
+    )
+
+
+def restart_all(state: State) -> list[str]:
+    """Restart all deployed services in dependency order. Returns ids of restarted services.
+
+    Order: postgres → cloudflared → foundation/selected (dependency order) → caddy
+    Caddy is always last so routes are live after all services are up.
+    """
+    data_root = Path(state.get("data_root", "/srv"))
+    registry = _load_registry()
+
+    always_ids = [
+        s["id"]
+        for s in registry["services"]
+        if s.get("state_bucket") == "always" and s["id"] != "caddy"
+    ]
+    selected = _selected_service_defs(state, registry)
+    selected_ids = [s["id"] for s in selected]
+
+    order = []
+    for svc_id in always_ids:
+        if svc_id not in order:
+            order.append(svc_id)
+    for svc_id in selected_ids:
+        if svc_id not in order:
+            order.append(svc_id)
+    order.append("caddy")
+
+    restarted: list[str] = []
+    for svc_id in order:
+        svc_dir = data_root / "docker" / svc_id
+        if not (svc_dir / "docker-compose.yml").exists():
+            continue
+        subprocess.run(
+            ["docker", "compose", "--project-directory", str(svc_dir), "restart"],
+            check=True,
+        )
+        restarted.append(svc_id)
+
+    return restarted
+
+
+# ---------------------------------------------------------------------------
 # Verify
 # ---------------------------------------------------------------------------
 

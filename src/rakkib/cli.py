@@ -1,6 +1,6 @@
 """Rakkib CLI entrypoint.
 
-Commands: init, doctor, status, add, uninstall, privileged, auth
+Commands: init, pull, doctor, status, add, restart, uninstall, privileged, auth
 """
 
 from __future__ import annotations
@@ -456,6 +456,51 @@ def add(ctx: click.Context, service: str) -> None:
     # 7. Run Step 5 for just this service
     services_step.run_single_service(state, service)
     console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
+
+
+@cli.command()
+@click.argument("service", required=False)
+@click.option("--all", "restart_all", is_flag=True, help="Restart all services in dependency order")
+@click.pass_context
+def restart(ctx: click.Context, service: str | None, restart_all: bool) -> None:
+    """Restart one or all deployed services.
+
+    \b
+    rakkib restart caddy          # restart a single service
+    rakkib restart --all          # restart all services in dependency order
+    """
+    if not service and not restart_all:
+        console.print("[yellow]Specify a service name or use --all.[/yellow]")
+        ctx.exit(1)
+    if service and restart_all:
+        console.print("[yellow]Use either a service name or --all, not both.[/yellow]")
+        ctx.exit(1)
+
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    if restart_all:
+        console.print("[bold green]Restarting all services...[/bold green]")
+        try:
+            restarted = services_step.restart_all(state)
+        except subprocess.CalledProcessError as exc:
+            console.print(f"[bold red]Restart failed:[/bold red] {exc}")
+            sys.exit(1)
+        for svc_id in restarted:
+            console.print(f"  [green]✓[/green] {svc_id}")
+        console.print(f"[bold green]Done.[/bold green] {len(restarted)} service(s) restarted.")
+    else:
+        console.print(f"[bold green]Restarting {service}...[/bold green]")
+        try:
+            services_step.restart_service(state, service)
+        except ValueError as exc:
+            console.print(f"[bold red]Error:[/bold red] {exc}")
+            sys.exit(1)
+        except subprocess.CalledProcessError as exc:
+            console.print(f"[bold red]Restart failed:[/bold red] {exc}")
+            sys.exit(1)
+        console.print(f"[green]✓[/green] {service} restarted.")
 
 
 @cli.command()
