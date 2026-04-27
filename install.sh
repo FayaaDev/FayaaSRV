@@ -247,13 +247,11 @@ ensure_pipx() {
   log "pipx not found. Installing pipx..."
 
   if command_exists apt-get; then
-    for i in 1 2 3 4 5; do
-      log "Attempt $i/5: installing pipx via apt..."
-      if sudo apt update -qq && sudo apt install -y -qq pipx; then
-        pipx ensurepath -y 2>/dev/null || true
-        command_exists pipx && return 0
-      fi
-      sleep 10
+    sudo apt install -y pipx && pipx ensurepath -y
+    command_exists pipx && return 0
+    for i in 1 2 3; do
+      sleep 5
+      sudo apt install -y pipx && pipx ensurepath -y && command_exists pipx && return 0
     done
   fi
 
