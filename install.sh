@@ -17,6 +17,20 @@ log() { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+# Read a line from /dev/tty if available, otherwise stdin.
+# This lets tests pipe answers without needing a TTY.
+_prompt() {
+  local var_name="$1"
+  local prompt_text="$2"
+  if { true < /dev/tty; } 2>/dev/null; then
+    printf '%s' "$prompt_text" > /dev/tty
+    IFS= read -r "$var_name" < /dev/tty
+  else
+    printf '%s' "$prompt_text"
+    IFS= read -r "$var_name"
+  fi
+}
 detect_platform() {
   case "$(uname -s 2>/dev/null || true)" in
     Linux|Darwin) ;;
@@ -88,9 +102,10 @@ parse_args() {
 confirm_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     local answer
-    printf 'WARNING: You are running Rakkib as root.\n' > /dev/tty
-    printf 'Are you sure you want to continue y/N ' > /dev/tty
-    IFS= read -r answer < /dev/tty || exit 1
+    if [[ -e /dev/tty ]]; then
+      printf 'WARNING: You are running Rakkib as root.\n' > /dev/tty
+    fi
+    _prompt answer 'Are you sure you want to continue y/N ' || exit 1
     case "$answer" in
       y|Y) ;;
       *) exit 1 ;;
@@ -148,8 +163,7 @@ _install_system_python_deps() {
 
   log "pipx could not be installed. The following system packages may be required: ${packages}."
   local answer
-  printf 'Install them via %s? (y/N) ' "$pkg_mgr" > /dev/tty
-  IFS= read -r answer < /dev/tty || return 1
+  _prompt answer "Install them via ${pkg_mgr}? (y/N) " || return 1
   case "$answer" in
     y|Y) ;;
     *) return 1 ;;
@@ -195,8 +209,7 @@ ensure_python3() {
   [[ "$pkg_mgr" == "brew" ]] && packages="python"
 
   local answer
-  printf 'Install %s via %s? (y/N) ' "$packages" "$pkg_mgr" > /dev/tty
-  IFS= read -r answer < /dev/tty || die "python3 is required. Install python3, then rerun this bootstrapper."
+  _prompt answer "Install ${packages} via ${pkg_mgr}? (y/N) " || die "python3 is required. Install python3, then rerun this bootstrapper."
   case "$answer" in
     y|Y) ;;
     *) die "python3 is required. Install python3, then rerun this bootstrapper." ;;

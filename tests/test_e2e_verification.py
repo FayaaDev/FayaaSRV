@@ -50,18 +50,21 @@ class TestFreshVmInstall:
     def test_install_script_ensure_pipx_logic(self, tmp_path: Path):
         """Verify ensure_pipx bash function logic via direct execution."""
         script = Path(__file__).resolve().parent.parent / "install.sh"
-        bash_code = textwrap.dedent(
-            f"""\
-            set -e
-            source "{script}"
-            # Mock: no pipx on PATH, no pip3, no python3 -m pip, no package manager
-            command_exists() {{ false; }}
-            # Should fall through to die
-            ensure_pipx 2>/dev/null || echo "EXPECTED_FAILURE"
-            """
+        bash_script = tmp_path / "test_pipx_logic.sh"
+        bash_script.write_text(
+            textwrap.dedent(
+                f"""\
+                set -e
+                source <(sed '/^main() {{/,$d' "{script}")
+                export HOME="{tmp_path}/home"
+                mkdir -p "$HOME"
+                command_exists() {{ false; }}
+                ( ensure_pipx 2>/dev/null ) || echo "EXPECTED_FAILURE"
+                """
+            )
         )
         result = subprocess.run(
-            ["bash", "-c", bash_code],
+            ["bash", str(bash_script)],
             capture_output=True,
             text=True,
             cwd=str(tmp_path),
@@ -71,31 +74,38 @@ class TestFreshVmInstall:
     def test_install_script_offers_to_install_pip_deps(self, tmp_path: Path):
         """When pipx can't be installed via pip, install.sh offers system packages."""
         script = Path(__file__).resolve().parent.parent / "install.sh"
-        bash_code = textwrap.dedent(
-            f"""\
-            set -e
-            source "{script}"
-            # Mock package manager detection
-            _detect_package_manager() {{ echo "apt-get"; }}
-            # Mock sudo to avoid actual system changes and capture the call
-            sudo() {{
-              echo "MOCK_SUDO $*"
-              return 0
-            }}
-            export -f _detect_package_manager sudo
-            # Feed 'y' to the prompt, verify it triggers system install
-            _install_system_python_deps <<< "y"
-            """
+        calls_file = tmp_path / "sudo_calls.txt"
+        bash_script = tmp_path / "test_pip_deps.sh"
+        bash_script.write_text(
+            textwrap.dedent(
+                f"""\
+                set -e
+                source <(sed '/^main() {{/,$d' "{script}")
+                _detect_package_manager() {{ echo "apt-get"; }}
+                sudo() {{
+                  echo "MOCK_SUDO $*" >> "{calls_file}"
+                  return 0
+                }}
+                # Mock _prompt to bypass stdin/TTY issues in test subprocesses
+                _prompt() {{
+                  local var_name="$1"
+                  eval "$var_name=\"y\""
+                }}
+                export -f _detect_package_manager sudo _prompt
+                _install_system_python_deps
+                """
+            )
         )
         result = subprocess.run(
-            ["bash", "-c", bash_code],
+            ["bash", str(bash_script)],
             capture_output=True,
             text=True,
             cwd=str(tmp_path),
         )
         assert result.returncode == 0
-        assert "MOCK_SUDO" in result.stdout
-        assert "apt-get" in result.stdout
+        calls = calls_file.read_text()
+        assert "MOCK_SUDO" in calls
+        assert "apt-get" in calls
 
     def test_install_script_prepare_repo_clone(self, tmp_path: Path):
         """prepare_repo should clone into the target directory."""
