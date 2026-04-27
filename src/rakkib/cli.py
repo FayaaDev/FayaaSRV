@@ -28,6 +28,7 @@ from rakkib.interview import run_interview
 from rakkib.state import State
 from rakkib.steps import VerificationResult
 from rakkib.steps import services as services_step
+from rakkib.steps.cloudflare import _cloudflared_bin
 
 console = Console()
 
@@ -109,12 +110,11 @@ def _ensure_prereqs() -> bool:
         return False
 
     cf_ok = subprocess.run(
-        ["cloudflared", "--version"],
+        [_cloudflared_bin(), "--version"],
         capture_output=True,
         text=True,
     ).returncode == 0
     if not cf_ok:
-        # Try ~/.local/bin/cloudflared as well
         local_cf = Path.home() / ".local" / "bin" / "cloudflared"
         cf_ok = local_cf.is_file()
 
@@ -124,7 +124,7 @@ def _ensure_prereqs() -> bool:
         console.print(f"[dim]{msg}[/dim]")
         # Re-check
         cf_ok = (
-            subprocess.run(["cloudflared", "--version"], capture_output=True, text=True).returncode == 0
+            subprocess.run([_cloudflared_bin(), "--version"], capture_output=True, text=True).returncode == 0
             or (Path.home() / ".local" / "bin" / "cloudflared").is_file()
         )
         if not cf_ok:
