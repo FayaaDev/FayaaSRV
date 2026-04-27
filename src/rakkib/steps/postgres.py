@@ -84,7 +84,7 @@ def _generate_init_sql(state: State) -> str:
         )
 
     if "nocodb" in foundation:
-        _add_service("NocoDB", "nocodb", secrets.get("NOCODB_DB_PASS", ""))
+        _add_service("NocoDB", "nocodb", secrets.get("NOCODB_DB_PASS", ""), "nocodb_db")
 
     if "authentik" in foundation:
         _add_service("Authentik", "authentik", secrets.get("AUTHENTIK_DB_PASS", ""))
