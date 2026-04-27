@@ -266,16 +266,7 @@ def test_caddy_verify_failure_health_check_failed(tmp_path):
             r.stdout = ""
         return r
 
-    # Make deadline expire after one curl attempt so the test doesn't sleep 30 s.
-    # Calls: (1) set deadline, (2) first while check → enter, (3) second while check → exit.
-    _times = iter([0.0, 0.0, 999.0])
-
-    def fake_time():
-        return next(_times, 999.0)
-
-    with patch("rakkib.steps.caddy.subprocess.run") as mock_run, \
-         patch("rakkib.steps.caddy.time.time", side_effect=fake_time), \
-         patch("rakkib.steps.caddy.time.sleep"):
+    with patch("rakkib.steps.caddy.subprocess.run") as mock_run:
         mock_run.side_effect = side_effect
         result = caddy.verify(state)
 

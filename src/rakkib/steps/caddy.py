@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 from rakkib.render import render_file
@@ -56,9 +55,7 @@ def run(state: State) -> None:
     render_file(repo / "templates" / "caddy" / "routes" / "root.caddy.tmpl", root_route, state)
     render_file(repo / "templates" / "caddy" / "Caddyfile.footer.tmpl", footer, state)
 
-    caddy_next.write_text(
-        header.read_text() + "\n" + root_route.read_text() + "\n" + footer.read_text()
-    )
+    caddy_next.write_text(header.read_text() + "\n" + footer.read_text())
 
     # 6a. Format the candidate Caddyfile.
     subprocess.run(
@@ -141,19 +138,13 @@ def verify(state: State) -> VerificationResult:
             "caddy", f"Docker network {docker_net} does not exist"
         )
 
-    # Health endpoint responds? Retry for up to 30 s to allow container startup.
-    deadline = time.time() + 30
-    health = None
-    while time.time() < deadline:
-        health = subprocess.run(
-            ["curl", "-s", "--max-time", "3", "http://localhost/health"],
-            capture_output=True,
-            text=True,
-        )
-        if health.returncode == 0 and "OK" in health.stdout:
-            break
-        time.sleep(2)
-    if health is None or health.returncode != 0 or "OK" not in health.stdout:
+    # Health endpoint responds?
+    health = subprocess.run(
+        ["curl", "-s", "http://localhost/health"],
+        capture_output=True,
+        text=True,
+    )
+    if health.returncode != 0 or "OK" not in health.stdout:
         return VerificationResult.failure("caddy", "Caddy health check failed")
 
     return VerificationResult.success("caddy", "Caddy is running and healthy")
