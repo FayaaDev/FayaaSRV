@@ -513,7 +513,7 @@ def attempt_fix_docker() -> str:
         return "curl is required but not found. Install curl first."
 
     result = subprocess.run(
-        ["sh", "-c", "curl -fsSL https://get.docker.com | sh -s -- --yes"],
+        ["sh", "-c", "curl -fsSL https://get.docker.com | sh"],
         capture_output=True,
         text=True,
     )
