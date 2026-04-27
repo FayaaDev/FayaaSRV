@@ -246,10 +246,10 @@ ensure_pipx() {
   fi
   log "pipx not found. Installing pipx..."
   if command_exists pip3; then
-    pip3 install --user pipx >/dev/null 2>&1 || true
+        pip3 install --user --yes pipx >/dev/null 2>&1 || true
   fi
   if ! command_exists pipx && command_exists python3; then
-    python3 -m pip install --user pipx >/dev/null 2>&1 || true
+        python3 -m pip install --user --yes pipx >/dev/null 2>&1 || true
   fi
   if command_exists pipx; then
     return 0
@@ -263,10 +263,10 @@ ensure_pipx() {
   if _install_system_python_deps; then
     log "Retrying pipx installation..."
     if command_exists pip3; then
-      pip3 install --user pipx >/dev/null 2>&1 || true
+      pip3 install --user --yes pipx >/dev/null 2>&1 || true
     fi
     if ! command_exists pipx && command_exists python3; then
-      python3 -m pip install --user pipx >/dev/null 2>&1 || true
+      python3 -m pip install --user --yes pipx >/dev/null 2>&1 || true
     fi
     if [[ -x "${HOME}/.local/bin/pipx" ]]; then
       export PATH="${HOME}/.local/bin:${PATH}"

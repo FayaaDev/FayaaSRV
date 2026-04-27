@@ -513,7 +513,7 @@ def attempt_fix_docker() -> str:
         return "curl is required but not found. Install curl first."
 
     result = subprocess.run(
-        ["sh", "-c", "curl -fsSL https://get.docker.com | sh"],
+        ["sh", "-c", "curl -fsSL https://get.docker.com | sh -s -- --yes"],
         capture_output=True,
         text=True,
     )
@@ -597,7 +597,7 @@ def attempt_fix_cloudflared() -> str:
             )
             if result.returncode == 0:
                 result = subprocess.run(
-                    ["sudo", "dpkg", "-i", str(deb_path)],
+                    ["sudo", "dpkg", "--yes", "-i", str(deb_path)],
                     capture_output=True,
                     text=True,
                 )
