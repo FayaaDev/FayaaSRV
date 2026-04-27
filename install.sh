@@ -173,7 +173,16 @@ ensure_venv_install() {
 
   if [[ ! -d "$venv_dir" ]]; then
     log "Creating venv at ${venv_dir}"
-    python3 -m venv "$venv_dir"
+    python3 -m venv "$venv_dir" \
+      || python3 -m venv --without-pip "$venv_dir" \
+      || die "Failed to create venv at ${venv_dir}. Install python3-venv and rerun."
+  fi
+
+  if [[ ! -x "${venv_dir}/bin/pip" ]]; then
+    log "pip absent from venv; bootstrapping via get-pip.py..."
+    command_exists curl || die "curl is required to bootstrap pip. Install curl and rerun."
+    curl -fsSL https://bootstrap.pypa.io/get-pip.py | "${venv_dir}/bin/python" \
+      || die "Failed to bootstrap pip. Check network and rerun."
   fi
 
   log "Installing rakkib into venv..."
