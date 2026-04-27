@@ -86,4 +86,4 @@ def verify(state: State) -> VerificationResult:
             return VerificationResult.failure("layout", f"Directory {d} does not exist")
         if not os.access(d, os.W_OK):
             return VerificationResult.failure("layout", f"Directory {d} is not writable")
-    return VerificationResult.success("layout", "Layout directories exist and are writable")
+    return VerificationResult.success("layout", "Layout directories created")
