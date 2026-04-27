@@ -109,24 +109,28 @@ def _ensure_prereqs() -> bool:
     if not _check_docker():
         return False
 
-    cf_ok = subprocess.run(
-        [_cloudflared_bin(), "--version"],
-        capture_output=True,
-        text=True,
-    ).returncode == 0
+    local_cf = Path.home() / ".local" / "bin" / "cloudflared"
+    cf_ok = local_cf.is_file()
     if not cf_ok:
-        local_cf = Path.home() / ".local" / "bin" / "cloudflared"
-        cf_ok = local_cf.is_file()
+        try:
+            cf_ok = (
+                subprocess.run([_cloudflared_bin(), "--version"], capture_output=True, text=True).returncode == 0
+            )
+        except FileNotFoundError:
+            pass
 
     if not cf_ok:
         console.print("[dim]cloudflared not found — installing automatically...[/dim]")
         msg = attempt_fix_cloudflared()
         console.print(f"[dim]{msg}[/dim]")
-        # Re-check
-        cf_ok = (
-            subprocess.run([_cloudflared_bin(), "--version"], capture_output=True, text=True).returncode == 0
-            or (Path.home() / ".local" / "bin" / "cloudflared").is_file()
-        )
+        cf_ok = local_cf.is_file()
+        if cf_ok:
+            try:
+                cf_ok = (
+                    subprocess.run([str(local_cf), "--version"], capture_output=True, text=True).returncode == 0
+                )
+            except FileNotFoundError:
+                cf_ok = False
         if not cf_ok:
             console.print(
                 "[bold red]cloudflared installation failed. "
