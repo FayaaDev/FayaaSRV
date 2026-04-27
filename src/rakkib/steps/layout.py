@@ -1,4 +1,4 @@
-"""Step 10 — Layout.
+"""Step 1 — Layout.
 
 Create the target directory structure under ``DATA_ROOT``.
 """

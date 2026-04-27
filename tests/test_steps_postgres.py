@@ -1,4 +1,4 @@
-"""Tests for Step 50 — PostgreSQL."""
+"""Tests for Step 4 — PostgreSQL."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Step 30 — Caddy.
+"""Step 2 — Caddy.
 
 Render and deploy the base Caddy reverse proxy.
 """

@@ -1,4 +1,4 @@
-"""Tests for Step 40 — Cloudflare."""
+"""Tests for Step 3 — Cloudflare."""
 
 from __future__ import annotations
 

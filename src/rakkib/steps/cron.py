@@ -1,4 +1,4 @@
-"""Step 80 — Cron Jobs.
+"""Step 6 — Cron Jobs.
 
 Install local backup scripts, backup scheduling, and lightweight health
 monitoring jobs.

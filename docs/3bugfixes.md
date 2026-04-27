@@ -10,7 +10,7 @@
 
 User dry-tested Rakkib v1 (bash implementation) on a fresh Linux box and hit three rough edges:
 1. After `install.sh`, both `rakkib` and a freshly installed `opencode` need a manual `source ~/.bashrc` before they resolve on PATH.
-2. Docker image pulls during Step 60 stream layer-by-layer progress through the agent, burning tokens and feeling slow because the agent has to "watch" each pull complete.
+2. Docker image pulls during Step 5 stream layer-by-layer progress through the agent, burning tokens and feeling slow because the agent has to "watch" each pull complete.
 3. Re-opening the AI session after completing onboarding (questions phases 1–6) restarts the interview from question 1 instead of resuming from the recorded `.fss-state.yaml`.
 
 These are fixed in the v2 Python CLI.
@@ -36,12 +36,12 @@ Goal: make first-run frictionless, decouple heavy Docker work from the agent's t
 
 ## Issue 2 — Decouple Docker pulls from the agent
 
-**Root cause.** Step 60 (`steps/60-services.md`) drives `docker compose up -d` per service while the agent watches stdout/stderr. Compose dumps per-layer progress for every image (Authentik ≈600 MB across multiple containers, Immich ≈3 GB with the custom Postgres image), so the agent's context window is flooded with pull noise it doesn't act on.
+**Root cause.** Step 5 (`steps/5-services.md`) drives `docker compose up -d` per service while the agent watches stdout/stderr. Compose dumps per-layer progress for every image (Authentik ≈600 MB across multiple containers, Immich ≈3 GB with the custom Postgres image), so the agent's context window is flooded with pull noise it doesn't act on.
 
 **Recommended approach: split image acquisition from service start.**
 
 1. **New `rakkib pull` command.** Reads `.fss-state.yaml`, computes the set of images needed for `foundation_services + selected_services`, and runs `docker pull` for each in a single shell, redirecting all per-layer output to `${DATA_ROOT}/logs/rakkib-pull.log`. Prints only one summary line per image (`pulled <image>` / `failed <image>`). Safe to run any time after Phase 3 because it doesn't write or start anything — pulls are pure caching.
-2. **Add an "Image Manifest" block to `registry.yaml`** so `rakkib pull` and Step 60 share the same source of truth (image name + tag per service, including the Immich-bundled images).
+2. **Add an "Image Manifest" block to `registry.yaml`** so `rakkib pull` and Step 5 share the same source of truth (image name + tag per service, including the Immich-bundled images).
 3. **Update `steps/00-prereqs.md`** to instruct the agent: after Docker is verified and the user has confirmed selections, *"run `rakkib pull` in a separate terminal and proceed with onboarding while it runs."* The agent can then move on with question phases 4–6 in parallel with the download.
 4. **Update `steps/60-services.md`** so per-service `docker compose up -d` calls run with `--quiet-pull` and stdout/stderr redirected to a per-service log file (`${DATA_ROOT}/logs/<svc>-up.log`); the agent only reads the exit code and the existing `## Verify` curl checks. If `rakkib pull` was already run, this becomes a near-instant no-op because images are local.
 5. **No background/auto-trigger mode.** Even a polled background job costs tokens (every status check is a tool result). Keep `rakkib pull` strictly user-run in a separate terminal — the agent only references it as an instruction.
@@ -79,7 +79,7 @@ This gives the user a visible, terminal-native progress experience for the heavy
 ## Verification
 
 1. **Issue 1.** On a fresh Ubuntu VM with `zsh` as login shell: `curl … install.sh | bash` → answer "Y" to auto-launch → land directly in agent session. Open a new terminal → `rakkib --version` resolves without sourcing anything.
-2. **Issue 2.** With selections including Immich and Authentik: run `rakkib pull` in terminal A, run `rakkib init` in terminal B. Terminal A shows full docker progress; terminal B's agent context shows no per-layer noise. After `rakkib pull` finishes and the agent reaches Step 60, services come up in seconds because images are cached.
+2. **Issue 2.** With selections including Immich and Authentik: run `rakkib pull` in terminal A, run `rakkib init` in terminal B. Terminal A shows full docker progress; terminal B's agent context shows no per-layer noise. After `rakkib pull` finishes and the agent reaches Step 5, services come up in seconds because images are cached.
 3. **Issue 3.** Complete onboarding through Phase 6 confirmation, exit the agent, relaunch `rakkib init`. Agent reports "resuming — all questions answered, jumping to Step execution" instead of re-asking question 1.
 
 ---

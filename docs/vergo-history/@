@@ -75,7 +75,7 @@ Modeled on the OpenClaw eight-surface pattern:
 - Run the canonical operator prompt against a fresh Mac VM and a fresh Ubuntu VM.
 - After Phase 6, confirm `selected_services` includes `vergo` (when chosen).
 - After step 70: `test -f ~/.zshrc && grep -q powerlevel10k ~/.zshrc`, `fc-list | grep -i meslo`, `test -f ~/.wezterm.lua`. On Mac with Aerospace selected: `test -f ~/.config/aerospace/aerospace.toml`, login-item registered (`osascript -e 'tell application "System Events" to get the name of every login item'`).
-- Step 90 verify must pass without manual fixes.
+- Step 7 verify must pass without manual fixes.
 - Re-run the install — confirm dotfiles re-render cleanly without duplicating backups or breaking shells.
 
 ## Bottom line

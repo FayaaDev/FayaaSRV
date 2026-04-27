@@ -3,7 +3,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --metrics 0.0.0.0:{{CLOUDFLARED_METRICS_PORT}} run
+    command: tunnel --config /home/nonroot/.cloudflared/config.yml --metrics 0.0.0.0:{{CLOUDFLARED_METRICS_PORT}} run {{TUNNEL_UUID}}
     user: "{{ADMIN_UID}}:{{ADMIN_GID}}"
     volumes:
       - {{DATA_ROOT}}/data/cloudflared:/home/nonroot/.cloudflared

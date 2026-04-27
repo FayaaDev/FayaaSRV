@@ -126,13 +126,13 @@ def _ensure_prereqs() -> bool:
 def _run_steps(state: State, repo_dir: Path) -> bool:
     """Execute setup steps in order. Return True if all pass."""
     steps: list[tuple[str, str]] = [
-        ("10", "rakkib.steps.layout"),
-        ("30", "rakkib.steps.caddy"),
-        ("40", "rakkib.steps.cloudflare"),
-        ("50", "rakkib.steps.postgres"),
-        ("60", "rakkib.steps.services"),
-        ("80", "rakkib.steps.cron"),
-        ("90", "rakkib.steps.verify"),
+        ("1", "rakkib.steps.layout"),
+        ("2", "rakkib.steps.caddy"),
+        ("3", "rakkib.steps.cloudflare"),
+        ("4", "rakkib.steps.postgres"),
+        ("5", "rakkib.steps.services"),
+        ("6", "rakkib.steps.cron"),
+        ("7", "rakkib.steps.verify"),
     ]
 
     for label, module_path in steps:
@@ -453,7 +453,7 @@ def add(ctx: click.Context, service: str) -> None:
     services_step._generate_missing_secrets(state)
     state.save(state_path)
 
-    # 7. Run Step 60 for just this service
+    # 7. Run Step 5 for just this service
     services_step.run_single_service(state, service)
     console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
 

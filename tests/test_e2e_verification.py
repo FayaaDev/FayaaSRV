@@ -203,7 +203,7 @@ class TestZeroTokenCost:
         mock_launch.assert_not_called()
 
     def test_services_run_authentik_immich_no_agent_call(self, tmp_path: Path):
-        """Step 60 for authentik+immich must not hand off to an agent."""
+        """Step 5 for authentik+immich must not hand off to an agent."""
         from rakkib.steps import services as services_step
 
         repo = tmp_path / "repo"
@@ -375,11 +375,11 @@ class TestResumeBehavior:
 
 
 class TestStepFailureHandoff:
-    """Force Step 60 failure with bogus image tag → binary offers agent diagnose
+    """Force Step 5 failure with bogus image tag → binary offers agent diagnose
     with narrow context (not the full protocol).
     """
 
-    def test_step_60_failure_invokes_handoff_with_narrow_context(self, tmp_path: Path):
+    def test_step_5_failure_invokes_handoff_with_narrow_context(self, tmp_path: Path):
         """A failed services verify should call handoff with step='services'
         and a narrow state slice—not the whole AGENT_PROTOCOL.md.
         """
@@ -474,7 +474,7 @@ class TestStepFailureHandoff:
 
 
 class TestPostInstallAdd:
-    """rakkib add jellyfin → runs only Jellyfin slice of Step 60."""
+    """rakkib add jellyfin → runs only Jellyfin slice of Step 5."""
 
     def test_add_jellyfin_runs_only_jellyfin_slice(self, tmp_path: Path):
         """Adding jellyfin to a confirmed deployment should update state

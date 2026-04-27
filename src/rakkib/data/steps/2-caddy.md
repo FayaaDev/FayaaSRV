@@ -1,4 +1,4 @@
-# Step 30 — Caddy
+# Step 2 — Caddy
 
 Render and deploy the base Caddy reverse proxy.
 
@@ -20,7 +20,7 @@ Render and deploy the base Caddy reverse proxy.
 ## Notes
 
 - The root route is intentionally generic for v1. It confirms the server is up even if the user has no landing page yet.
-- Service-specific routes are added later by Step 60 for Docker services and Step 70 for host services, after each selected service is actually available.
+- Service-specific routes are added later by Step 5 for Docker services and Step 6 for host services, after each selected service is actually available.
 - Host services such as OpenClaw and Hermes must reverse proxy to `{{HOST_GATEWAY}}`, not the public domain.
 - Never replace the active Caddyfile with an unvalidated candidate.
 

@@ -22,11 +22,11 @@ The binary owns everything deterministic. The agent is invoked only when the bin
 - Host detection (`uname -m`, `id -u`, `hostname -I`, `ipconfig getifaddr en0`)
 - Secret generation (openssl-backed)
 - Template rendering (placeholder substitution per `lib/placeholders.md`)
-- Steps 00 / 10 / 30 / 50 / 60 / 80 / 90 (prereqs, layout, caddy, postgres, services, cron, verify)
+- Steps 00 / 1 / 2 / 3 / 4 / 5 / 6 / 7 (prereqs, layout, caddy, cloudflare, postgres, services, cron, verify)
 - Idempotent re-apply on every step
 
 ### Agent owns
-- Step 40 Cloudflare auth handoff (browser flow, headless device flow, account ambiguity)
+- Step 3 Cloudflare auth handoff (browser flow, headless device flow, account ambiguity)
 - Any failed `## Verify` block — binary launches the agent with a *narrow* prompt: failed step name, last N lines of the relevant log, the state slice it needs. Agent's job is "diagnose this one failure," not "drive the install."
 - Post-install conversational mode (`rakkib add <service>`, `rakkib doctor --interactive`)
 
@@ -60,13 +60,13 @@ rakkib/
     docker.py          # compose up/pull, health polling, log capture
     steps/
       prereqs.py       # step 00
-      layout.py        # step 10
-      caddy.py         # step 30
-      cloudflare.py    # step 40 — orchestrates, hands off to agent for auth
-      postgres.py      # step 50
-      services.py      # step 60
-      cron.py          # step 80
-      verify.py        # step 90
+      layout.py        # step 1
+      caddy.py         # step 2
+      cloudflare.py    # step 3 — orchestrates, hands off to agent for auth
+      postgres.py      # step 4
+      services.py      # step 5
+      cron.py          # step 6
+      verify.py        # step 7
     agent_handoff.py   # launch opencode/claude/codex with a narrow prompt
   tests/
   templates/           # unchanged
@@ -86,13 +86,13 @@ Each wave is one PR. Each wave keeps `.fss-state.yaml` shape identical so a part
 
 **Wave 1 — interview.** Implement `state.py`, `schema.py`, `interview.py`. Read AgentSchema YAML out of each `questions/*.md`, drive Phases 1–6 entirely in Python. Delete the agent-prompt path for the interview. Resume is automatic: load state, find first phase with unset required keys, start there. If `confirmed: true`, ask once whether to start over (overwriting `.fss-state.yaml`).
 
-**Wave 2 — render + plumbing.** Implement `render.py`, `secrets.py`, `docker.py`. Port Steps 10, 30, 50, 60, 80, 90. Each step has `run()` and `verify()`; `verify()` returns ok or a structured failure (step, log path, state slice). Docker output redirects to `${DATA_ROOT}/logs/<step>.log` — issue 2 dissolves because no LLM is watching.
+**Wave 2 — render + plumbing.** Implement `render.py`, `secrets.py`, `docker.py`. Port Steps 1, 2, 3, 4, 5, 6, 7. Each step has `run()` and `verify()`; `verify()` returns ok or a structured failure (step, log path, state slice). Docker output redirects to `${DATA_ROOT}/logs/<step>.log` — issue 2 dissolves because no LLM is watching.
 
-**Wave 3 — Cloudflare (Step 40).** Binary handles tunnel discovery, DNS routing, and the post-login wiring. For login itself, binary prints the URL and either waits on the local `cloudflared` callback (browser flow) or hands off to the agent with a narrow prompt for headless / api-token paths.
+**Wave 3 — Cloudflare (Step 3).** Binary handles tunnel discovery, DNS routing, and the post-login wiring. For login itself, binary prints the URL and either waits on the local `cloudflared` callback (browser flow) or hands off to the agent with a narrow prompt for headless / api-token paths.
 
 **Wave 4 — agent escape hatch.** Implement `agent_handoff.py`. On any `verify()` failure, binary asks "launch agent to diagnose? (Y/n)" and invokes the available agent with: failed step, log tail, relevant state keys, and the specific question files for that step — *not* `AGENT_PROTOCOL.md` whole.
 
-**Wave 5 — post-install.** `rakkib add <service>` reuses the wizard for just that service's questions, runs only Step 60 for that service, updates state and the agent-memory README block. `rakkib status` prints what's deployed and which phase the binary would resume at.
+**Wave 5 — post-install.** `rakkib add <service>` reuses the wizard for just that service's questions, runs only Step 5 for that service, updates state and the agent-memory README block. `rakkib status` prints what's deployed and which phase the binary would resume at.
 
 ---
 
@@ -131,8 +131,8 @@ The Wave 0 PATH fix is still needed. The `rakkib pull` command becomes optional 
 1. **Fresh Ubuntu 24.04 VM.** `curl … install.sh | bash` → installs Python+pipx if missing → `rakkib init` runs the wizard. No LLM is invoked during phases 1–6.
 2. **Token cost.** Same install with Authentik + Immich selected: zero LLM tokens consumed for the interview, zero for `docker compose up` progress.
 3. **Resume.** Kill terminal halfway through Phase 3, relaunch `rakkib init` → resumes at Phase 3 question 2 silently. With `confirmed: true`, prompts "start over? (y/N)" once.
-4. **Step failure path.** Force a Step 60 failure with a bogus image tag → binary prints the failure summary, offers "launch agent to diagnose? (Y/n)" → agent receives only the failure context, not the full protocol.
-5. **Post-install add.** `rakkib add jellyfin` → prompts only Jellyfin's needed values → renders + runs only the Jellyfin slice of Step 60 → updates the agent-memory README block.
+4. **Step failure path.** Force a Step 5 failure with a bogus image tag → binary prints the failure summary, offers "launch agent to diagnose? (Y/n)" → agent receives only the failure context, not the full protocol.
+5. **Post-install add.** `rakkib add jellyfin` → prompts only Jellyfin's needed values → renders + runs only the Jellyfin slice of Step 5 → updates the agent-memory README block.
 6. **Idempotent re-apply.** `rakkib init` on an already-deployed host is a no-op for everything that matches and a precise diff-and-merge for anything drifted, per `lib/idempotency.md`.
 
 ---

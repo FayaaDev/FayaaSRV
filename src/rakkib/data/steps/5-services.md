@@ -1,4 +1,4 @@
-# Step 60 — Services
+# Step 5 — Services
 
 Deploy foundation bundle services and selected optional services.
 
@@ -27,7 +27,7 @@ Skip any service not present in `foundation_services`. After each service starts
 
 #### NocoDB
 
-1. Use the NocoDB database and role prepared in Step 50.
+1. Use the NocoDB database and role prepared in Step 4.
 2. Render `.env` from `templates/docker/nocodb/.env.example` into `{{DATA_ROOT}}/docker/nocodb/.env`.
    - If `authentik` is also in `foundation_services`, uncomment the four `NC_OIDC_*` lines; otherwise leave them commented.
 3. Render `docker-compose.yml` from `templates/docker/nocodb/docker-compose.yml.tmpl`.
@@ -37,7 +37,7 @@ Skip any service not present in `foundation_services`. After each service starts
 
 #### Authentik
 
-1. Use the Authentik database and role prepared in Step 50.
+1. Use the Authentik database and role prepared in Step 4.
 2. Create data directories:
     ```
     {{DATA_ROOT}}/data/authentik/media
@@ -107,7 +107,7 @@ Reload Caddy once after all optional service routes are in place.
 
 #### n8n
 
-- Use the n8n database and role prepared in Step 50.
+- Use the n8n database and role prepared in Step 4.
 - Preserve `N8N_ENCRYPTION_KEY` if `.env` already exists on the target.
 - Render `templates/caddy/routes/n8n.caddy.tmpl`.
 - Verify: `docker ps | grep n8n` and `curl -sf http://localhost:5678/healthz`.

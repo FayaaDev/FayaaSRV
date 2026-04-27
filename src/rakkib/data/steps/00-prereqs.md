@@ -20,7 +20,7 @@ Install or verify the base tools needed for the rest of the deployment.
    - If Linux is not Ubuntu, stop and ask the user before continuing because this repo's documented Linux install path is the official Ubuntu Docker Engine method.
 5. On Linux, enable and start Docker with `sudo`, add `{{ADMIN_USER}}` to the `docker` group if that user exists, then continue the install as the normal admin user. If group membership changes do not apply to the current shell, use `sudo docker ...` only for the affected verification commands or ask the user to start a new login session before continuing.
 6. Verify the Docker daemon is running.
-7. Verify a local host `cloudflared` binary is available. Step 40 uses the host CLI for tunnel login, creation, and DNS routing, so the Docker image alone is not sufficient.
+7. Verify a local host `cloudflared` binary is available. Step 3 uses the host CLI for tunnel login, creation, and DNS routing, so the Docker image alone is not sufficient.
 8. If `cloudflared` is missing, install it into the admin user's `~/.local/bin/cloudflared` without requiring a system package, then ensure later steps can invoke it either through `PATH` or by absolute path.
 9. Run `rakkib doctor --json` from the repo root after prerequisites are available. Stop on any check with `"status":"fail"`; treat warnings as advisory unless they invalidate the selected install path.
 
@@ -30,13 +30,13 @@ Linux:
 - Prefer Docker Engine on headless Ubuntu hosts using Docker's official docs: `https://docs.docker.com/engine/install/ubuntu/`
 - This documented path assumes Ubuntu and explicit sudo for package/service changes.
 - Do not run the full installer as root by default. Use `sudo -n` only for the specific commands that need it so expired authorization fails fast.
-- Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
+- Install the host `cloudflared` CLI into the admin user's `~/.local/bin/cloudflared` if it is missing before continuing to Step 3.
 - A portable install path is acceptable. For example, download the matching release archive for `linux-$ARCH`, extract `cloudflared`, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 
 Mac:
 - Prefer Docker Desktop.
 - Ensure file sharing allows `{{DATA_ROOT}}`.
-- Install the host `cloudflared` CLI into `~/.local/bin/cloudflared` if it is missing before continuing to Step 40.
+- Install the host `cloudflared` CLI into `~/.local/bin/cloudflared` if it is missing before continuing to Step 3.
 - A portable install path is acceptable. For example, download the matching Darwin release for the recorded architecture, place it at `~/.local/bin/cloudflared`, and `chmod 755` it.
 
 ## Verify

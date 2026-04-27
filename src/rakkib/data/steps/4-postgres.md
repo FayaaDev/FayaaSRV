@@ -1,4 +1,4 @@
-# Step 50 — PostgreSQL
+# Step 4 — PostgreSQL
 
 Deploy PostgreSQL and create one database/user pair per selected service.
 

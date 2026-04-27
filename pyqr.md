@@ -60,7 +60,7 @@ and fits in ~60 columns for a typical Cloudflare dashboard URL.
 **Current (headless=True path):**
 ```python
 print(
-    "\nStep 40 is paused for Cloudflare approval.\n"
+    "\nStep 3 is paused for Cloudflare approval.\n"
     "cloudflared tunnel login will print a URL.\n"
     "Open that URL on another signed-in device, approve the domain,\n"
     "then return here.\n"
@@ -73,7 +73,7 @@ result = subprocess.run(
 
 **Replace with:**
 ```python
-print("\nStep 40 — Cloudflare login (headless mode)")
+print("\nStep 3 — Cloudflare login (headless mode)")
 print("Running: cloudflared tunnel login")
 print("Waiting for auth URL...\n")
 

@@ -1,4 +1,4 @@
-"""Step 90 — Verify.
+"""Step 7 — Verify.
 
 Run the final smoke tests for the deployed server.
 """

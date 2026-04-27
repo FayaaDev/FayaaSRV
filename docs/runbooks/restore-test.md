@@ -11,7 +11,7 @@ Optional restore verification. Skip this runbook on first install unless the use
 5. Run `{{BACKUP_DIR}}/backup-local.sh`.
 6. Remove only the marker created for this test.
 7. Run `{{BACKUP_DIR}}/restore-local.sh --latest --yes`.
-8. Verify the marker was restored and all Step 90 smoke checks still pass.
+8. Verify the marker was restored and all Step 7 smoke checks still pass.
 
 ## Safety Notes
 

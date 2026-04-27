@@ -1,4 +1,4 @@
-"""Step 40 — Cloudflare.
+"""Step 3 — Cloudflare.
 
 Render and deploy the Cloudflare tunnel after the user confirms the setup.
 """
@@ -27,6 +27,15 @@ LOGS_TAIL_LINES = 30
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
     return Path(__file__).resolve().parent.parent / "data"
+
+
+def _find_cloudflared_default(name: str) -> Path | None:
+    """Return first existing file under ~/.cloudflared or /root/.cloudflared."""
+    for base in (Path.home() / ".cloudflared", Path("/root/.cloudflared")):
+        candidate = base / name
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _cloudflared_bin() -> str:
@@ -123,26 +132,26 @@ def run(state: State) -> None:
             )
 
     cert_path = cloudflared_dir / "cert.pem"
-    default_cert = Path.home() / ".cloudflared" / "cert.pem"
     token_env: dict[str, str] | None = None
 
     # 4-5. Handle auth methods
     if auth_method == "browser_login":
         if not cert_path.exists():
-            if default_cert.exists():
+            default_cert = _find_cloudflared_default("cert.pem")
+            if default_cert is not None:
                 shutil.copy2(default_cert, cert_path)
             else:
                 headless = state.get("cloudflare.headless", False)
                 if headless:
                     print(
-                        "\nStep 40 is paused for Cloudflare approval.\n"
+                        "\nStep 3 is paused for Cloudflare approval.\n"
                         "cloudflared tunnel login will print a URL.\n"
                         "Open that URL on another signed-in device, approve the domain,\n"
                         "then return here.\n"
                     )
                 else:
                     print(
-                        "\nStep 40 is paused for Cloudflare approval.\n"
+                        "\nStep 3 is paused for Cloudflare approval.\n"
                         "A browser window will open for Cloudflare login.\n"
                         "Approve the domain, then return here.\n"
                     )
@@ -157,7 +166,8 @@ def run(state: State) -> None:
                         f"{result.stderr.strip() if result.stderr else 'unknown error'}"
                     )
 
-                if default_cert.exists() and not cert_path.exists():
+                default_cert = _find_cloudflared_default("cert.pem")
+                if default_cert is not None and not cert_path.exists():
                     shutil.copy2(default_cert, cert_path)
 
         # Verify login succeeded
@@ -208,11 +218,12 @@ def run(state: State) -> None:
         if not tunnel_uuid or not creds_host_path or not Path(creds_host_path).exists():
             # Need to repair auth
             if not cert_path.exists():
-                if default_cert.exists():
+                default_cert = _find_cloudflared_default("cert.pem")
+                if default_cert is not None:
                     shutil.copy2(default_cert, cert_path)
                 else:
                     print(
-                        "\nStep 40 needs Cloudflare login to repair missing credentials.\n"
+                        "\nStep 3 needs Cloudflare login to repair missing credentials.\n"
                         "cloudflared tunnel login will be initiated.\n"
                     )
                     result = subprocess.run(
@@ -224,7 +235,8 @@ def run(state: State) -> None:
                             f"cloudflared tunnel login failed: "
                             f"{result.stderr.strip() if result.stderr else 'unknown error'}"
                         )
-                    if default_cert.exists() and not cert_path.exists():
+                    default_cert = _find_cloudflared_default("cert.pem")
+                    if default_cert is not None and not cert_path.exists():
                         shutil.copy2(default_cert, cert_path)
 
     # 7-9. Handle tunnel discovery / creation
@@ -272,14 +284,14 @@ def run(state: State) -> None:
     creds_container_path = f"/home/nonroot/.cloudflared/{tunnel_uuid}.json"
 
     if not creds_host_path.exists():
-        default_creds = Path.home() / ".cloudflared" / f"{tunnel_uuid}.json"
-        if default_creds.exists():
+        default_creds = _find_cloudflared_default(f"{tunnel_uuid}.json")
+        if default_creds is not None:
             shutil.copy2(default_creds, creds_host_path)
         else:
             raise RuntimeError(
-                f"Tunnel credentials file not found at {creds_host_path} "
-                f"or {default_creds}. Run cloudflared tunnel login and ensure "
-                "the tunnel was created in the correct account."
+                f"Tunnel credentials file not found at {creds_host_path}, "
+                f"~/.cloudflared/{tunnel_uuid}.json, or /root/.cloudflared/{tunnel_uuid}.json. "
+                "Run cloudflared tunnel login and ensure the tunnel was created in the correct account."
             )
 
     # 12. Set file permissions on credentials JSON

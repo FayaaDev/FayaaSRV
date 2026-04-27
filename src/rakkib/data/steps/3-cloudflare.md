@@ -1,4 +1,4 @@
-# Step 40 — Cloudflare
+# Step 3 — Cloudflare
 
 Render and deploy the Cloudflare tunnel after the user confirms the setup.
 
@@ -9,7 +9,7 @@ Render and deploy the Cloudflare tunnel after the user confirms the setup.
 2. Create `{{DATA_ROOT}}/data/cloudflared` if needed before any login or credential normalization work.
 3. Treat `{{DATA_ROOT}}/data/cloudflared/cert.pem` as the standardized browser-login auth artifact path. Do not store that path or the cert contents in `.fss-state.yaml`, but do preserve the file on re-runs and include it in backups.
 4. Use the recorded Cloudflare connection method:
-   - `browser_login`: authenticate before any tunnel discovery for new tunnels. Run `cloudflared tunnel login` first. Tell the user clearly that Step 40 is paused until Cloudflare approval finishes.
+   - `browser_login`: authenticate before any tunnel discovery for new tunnels. Run `cloudflared tunnel login` first. Tell the user clearly that Step 3 is paused until Cloudflare approval finishes.
    - `api_token`: ask for a temporary Cloudflare API token only now, export it only for the commands that require it, verify it with Cloudflare's token verification endpoint before tunnel or DNS changes, and unset it after Cloudflare work is complete. Do not write the token into `.fss-state.yaml` or rendered files.
    - `existing_tunnel`: prefer the existing credentials JSON and recorded UUID. Use browser login only if tunnel discovery, credentials repair, or DNS route repair requires it.
 5. For `browser_login`, verify the login handoff before continuing:

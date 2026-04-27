@@ -1,4 +1,4 @@
-"""Tests for Step 30 — Caddy."""
+"""Tests for Step 2 — Caddy."""
 
 from __future__ import annotations
 

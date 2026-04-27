@@ -23,7 +23,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
-    notes: "Cloudflare tunnel. Always installed. Step 40 may pause for guided Cloudflare login approval."
+    notes: "Cloudflare tunnel. Always installed. Step 3 may pause for guided Cloudflare login approval."
 
   - id: postgres
     state_bucket: always

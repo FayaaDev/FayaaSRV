@@ -253,7 +253,7 @@ def check_cloudflared_binary() -> CheckResult:
         "cloudflared_cli",
         "warn",
         False,
-        "cloudflared host CLI is missing; Step 00 should install it before Step 40",
+        "cloudflared host CLI is missing; Step 00 should install it before Step 3",
     )
 
 
@@ -338,7 +338,7 @@ def check_cloudflare_readiness(state: State) -> list[CheckResult]:
                 "cloudflare_zone",
                 "warn",
                 False,
-                "domain is not yet active in Cloudflare for this install; Step 40 public routing will stay blocked",
+                "domain is not yet active in Cloudflare for this install; Step 3 public routing will stay blocked",
             )
         )
     elif zone_in is True:
@@ -369,7 +369,7 @@ def check_cloudflare_readiness(state: State) -> list[CheckResult]:
                     "cloudflare_auth",
                     "warn",
                     False,
-                    f"browser-login auth cert is missing at {cert_path}; Step 40 will need cloudflared tunnel login",
+                    f"browser-login auth cert is missing at {cert_path}; Step 3 will need cloudflared tunnel login",
                 )
             )
     elif auth_method == "api_token":
@@ -378,7 +378,7 @@ def check_cloudflare_readiness(state: State) -> list[CheckResult]:
                 "cloudflare_auth",
                 "ok",
                 False,
-                "advanced API token mode recorded; token should be requested only during Step 40",
+                "advanced API token mode recorded; token should be requested only during Step 3",
             )
         )
     elif auth_method == "existing_tunnel":
@@ -429,7 +429,7 @@ def check_cloudflare_readiness(state: State) -> list[CheckResult]:
                 "cloudflare_creds",
                 "warn",
                 False,
-                "tunnel credentials are not recorded yet; Step 40 must create or recover them",
+                "tunnel credentials are not recorded yet; Step 3 must create or recover them",
             )
         )
 

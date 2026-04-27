@@ -50,9 +50,9 @@ fields:
 
 This phase records the intended Cloudflare setup into `.fss-state.yaml` under the `cloudflare:` section.
 
-This phase only determines the intended Cloudflare setup. It does not create the tunnel yet. Tunnel login, tunnel creation, DNS routing, and credentials placement happen later in `steps/40-cloudflare.md`.
+This phase only determines the intended Cloudflare setup. It does not create the tunnel yet. Tunnel login, tunnel creation, DNS routing, and credentials placement happen later in `steps/3-cloudflare.md`.
 
-Make it explicit that Step 40 is a blocking handoff. When Rakkib reaches the Cloudflare step, the install will pause until Cloudflare approves the server.
+Make it explicit that Step 3 is a blocking handoff. When Rakkib reaches the Cloudflare step, the install will pause until Cloudflare approves the server.
 
 Do not ask for a Cloudflare API token during the normal flow. The default and recommended path is Cloudflare browser login. On headless servers, `cloudflared tunnel login` prints a URL that the user can open on another device.
 
@@ -63,8 +63,8 @@ Do not ask for a Cloudflare API token during the normal flow. The default and re
 None. This phase is fully automatic:
 
 - Always create a new tunnel (`cloudflare.tunnel_strategy: new`).
-- Always use Cloudflare browser login during Step 40 (`cloudflare.auth_method: browser_login`).
-- Assume headless and show the login link flow during Step 40 (`cloudflare.headless: true`).
+- Always use Cloudflare browser login during Step 3 (`cloudflare.auth_method: browser_login`).
+- Assume headless and show the login link flow during Step 3 (`cloudflare.headless: true`).
 - Tunnel name is derived from the admin username (`{{admin_user}}-tunnel`).
 - SSH subdomain is always `ssh`.
 

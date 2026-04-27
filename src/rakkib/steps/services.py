@@ -1,4 +1,4 @@
-"""Step 60 — Services.
+"""Step 5 — Services.
 
 Deploy foundation bundle services and selected optional services.
 """
@@ -285,7 +285,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
 
     svc_id = svc["id"]
     svc_dir = data_root / "docker" / svc_id
-    log_path = data_root / "logs" / f"step60-{svc_id}.log"
+    log_path = data_root / "logs" / f"step5-{svc_id}.log"
 
     # --- Render templates ------------------------------------------------
 
