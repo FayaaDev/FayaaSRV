@@ -33,7 +33,7 @@ fields:
   - id: headless
     type: confirm
     when: cloudflare.tunnel_strategy == new
-    prompt: When Rakkib reaches the Cloudflare step, it will ask Cloudflare to approve this server. Is this server headless, meaning it has no browser or desktop? (y/n)
+    prompt: When Rakkib reaches the Cloudflare step, it will ask Cloudflare to approve this server. Is this server headless, meaning it has no browser or desktop? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -47,7 +47,7 @@ fields:
   - id: accept_browser_login
     type: confirm
     when: cloudflare.tunnel_strategy == new
-    prompt: Use this Cloudflare login method? (y/n)
+    prompt: Use this Cloudflare login method? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -56,7 +56,7 @@ fields:
   - id: advanced_api_token
     type: confirm
     when: cloudflare.tunnel_strategy == new and accept_browser_login == false
-    prompt: Do you need the advanced API token method for a headless or automated setup? (y/n)
+    prompt: Do you need the advanced API token method for a headless or automated setup? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -95,7 +95,7 @@ fields:
   - id: knows_tunnel_uuid
     type: confirm
     when: cloudflare.tunnel_strategy == existing
-    prompt: Do you already know the existing tunnel UUID? (y/n)
+    prompt: Do you already know the existing tunnel UUID? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -154,7 +154,7 @@ Accepted answers:
 
 Only ask this if Q2 was `new`.
 
-Ask: "When Rakkib reaches Step 40, the install will pause while Cloudflare approves this server. Is this server headless, meaning it has no browser or desktop? (y/n)"
+Ask: "When Rakkib reaches Step 40, the install will pause while Cloudflare approves this server. Is this server headless, meaning it has no browser or desktop? [y/N]"
 
 Accepted answers: `y` or `n`. Normalize to boolean as `cloudflare.headless`.
 
@@ -164,13 +164,13 @@ If `y`, explain: "Rakkib will show a Cloudflare login link during setup. Keep an
 
 Record `cloudflare.auth_method: browser_login` for both answers.
 
-Then ask: "Use this Cloudflare login method? (y/n)"
+Then ask: "Use this Cloudflare login method? [y/N]"
 
 Accepted answers: `y` or `n`.
 
 If `y`, continue without asking for any API token. Remind the user that the install cannot continue past Step 40 until Cloudflare approval finishes.
 
-If `n`, ask: "Do you need the advanced API token method for a headless or automated setup? (y/n)"
+If `n`, ask: "Do you need the advanced API token method for a headless or automated setup? [y/N]"
 
 Accepted answers: `y` or `n`.
 
@@ -202,7 +202,7 @@ Record this as the SSH subdomain only, not the full hostname.
 
 Only ask this if Q2 was `existing`.
 
-Ask: "Do you already know the existing tunnel UUID? (y/n)"
+Ask: "Do you already know the existing tunnel UUID? [y/N]"
 
 Accepted answers: `y` or `n`.
 

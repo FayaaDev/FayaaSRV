@@ -17,7 +17,7 @@ writes_state:
 fields:
   - id: secrets_mode
     type: confirm
-    prompt: Do you want the agent to generate all required passwords and keys automatically? (y/n)
+    prompt: Do you want the agent to generate all required passwords and keys automatically? [y/N]
     accepted_inputs:
       y: generate
       n: manual
@@ -93,7 +93,7 @@ Secrets can be generated later during execution, but the strategy must be decide
 
 ### Q1 — Secret Strategy
 
-Ask: "Do you want the agent to generate all required passwords and keys automatically? (y/n)"
+Ask: "Do you want the agent to generate all required passwords and keys automatically? [y/N]"
 
 Accepted answers: `y` or `n`.
 

@@ -103,7 +103,7 @@ fields:
       - host_addons
   - id: customize_subdomains
     type: confirm
-    prompt: Do you want to customize any subdomains? Defaults come from the service catalog. (y/n)
+    prompt: Do you want to customize any subdomains? Defaults come from the service catalog. [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -219,7 +219,7 @@ Host addons do not receive subdomains and must not be included in this section.
 
 After the service and host-addon rounds, ask:
 
-> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, transfer. (y/n)"
+> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, transfer. [y/N]"
 
 If `y`:
 - For each selected service (foundation + optional), ask: "Subdomain for `<service>`? [default: `<default>`]"

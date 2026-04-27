@@ -65,7 +65,7 @@ fields:
       - platform
   - id: docker_installed
     type: confirm
-    prompt: Is Docker already installed and running on this machine? (y/n)
+    prompt: Is Docker already installed and running on this machine? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -140,7 +140,7 @@ Re-ask if the user provides any other answer.
 
 ### Q2 — Docker Status
 
-Ask: "Is Docker already installed and running on this machine? (y/n)"
+Ask: "Is Docker already installed and running on this machine? [y/N]"
 
 Accepted answers: `y` or `n`. Normalize to boolean.
 

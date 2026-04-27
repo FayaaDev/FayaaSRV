@@ -285,12 +285,12 @@ def doctor(ctx: click.Context, json_output: bool, interactive: bool) -> None:
                     )
                     fix_result = None
                     if check.name == "docker":
-                        answer = click.prompt("Attempt to fix docker? (y/N)", default="N", show_default=False)
-                        if answer.lower() == "y":
+                        answer = click.prompt("Attempt to fix docker?", type=click.Choice(["y", "n"]), default="n", show_default=False)
+                        if answer == "y":
                             fix_result = attempt_fix_docker()
                     elif check.name == "cloudflared_cli":
-                        answer = click.prompt("Attempt to fix cloudflared? (y/N)", default="N", show_default=False)
-                        if answer.lower() == "y":
+                        answer = click.prompt("Attempt to fix cloudflared?", type=click.Choice(["y", "n"]), default="n", show_default=False)
+                        if answer == "y":
                             fix_result = attempt_fix_cloudflared()
                     elif check.name == "public_ports":
                         owners = process_owners_for_ports()

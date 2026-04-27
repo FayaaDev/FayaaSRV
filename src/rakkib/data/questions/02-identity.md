@@ -42,7 +42,7 @@ fields:
       - domain
   - id: zone_in_cloudflare
     type: confirm
-    prompt: Is this base domain already managed in Cloudflare in the same account you will use for this server? (y/n)
+    prompt: Is this base domain already managed in Cloudflare in the same account you will use for this server? [y/N]
     accepted_inputs:
       y: true
       n: false
@@ -139,7 +139,7 @@ Validation:
 
 ### Q2b — Cloudflare Zone
 
-Ask: "Is this base domain already managed in Cloudflare in the same account you will use for this server? (y/n)"
+Ask: "Is this base domain already managed in Cloudflare in the same account you will use for this server? [y/N]"
 
 Accepted answers: `y` or `n`. Normalize to boolean.
 
