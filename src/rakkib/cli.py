@@ -32,6 +32,7 @@ def _run_steps(
     steps: list[tuple[str, str]] = [
         ("10", "rakkib.steps.layout"),
         ("30", "rakkib.steps.caddy"),
+        ("40", "rakkib.steps.cloudflare"),
         ("50", "rakkib.steps.postgres"),
         ("60", "rakkib.steps.services"),
         ("80", "rakkib.steps.cron"),
