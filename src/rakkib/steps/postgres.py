@@ -72,6 +72,8 @@ def _generate_init_sql(state: State) -> str:
                 "BEGIN",
                 f"    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{role}') THEN",
                 f"        CREATE ROLE {role} WITH LOGIN PASSWORD '{password}';",
+                "    ELSE",
+                f"        ALTER ROLE {role} WITH PASSWORD '{password}';",
                 "    END IF;",
                 "END",
                 "$$;",
@@ -90,6 +92,20 @@ def _generate_init_sql(state: State) -> str:
         _add_service("n8n", "n8n", secrets.get("N8N_DB_PASS", ""))
 
     return "\n".join(lines)
+
+
+def _apply_sql(sql: str) -> None:
+    """Execute *sql* directly inside the postgres container via psql."""
+    result = subprocess.run(
+        ["docker", "exec", "-i", "postgres", "psql", "-U", "postgres"],
+        input=sql,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"psql failed (rc={result.returncode}):\n{result.stderr.strip()}"
+        )
 
 
 def _wait_for_healthy(container: str = "postgres", timeout: int = 60) -> None:
@@ -157,6 +173,11 @@ def run(state: State) -> None:
 
     # 6. Wait for healthy.
     _wait_for_healthy()
+
+    # 7. Apply roles/databases directly so passwords are always in sync.
+    #    (The init-scripts directory is only executed by postgres on first boot;
+    #    re-runs would leave stale passwords without this direct apply.)
+    _apply_sql(_generate_init_sql(state))
 
     log_path.write_text("postgres step completed\n")
 
