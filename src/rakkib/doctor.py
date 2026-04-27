@@ -505,7 +505,7 @@ def summary_text(checks: list[CheckResult]) -> str:
 
 
 def attempt_fix_docker() -> str:
-    """Attempt to install Docker. Returns a message describing the result."""
+    """Attempt to install Docker via get.docker.com. Returns a message describing the result."""
     if platform.system() != "Linux":
         return "Automatic Docker installation is only supported on Linux."
 
@@ -517,106 +517,74 @@ def attempt_fix_docker() -> str:
         capture_output=True,
         text=True,
     )
-    if result.returncode == 0:
-        return "Docker installed via get.docker.com. You may need to start the service with 'sudo systemctl start docker'."
-    return f"get.docker.com install failed: {result.stderr.strip() or 'unknown error'}"
+    if result.returncode != 0:
+        return f"get.docker.com install failed: {result.stderr.strip() or 'unknown error'}"
+
+    subprocess.run(["sudo", "systemctl", "enable", "--now", "docker"],
+                   capture_output=True, text=True)
+    return "Docker installed via get.docker.com."
 
 
 def attempt_fix_compose() -> str:
-    """Install docker compose v2 plugin. Returns a message describing the result."""
-    machine = platform.machine().lower()
-    arch_map = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
-    arch = arch_map.get(machine)
+    """Install docker-compose-plugin. Returns a message describing the result."""
+    # get.docker.com adds the Docker apt repo, so the plugin is available via apt.
+    if _command_exists("apt-get"):
+        result = subprocess.run(
+            ["sudo", "apt-get", "install", "-y", "-q",
+             "-o", "DPkg::Lock::Timeout=60", "docker-compose-plugin"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return "docker-compose-plugin installed via apt."
+
+    # Fallback: download the latest binary directly.
+    machine = platform.machine()
+    arch = _normalize_arch(machine)
     if not arch:
         return f"Unsupported architecture for compose plugin: {machine}"
-
-    compose_version = "v2.35.1"
-    url = f"https://github.com/docker/compose/releases/download/{compose_version}/docker-compose-linux-{arch}"
+    arch_release = "x86_64" if arch == "amd64" else "aarch64"
+    url = f"https://github.com/docker/compose/releases/latest/download/docker-compose-linux-{arch_release}"
+    plugin_path = Path("/usr/local/lib/docker/cli-plugins/docker-compose")
 
     try:
+        subprocess.run(["sudo", "mkdir", "-p", str(plugin_path.parent)],
+                       capture_output=True, text=True, check=True)
         result = subprocess.run(
-            ["sudo", "mkdir", "-p", "/usr/local/lib/docker/cli-plugins"],
-            capture_output=True,
-            text=True,
+            ["sudo", "curl", "-fsSL", "-o", str(plugin_path), url],
+            capture_output=True, text=True,
         )
         if result.returncode != 0:
-            return f"Failed to create cli-plugins directory: {result.stderr.strip() or 'unknown error'}"
-
-        result = subprocess.run(
-            ["sudo", "curl", "-fsSL", "-o", "/usr/local/lib/docker/cli-plugins/docker-compose", url],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            return f"Failed to download docker compose: {result.stderr.strip() or 'unknown error'}"
-
-        subprocess.run(
-            ["sudo", "chmod", "+x", "/usr/local/lib/docker/cli-plugins/docker-compose"],
-            capture_output=True,
-            text=True,
-        )
-
-        verify = subprocess.run(
-            ["docker", "compose", "version"],
-            capture_output=True,
-            text=True,
-        )
-        if verify.returncode == 0:
-            return "docker compose plugin installed successfully."
-        return "docker compose plugin installed but 'docker compose version' failed. Try relogging or opening a new shell."
-
+            return f"compose binary download failed: {result.stderr.strip() or 'unknown error'}"
+        subprocess.run(["sudo", "chmod", "+x", str(plugin_path)],
+                       capture_output=True, text=True)
+        return "docker compose plugin installed from GitHub releases."
     except FileNotFoundError as e:
         return f"Required command not found: {e}"
 
 
 def attempt_fix_cloudflared() -> str:
-    """Attempt to install cloudflared. Returns a message describing the result."""
+    """Install cloudflared binary into ~/.local/bin. Returns a message describing the result."""
+    if not _command_exists("curl"):
+        return "curl is required but not found. Install curl first."
+
     local_bin = Path.home() / ".local" / "bin"
     local_bin.mkdir(parents=True, exist_ok=True)
 
     arch = _normalize_arch(platform.machine()) or "amd64"
-    kernel = platform.system().lower()
-    if kernel == "darwin":
-        kernel = "darwin"
-    else:
-        kernel = "linux"
-
+    kernel = "darwin" if platform.system() == "Darwin" else "linux"
     url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{kernel}-{arch}"
-    if kernel == "darwin":
-        url += ".tgz"
-    else:
-        url += ".deb"
+    dest = local_bin / "cloudflared"
 
-    try:
-        if kernel == "linux" and _command_exists("dpkg"):
-            deb_path = local_bin / "cloudflared.deb"
-            result = subprocess.run(
-                ["wget", "-q", "-O", str(deb_path), url],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                result = subprocess.run(
-                    ["sudo", "apt", "install", "-y", str(deb_path)],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0 or result.returncode == 1:
-                    return f"cloudflared installed via apt from {url}"
-        # Fallback: direct binary download
-        fallback_url = url.replace(".deb", "")
-        fallback_path = local_bin / "cloudflared"
-        result = subprocess.run(
-            ["wget", "-q", "-O", str(fallback_path), fallback_url],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            fallback_path.chmod(0o755)
-            return f"cloudflared downloaded to {fallback_path}"
+    result = subprocess.run(
+        ["curl", "-fsSL", "-o", str(dest), url],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
         return f"cloudflared download failed: {result.stderr.strip() or 'unknown error'}"
-    except FileNotFoundError:
-        return "wget is not available; cannot install cloudflared automatically."
+    dest.chmod(0o755)
+    return f"cloudflared downloaded to {dest}"
 
 
 def process_owners_for_ports() -> dict[int, str]:

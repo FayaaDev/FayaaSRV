@@ -18,6 +18,7 @@ from rich.console import Console
 
 from rakkib.doctor import (
     attempt_fix_cloudflared,
+    attempt_fix_compose,
     attempt_fix_docker,
     process_owners_for_ports,
     run_checks,
@@ -62,29 +63,21 @@ def _check_docker() -> bool:
     """Verify docker and docker compose are available. Install if missing."""
     if shutil.which("docker") is None:
         console.print("[dim]Docker not found — installing automatically...[/dim]")
-        from rakkib.doctor import attempt_fix_compose, attempt_fix_docker
-        result = attempt_fix_docker()
-        console.print(f"[dim]{result}[/dim]")
+        msg = attempt_fix_docker()
+        console.print(f"[dim]{msg}[/dim]")
         if shutil.which("docker") is None:
             console.print("[bold red]Docker installation did not succeed. Aborting.[/bold red]")
             return False
         console.print("[green]Docker installed successfully.[/green]")
 
-    compose_check = subprocess.run(
-        ["docker", "compose", "version"],
-        capture_output=True,
-        text=True,
-    )
+    compose_check = subprocess.run(["docker", "compose", "version"],
+                                   capture_output=True, text=True)
     if compose_check.returncode != 0:
         console.print("[dim]docker compose plugin not found — installing automatically...[/dim]")
-        from rakkib.doctor import attempt_fix_compose
-        result = attempt_fix_compose()
-        console.print(f"[dim]{result}[/dim]")
-        compose_check = subprocess.run(
-            ["docker", "compose", "version"],
-            capture_output=True,
-            text=True,
-        )
+        msg = attempt_fix_compose()
+        console.print(f"[dim]{msg}[/dim]")
+        compose_check = subprocess.run(["docker", "compose", "version"],
+                                       capture_output=True, text=True)
         if compose_check.returncode != 0:
             console.print("[bold red]docker compose plugin installation did not succeed. Aborting.[/bold red]")
             return False
