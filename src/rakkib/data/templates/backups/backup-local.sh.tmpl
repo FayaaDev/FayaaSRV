@@ -157,7 +157,7 @@ archive_secrets() {
         secret_paths+=("data/cloudflared/$(basename "$secret_file")")
     done
 
-    [[ "${#secret_paths[@]}" -gt 0 ]] || return 0
+    [[ "${{ '{#' }}secret_paths[@]}" -gt 0 ]] || return 0
 
     SECRETS_ARCHIVE="secrets.tar.gz"
     if [[ "$DRY_RUN" == true ]]; then
