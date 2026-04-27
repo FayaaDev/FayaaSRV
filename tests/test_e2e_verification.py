@@ -290,15 +290,17 @@ class TestResumeBehavior:
 
         with (
             patch("rakkib.interview.load_all_schemas", return_value=[schema1, schema2, schema3]),
-            patch("rakkib.interview.Prompt.ask", return_value="") as mock_prompt,
-            patch("rakkib.interview.Confirm.ask", return_value=False),
+            patch("rakkib.interview.prompt_checkbox", return_value=[]) as mock_checkbox,
+            patch("rakkib.interview.prompt_select", return_value="linux"),
+            patch("rakkib.interview.prompt_text", return_value=""),
+            patch("rakkib.interview.prompt_confirm", return_value=False),
             patch("rakkib.interview.console.print"),
             patch.object(state, "resume_phase", return_value=3),
         ):
             run_interview(state)
 
         # Phase 3 question should be asked; Phase 1 and 2 should not.
-        prompts = [c.args[0] for c in mock_prompt.call_args_list]
+        prompts = [c.args[0] for c in mock_checkbox.call_args_list]
         assert any("Deselect" in p for p in prompts)
         assert not any("Platform" in p for p in prompts)
         assert not any("Name" in p for p in prompts)
@@ -317,8 +319,8 @@ class TestResumeBehavior:
 
         with (
             patch("rakkib.interview.load_all_schemas", return_value=[schema]),
-            patch("rakkib.interview.Confirm.ask", return_value=False) as mock_confirm,
-            patch("rakkib.interview.Prompt.ask", return_value="linux"),
+            patch("rakkib.interview.prompt_confirm", return_value=False) as mock_confirm,
+            patch("rakkib.interview.prompt_select", return_value="linux"),
             patch("rakkib.interview.console.print"),
         ):
             run_interview(state)

@@ -69,7 +69,7 @@ def sample_schema() -> QuestionSchema:
 
 class TestRunInterview:
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.Confirm.ask")
+    @patch("rakkib.interview.prompt_confirm")
     @patch("rakkib.interview._run_phase")
     def test_resumes_at_phase(self, mock_run_phase, mock_confirm, mock_load):
         schema1 = MagicMock(phase=1)
@@ -84,7 +84,7 @@ class TestRunInterview:
         assert mock_run_phase.call_count == 2
 
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.Confirm.ask", return_value=True)
+    @patch("rakkib.interview.prompt_confirm", return_value=True)
     @patch("rakkib.interview._run_phase")
     def test_confirmed_reset(self, mock_run_phase, mock_confirm, mock_load):
         schema1 = MagicMock(phase=1)
@@ -98,7 +98,7 @@ class TestRunInterview:
         assert mock_run_phase.call_count == 1
 
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.Confirm.ask", return_value=False)
+    @patch("rakkib.interview.prompt_confirm", return_value=False)
     @patch("rakkib.interview._run_phase")
     def test_confirmed_keep(self, mock_run_phase, mock_confirm, mock_load):
         schema1 = MagicMock(phase=1)
@@ -110,8 +110,6 @@ class TestRunInterview:
                 run_interview(state)
 
         mock_confirm.assert_called_once()
-        # Since state is confirmed and user doesn't want to reset, resume_phase
-        # will return 7 (complete) and no phases run.
         assert mock_run_phase.call_count == 0
 
 
@@ -125,7 +123,7 @@ class TestRunField:
         field = FieldDef(
             id="test", type="text", prompt="hello", when="platform == mac"
         )
-        with patch("rakkib.interview.Prompt.ask") as mock_ask:
+        with patch("rakkib.interview.prompt_text") as mock_ask:
             _run_field(field, empty_state)
             mock_ask.assert_not_called()
 
@@ -149,7 +147,7 @@ class TestRunField:
             validate={"pattern": "^[a-z0-9-]+$", "message": "Invalid"},
             records=["server_name"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="my-server"):
+        with patch("rakkib.interview.prompt_text", return_value="my-server"):
             _run_field(field, empty_state)
         assert empty_state.get("server_name") == "my-server"
 
@@ -161,7 +159,7 @@ class TestRunField:
             accepted_inputs={"y": True, "n": False},
             records=["docker_installed"],
         )
-        with patch("rakkib.interview.Confirm.ask", return_value=True):
+        with patch("rakkib.interview.prompt_confirm", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("docker_installed") is True
 
@@ -173,7 +171,7 @@ class TestRunField:
             accepted_inputs={"y": "generate", "n": "manual"},
             records=["secrets.mode"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="y"):
+        with patch("rakkib.interview.prompt_select", return_value="y"):
             _run_field(field, empty_state)
         assert empty_state.get("secrets.mode") == "generate"
 
@@ -186,7 +184,7 @@ class TestRunField:
             aliases={"linux": ["linux"], "mac": ["mac", "macos"]},
             records=["platform"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="macos"):
+        with patch("rakkib.interview.prompt_select", return_value="mac"):
             _run_field(field, empty_state)
         assert empty_state.get("platform") == "mac"
 
@@ -201,7 +199,7 @@ class TestRunField:
             numeric_aliases={"1": "nocodb", "2": "authentik", "3": "homepage"},
             records=["foundation_services"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="3"):
+        with patch("rakkib.interview.prompt_checkbox", return_value=["homepage"]):
             _run_field(field, empty_state)
         assert empty_state.get("foundation_services") == ["nocodb", "authentik"]
 
@@ -216,7 +214,7 @@ class TestRunField:
             numeric_aliases={"6": "n8n"},
             records=["selected_services"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="n8n"):
+        with patch("rakkib.interview.prompt_checkbox", return_value=["n8n"]):
             _run_field(field, empty_state)
         assert empty_state.get("selected_services") == ["n8n"]
 
@@ -229,7 +227,7 @@ class TestRunField:
             records=["cloudflare.auth_method"],
             value_if_true={"cloudflare.auth_method": "api_token"},
         )
-        with patch("rakkib.interview.Confirm.ask", return_value=True):
+        with patch("rakkib.interview.prompt_confirm", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("cloudflare.auth_method") == "api_token"
 
@@ -242,7 +240,7 @@ class TestRunField:
             records=["cloudflare.auth_method"],
             value_if_true={"cloudflare.auth_method": "api_token"},
         )
-        with patch("rakkib.interview.Confirm.ask", return_value=False):
+        with patch("rakkib.interview.prompt_confirm", return_value=False):
             _run_field(field, empty_state)
         assert empty_state.get("cloudflare.auth_method") is None
 
@@ -254,7 +252,7 @@ class TestRunField:
             accepted_inputs={"y": True, "n": False},
             records=[],
         )
-        with patch("rakkib.interview.Confirm.ask", return_value=True):
+        with patch("rakkib.interview.prompt_confirm", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("accept_browser_login") is True
 
@@ -394,12 +392,12 @@ class TestRunDetect:
 class TestPromptText:
     def test_basic(self):
         field = FieldDef(id="name", type="text", prompt="Name?")
-        with patch("rakkib.interview.Prompt.ask", return_value="alice"):
+        with patch("rakkib.interview.prompt_text", return_value="alice"):
             assert _prompt_text(field, State({})) == "alice"
 
     def test_default_used(self):
         field = FieldDef(id="name", type="text", prompt="Name?", default="bob")
-        with patch("rakkib.interview.Prompt.ask", return_value="") as mock_ask:
+        with patch("rakkib.interview.prompt_text", return_value="bob") as mock_ask:
             result = _prompt_text(field, State({}))
             mock_ask.assert_called_once_with("Name?", default="bob")
             assert result == "bob"
@@ -412,7 +410,7 @@ class TestPromptText:
             validate={"pattern": "^[a-z]+$", "message": "lowercase only"},
         )
         with patch(
-            "rakkib.interview.Prompt.ask", side_effect=["Alice", "alice"]
+            "rakkib.interview.prompt_text", side_effect=["Alice", "alice"]
         ):
             assert _prompt_text(field, State({})) == "alice"
 
@@ -422,7 +420,7 @@ class TestPromptConfirm:
         field = FieldDef(
             id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False}
         )
-        with patch("rakkib.interview.Confirm.ask", return_value=True):
+        with patch("rakkib.interview.prompt_confirm", return_value=True):
             assert _prompt_confirm(field, State({})) is True
 
     def test_mapped_confirm(self):
@@ -432,7 +430,7 @@ class TestPromptConfirm:
             prompt="Mode?",
             accepted_inputs={"y": "generate", "n": "manual"},
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="y"):
+        with patch("rakkib.interview.prompt_select", return_value="y"):
             result = _prompt_confirm(field, State({}))
             assert result == "generate"
 
@@ -444,14 +442,14 @@ class TestPromptConfirm:
             accepted_inputs={"y": "generate", "n": "manual"},
         )
         with patch(
-            "rakkib.interview.Prompt.ask", side_effect=["x", "n"]
+            "rakkib.interview.prompt_select", side_effect=["x", "n"]
         ):
             result = _prompt_confirm(field, State({}))
             assert result == "manual"
 
 
 class TestPromptSingleSelect:
-    def test_alias(self):
+    def test_select_returns_canonical(self):
         field = FieldDef(
             id="platform",
             type="single_select",
@@ -459,7 +457,7 @@ class TestPromptSingleSelect:
             canonical_values=["linux", "mac"],
             aliases={"mac": ["mac", "macos"]},
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="macos"):
+        with patch("rakkib.interview.prompt_select", return_value="mac"):
             assert _prompt_single_select(field, State({})) == "mac"
 
     def test_canonical(self):
@@ -469,20 +467,19 @@ class TestPromptSingleSelect:
             prompt="Platform?",
             canonical_values=["linux", "mac"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="linux"):
+        with patch("rakkib.interview.prompt_select", return_value="linux"):
             assert _prompt_single_select(field, State({})) == "linux"
 
-    def test_invalid_then_valid(self):
+    def test_fallback_on_cancel(self):
         field = FieldDef(
             id="platform",
             type="single_select",
             prompt="Platform?",
             canonical_values=["linux", "mac"],
         )
-        with patch(
-            "rakkib.interview.Prompt.ask", side_effect=["windows", "mac"]
-        ):
-            assert _prompt_single_select(field, State({})) == "mac"
+        with patch("rakkib.interview.prompt_select", side_effect=[None]):
+            with patch("rakkib.interview.prompt_text", return_value="linux"):
+                assert _prompt_single_select(field, State({})) == "linux"
 
 
 class TestPromptMultiSelect:
@@ -496,7 +493,7 @@ class TestPromptMultiSelect:
             default=["a", "b", "c"],
             numeric_aliases={"1": "a", "2": "b", "3": "c"},
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="3"):
+        with patch("rakkib.interview.prompt_checkbox", return_value=["c"]):
             assert _prompt_multi_select(field, State({})) == ["a", "b"]
 
     def test_add_to_empty(self):
@@ -509,7 +506,7 @@ class TestPromptMultiSelect:
             default=[],
             numeric_aliases={"1": "x"},
         )
-        with patch("rakkib.interview.Prompt.ask", return_value="x y"):
+        with patch("rakkib.interview.prompt_checkbox", return_value=["x", "y"]):
             assert _prompt_multi_select(field, State({})) == ["x", "y"]
 
     def test_empty_input_uses_default(self):
@@ -521,7 +518,7 @@ class TestPromptMultiSelect:
             canonical_values=["a", "b"],
             default=["a", "b"],
         )
-        with patch("rakkib.interview.Prompt.ask", return_value=""):
+        with patch("rakkib.interview.prompt_checkbox", return_value=[]):
             assert _prompt_multi_select(field, State({})) == ["a", "b"]
 
 
@@ -542,7 +539,7 @@ class TestHandleSecretGroup:
         )
         state = State({"foundation_services": ["nocodb"]})
         with patch(
-            "rakkib.interview.Prompt.ask", side_effect=["secret1", "secret2"]
+            "rakkib.interview.prompt_password", side_effect=["secret1", "secret2"]
         ):
             _handle_secret_group(field, state)
         assert state.get("secrets.values.POSTGRES_PASSWORD") == "secret1"
@@ -557,7 +554,7 @@ class TestHandleSecretGroup:
             ],
         )
         state = State({"foundation_services": []})
-        with patch("rakkib.interview.Prompt.ask") as mock_ask:
+        with patch("rakkib.interview.prompt_password") as mock_ask:
             _handle_secret_group(field, state)
             mock_ask.assert_not_called()
 
@@ -569,7 +566,7 @@ class TestHandleSecretGroup:
         )
         state = State({})
         with patch(
-            "rakkib.interview.Prompt.ask", side_effect=["", "valid"]
+            "rakkib.interview.prompt_password", side_effect=["", "valid"]
         ):
             _handle_secret_group(field, state)
         assert state.get("secrets.values.POSTGRES_PASSWORD") == "valid"
@@ -618,7 +615,7 @@ class TestHandleRepeat:
         )
         empty_state.set("foundation_services", ["nocodb"])
         empty_state.set("customize_subdomains", True)
-        with patch("rakkib.interview.Prompt.ask", return_value="db"):
+        with patch("rakkib.interview.prompt_text", return_value="db"):
             _handle_repeat(field, empty_state, sample_schema)
         assert empty_state.get("subdomains.nocodb") == "db"
 
@@ -631,13 +628,13 @@ class TestHandleRepeat:
 class TestEnforceRules:
     def test_transfer_warn_and_remove(self, sample_schema):
         state = State({"selected_services": ["transfer"]})
-        with patch("rakkib.interview.Confirm.ask", return_value=False):
+        with patch("rakkib.interview.prompt_confirm", return_value=False):
             _enforce_rules(sample_schema, state)
         assert state.get("selected_services") == []
 
     def test_transfer_accepted(self, sample_schema):
         state = State({"selected_services": ["transfer"]})
-        with patch("rakkib.interview.Confirm.ask", return_value=True):
+        with patch("rakkib.interview.prompt_confirm", return_value=True):
             _enforce_rules(sample_schema, state)
         assert state.get("selected_services") == ["transfer"]
 

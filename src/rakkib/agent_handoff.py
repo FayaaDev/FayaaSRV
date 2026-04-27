@@ -21,8 +21,7 @@ from typing import Any, Literal
 
 import yaml
 from rich.console import Console
-from rich.prompt import Confirm
-
+from rakkib.tui import prompt_confirm
 from rakkib.state import State
 
 AgentName = Literal["opencode", "claude", "codex"]
@@ -347,7 +346,7 @@ def handoff(
         )
         return False
 
-    launch = Confirm.ask(
+    launch = prompt_confirm(
         f"Launch [bold]{chosen}[/bold] to diagnose the failure? (Y/n)",
         default=True,
     )

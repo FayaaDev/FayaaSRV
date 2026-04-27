@@ -323,7 +323,7 @@ class TestHandoff:
         state = State({"data_root": str(tmp_path)})
         with (
             patch("rakkib.agent_handoff.find_agent", return_value="opencode"),
-            patch("rakkib.agent_handoff.Confirm.ask", return_value=False),
+            patch("rakkib.agent_handoff.prompt_confirm", return_value=False),
             patch("rakkib.agent_handoff.console.print") as mock_print,
         ):
             result = handoff(
@@ -340,7 +340,7 @@ class TestHandoff:
         state = State({"data_root": str(tmp_path)})
         with (
             patch("rakkib.agent_handoff.find_agent", return_value="opencode"),
-            patch("rakkib.agent_handoff.Confirm.ask", return_value=True),
+            patch("rakkib.agent_handoff.prompt_confirm", return_value=True),
             patch("rakkib.agent_handoff._launch", return_value=0) as mock_launch,
             patch("rakkib.agent_handoff.console.print") as mock_print,
         ):
@@ -359,7 +359,7 @@ class TestHandoff:
         state = State({"data_root": str(tmp_path)})
         with (
             patch("rakkib.agent_handoff.find_agent", return_value="opencode"),
-            patch("rakkib.agent_handoff.Confirm.ask", return_value=True),
+            patch("rakkib.agent_handoff.prompt_confirm", return_value=True),
             patch("rakkib.agent_handoff._launch", return_value=1),
             patch("rakkib.agent_handoff.console.print") as mock_print,
         ):
