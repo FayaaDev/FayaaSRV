@@ -247,12 +247,16 @@ ensure_pipx() {
   log "pipx not found. Installing pipx..."
 
   if command_exists apt-get; then
+    log "Checking for unattended-upgrades..."
+    for i in $(seq 1 12); do
+      if ! ps aux | grep -q "[u]nattended-upgrade"; then
+        break
+      fi
+      log "unattended-upgrades is running — waiting 10s... ($i/12)"
+      sleep 10
+    done
     sudo apt install -y pipx && pipx ensurepath -y
     command_exists pipx && return 0
-    for i in 1 2 3; do
-      sleep 5
-      sudo apt install -y pipx && pipx ensurepath -y && command_exists pipx && return 0
-    done
   fi
 
   command_exists pipx || die "pipx installation failed. Install pipx manually (https://pypa.github.io/pipx/) and rerun."
