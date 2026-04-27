@@ -1,0 +1,160 @@
+"""Tests for Step 50 — PostgreSQL."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from rakkib.state import State
+from rakkib.steps import postgres
+
+
+def _make_state(tmp_path: Path) -> State:
+    return State(
+        {
+            "data_root": str(tmp_path),
+            "docker_net": "caddy_net",
+            "foundation_services": ["nocodb", "authentik"],
+            "selected_services": ["n8n"],
+            "secrets": {
+                "mode": "generate",
+                "values": {
+                    "POSTGRES_PASSWORD": None,
+                    "NOCODB_DB_PASS": None,
+                    "AUTHENTIK_DB_PASS": None,
+                    "N8N_DB_PASS": None,
+                },
+            },
+        }
+    )
+
+
+def test_postgres_run_renders_env_and_compose(tmp_path):
+    state = _make_state(tmp_path)
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    postgres_dir = tmp_path / "docker" / "postgres"
+    assert (postgres_dir / ".env").exists()
+    assert (postgres_dir / "docker-compose.yml").exists()
+
+
+def test_postgres_run_generates_init_sql(tmp_path):
+    state = _make_state(tmp_path)
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    sql_path = tmp_path / "docker" / "postgres" / "init-scripts" / "init-services.sql"
+    assert sql_path.exists()
+    content = sql_path.read_text()
+    assert "CREATE ROLE nocodb" in content
+    assert "CREATE ROLE authentik" in content
+    assert "CREATE ROLE n8n" in content
+    assert "CREATE DATABASE nocodb OWNER nocodb" in content
+
+
+def test_postgres_run_merges_existing_env(tmp_path):
+    state = _make_state(tmp_path)
+    postgres_dir = tmp_path / "docker" / "postgres"
+    postgres_dir.mkdir(parents=True)
+    (postgres_dir / ".env").write_text("POSTGRES_PASSWORD=keep-me\nPOSTGRES_INITDB_ARGS=--foo\n")
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    env_text = (postgres_dir / ".env").read_text()
+    assert "POSTGRES_PASSWORD=keep-me" in env_text
+    # Newly-generated value should still be present for something not in existing env.
+    # But since our .env.example only has POSTGRES_PASSWORD and POSTGRES_INITDB_ARGS,
+    # and both existed, they should be preserved.
+    assert "POSTGRES_INITDB_ARGS=--foo" in env_text
+
+
+def test_postgres_run_sets_env_permissions(tmp_path):
+    state = _make_state(tmp_path)
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    env_path = tmp_path / "docker" / "postgres" / ".env"
+    stat = env_path.stat()
+    assert stat.st_mode & 0o777 == 0o600
+
+
+def test_postgres_run_generates_secrets(tmp_path):
+    state = _make_state(tmp_path)
+    assert state.get("secrets.values.POSTGRES_PASSWORD") is None
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    assert state.get("secrets.values.POSTGRES_PASSWORD") is not None
+    assert len(state.get("secrets.values.POSTGRES_PASSWORD")) == 32
+
+
+def test_postgres_verify_success(tmp_path):
+    state = _make_state(tmp_path)
+
+    def side_effect(cmd, **kwargs):
+        class Result:
+            pass
+
+        r = Result()
+        r.returncode = 0
+        r.stdout = ""
+        r.stderr = ""
+        if cmd[0:2] == ["docker", "ps"]:
+            r.stdout = "postgres"
+        return r
+
+    with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+        mock_run.side_effect = side_effect
+        result = postgres.verify(state)
+
+    assert result.ok is True
+    assert result.step == "postgres"
+
+
+def test_postgres_verify_failure_container_missing(tmp_path):
+    state = _make_state(tmp_path)
+
+    def side_effect(cmd, **kwargs):
+        class Result:
+            pass
+
+        r = Result()
+        r.returncode = 0
+        r.stdout = ""
+        r.stderr = ""
+        return r
+
+    with patch("rakkib.steps.postgres.subprocess.run") as mock_run:
+        mock_run.side_effect = side_effect
+        result = postgres.verify(state)
+
+    assert result.ok is False
+    assert "not running" in result.message

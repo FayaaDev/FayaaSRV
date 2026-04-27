@@ -3,6 +3,8 @@
 Follows lib/placeholders.md rules:
 - {{PLACEHOLDER}} syntax for direct string substitution
 - Nested state values must be flattened before substitution
+- Missing placeholders are left as-is (uses jinja2.DebugUndefined)
+- Supports both {{PLACEHOLDER}} and Jinja2 {{ PLACEHOLDER }} style
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Template
+from jinja2 import DebugUndefined, Template
 
 from rakkib.state import State
 
@@ -39,11 +41,19 @@ def _flatten(prefix: str, node: Any, out: dict[str, str]) -> None:
 
 
 def render_string(template_text: str, context: dict[str, str]) -> str:
-    """Substitute placeholders in a template string."""
-    # Use Jinja2 for robust substitution; our placeholders map to {{KEY}}
-    # but Jinja2 expects {{ key }} or {{key}}.
-    # We pre-process to ensure compatibility.
-    return Template(template_text).render(**context)
+    """Substitute placeholders in a template string.
+
+    Uses Jinja2 with :class:`jinja2.DebugUndefined` so missing placeholders
+    are left as-is (e.g. ``{{ MISSING }}`` remains in the output) rather
+    than raising an error or being silently removed.
+    """
+    return Template(template_text, undefined=DebugUndefined).render(**context)
+
+
+def render_text(src_text: str, state: State) -> str:
+    """Render a template string using flattened state as context."""
+    context = flatten_state(state)
+    return render_string(src_text, context)
 
 
 def render_file(src: Path | str, dst: Path | str, state: State) -> None:
@@ -53,3 +63,19 @@ def render_file(src: Path | str, dst: Path | str, state: State) -> None:
     context = flatten_state(state)
     rendered = render_string(src_path.read_text(), context)
     dst_path.write_text(rendered)
+
+
+def render_tree(src_dir: Path | str, dst_dir: Path | str, state: State) -> None:
+    """Recursively render all ``.tmpl`` files in *src_dir* into *dst_dir*.
+
+    Each ``.tmpl`` extension is stripped on output.  Directory structure
+    is preserved.  Non-``.tmpl`` files are skipped.
+    """
+    src_path = Path(src_dir)
+    dst_path = Path(dst_dir)
+
+    for src_file in src_path.rglob("*.tmpl"):
+        rel = src_file.relative_to(src_path)
+        dst_file = dst_path / rel.with_suffix("")
+        dst_file.parent.mkdir(parents=True, exist_ok=True)
+        render_file(src_file, dst_file, state)

@@ -1,0 +1,367 @@
+"""Step 60 — Services.
+
+Deploy foundation bundle services and selected optional services.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from pathlib import Path
+
+import yaml
+
+from rakkib.docker import compose_up, container_publishes_port, container_running, health_check
+from rakkib.render import render_file
+from rakkib.secrets import (
+    generate_oidc_client_id,
+    generate_oidc_client_secret,
+    generate_password,
+    generate_secret_key,
+)
+from rakkib.state import State
+from rakkib.steps import VerificationResult
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _repo_dir() -> Path:
+    """Return the repository root (contains ``templates/``)."""
+    return Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _load_registry() -> dict:
+    with (_repo_dir() / "registry.yaml").open() as fh:
+        return yaml.safe_load(fh)
+
+
+def _selected_service_defs(state: State, registry: dict) -> list[dict]:
+    """Return registry definitions for selected services in dependency order."""
+    selected_ids: set[str] = set()
+    selected_ids.update(state.get("foundation_services", []) or [])
+    selected_ids.update(state.get("selected_services", []) or [])
+
+    by_id = {s["id"]: s for s in registry["services"]}
+
+    # Topological sort via Kahn's algorithm
+    in_degree: dict[str, int] = {sid: 0 for sid in selected_ids}
+    adj: dict[str, list[str]] = {sid: [] for sid in selected_ids}
+
+    for sid in selected_ids:
+        svc = by_id.get(sid, {})
+        for dep in svc.get("depends_on", []):
+            if dep in selected_ids:
+                adj[dep].append(sid)
+                in_degree[sid] += 1
+
+    queue = [sid for sid, deg in in_degree.items() if deg == 0]
+    ordered: list[str] = []
+    while queue:
+        # Deterministic order: sort alphabetically within each tier
+        queue.sort()
+        sid = queue.pop(0)
+        ordered.append(sid)
+        for neighbor in sorted(adj[sid]):
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    # If cycle or missing deps, append remaining (should not happen with valid registry)
+    remaining = [sid for sid in selected_ids if sid not in ordered]
+    ordered.extend(sorted(remaining))
+
+    return [by_id[sid] for sid in ordered if sid in by_id]
+
+
+def _generate_missing_secrets(state: State) -> None:
+    """Generate secrets that are not yet present in state."""
+    foundation = set(state.get("foundation_services", []) or [])
+    selected = set(state.get("selected_services", []) or [])
+
+    def _ensure(key: str, factory: callable) -> None:
+        if not state.has(key) or state.get(key) is None:
+            state.set(key, factory())
+
+    _ensure("POSTGRES_PASSWORD", lambda: generate_password())
+
+    if "nocodb" in foundation:
+        _ensure("NOCODB_ADMIN_PASS", lambda: generate_password())
+        _ensure("NOCODB_DB_PASS", lambda: generate_password())
+
+    if "authentik" in foundation:
+        _ensure("AUTHENTIK_SECRET_KEY", lambda: generate_secret_key(50))
+        _ensure("AUTHENTIK_DB_PASS", lambda: generate_password())
+        _ensure("AUTHENTIK_ADMIN_PASS", lambda: generate_password())
+
+    if "nocodb" in foundation and "authentik" in foundation:
+        _ensure("NOCODB_OIDC_CLIENT_ID", generate_oidc_client_id)
+        _ensure("NOCODB_OIDC_CLIENT_SECRET", generate_oidc_client_secret)
+
+    if "n8n" in selected:
+        _ensure("N8N_DB_PASS", lambda: generate_password())
+        n8n_mode = state.get("secrets.n8n_mode", "fresh")
+        if n8n_mode == "fresh":
+            _ensure("N8N_ENCRYPTION_KEY", lambda: generate_password(32))
+
+    if "immich" in selected:
+        _ensure("IMMICH_DB_PASSWORD", lambda: generate_password(32))
+        if not state.has("IMMICH_VERSION") or state.get("IMMICH_VERSION") is None:
+            state.set("IMMICH_VERSION", "release")
+
+
+# ---------------------------------------------------------------------------
+# Per-service helpers
+# ---------------------------------------------------------------------------
+
+
+def _render_env_example(
+    state: State,
+    tmpl_path: Path,
+    dst_path: Path,
+    preserve_keys: list[str] | None = None,
+) -> None:
+    """Render an .env.example template to .env, preserving existing keys when requested."""
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # If destination exists and we have preserve keys, merge them into state
+    # so the rendered output keeps existing values.
+    if dst_path.exists() and preserve_keys:
+        existing = _parse_dotenv(dst_path.read_text())
+        for key in preserve_keys:
+            if key in existing and existing[key]:
+                state.set(key, existing[key])
+
+    render_file(tmpl_path, dst_path, state)
+    dst_path.chmod(0o600)
+
+
+def _parse_dotenv(text: str) -> dict[str, str]:
+    """Parse a simple KEY=VALUE env file."""
+    result: dict[str, str] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            result[key.strip()] = value.strip().strip("'\"")
+    return result
+
+
+def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) -> None:
+    """Render the appropriate Caddy route template for a service."""
+    svc_id = svc["id"]
+    routes_dir = data_root / "docker" / "caddy" / "routes"
+    routes_dir.mkdir(parents=True, exist_ok=True)
+
+    foundation = set(state.get("foundation_services", []) or [])
+    authentik_enabled = "authentik" in foundation
+
+    # Determine template filename
+    tmpl_name: str | None = None
+    if svc_id in ("homepage", "uptime-kuma", "dockge"):
+        tmpl_name = f"{svc_id}.caddy.tmpl" if authentik_enabled else f"{svc_id}-public.caddy.tmpl"
+    else:
+        tmpl_name = f"{svc_id}.caddy.tmpl"
+
+    tmpl_path = repo / "templates" / "caddy" / "routes" / tmpl_name
+    if tmpl_path.exists():
+        render_file(tmpl_path, routes_dir / f"{svc_id}.caddy", state)
+
+
+def _reload_caddy(data_root: Path) -> None:
+    caddy_dir = data_root / "docker" / "caddy"
+    subprocess.run(
+        [
+            "docker", "compose", "exec", "caddy",
+            "caddy", "reload", "--config", "/etc/caddy/Caddyfile",
+        ],
+        cwd=str(caddy_dir),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Special service handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_authentik(state: State, repo: Path, data_root: Path) -> None:
+    """Create data dirs and render blueprints for Authentik."""
+    foundation = set(state.get("foundation_services", []) or [])
+    selected = set(state.get("selected_services", []) or [])
+
+    blueprints_dir = data_root / "data" / "authentik" / "blueprints" / "custom"
+    blueprints_dir.mkdir(parents=True, exist_ok=True)
+
+    for media_dir in (
+        data_root / "data" / "authentik" / "media",
+        data_root / "data" / "authentik" / "custom-templates",
+    ):
+        media_dir.mkdir(parents=True, exist_ok=True)
+
+    blueprint_map = {
+        "nocodb": "templates/docker/authentik/blueprints/nocodb.yaml.tmpl",
+        "homepage": "templates/docker/authentik/blueprints/proxy-homepage.yaml.tmpl",
+        "uptime-kuma": "templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl",
+        "dockge": "templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl",
+        "n8n": "templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl",
+        "hermes": "templates/docker/authentik/blueprints/proxy-hermes.yaml.tmpl",
+    }
+
+    for svc_id, tmpl_rel in blueprint_map.items():
+        if svc_id in foundation or svc_id in selected:
+            tmpl = repo / tmpl_rel
+            if tmpl.exists():
+                render_file(tmpl, blueprints_dir / f"{svc_id}.yaml", state)
+
+
+def _handle_homepage(state: State, repo: Path, data_root: Path) -> None:
+    """Create config dir and render services.yaml for Homepage."""
+    config_dir = data_root / "data" / "homepage" / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    tmpl = repo / "templates" / "docker" / "homepage" / "services.yaml.tmpl"
+    if tmpl.exists():
+        # TODO: In a fuller implementation we would filter out deselected
+        # service blocks from the rendered YAML. For Wave 2B we render the
+        # full template and rely on the template itself to be conditional.
+        render_file(tmpl, config_dir / "services.yaml", state)
+
+
+def _handle_immich(state: State, repo: Path, data_root: Path) -> None:
+    """Create Immich data directories."""
+    for d in (
+        data_root / "data" / "immich" / "library",
+        data_root / "data" / "immich" / "postgres",
+    ):
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def _handle_transfer(state: State, repo: Path, data_root: Path) -> None:
+    """Create transfer data directory and fix ownership for UID 5000."""
+    transfer_dir = data_root / "data" / "transfer"
+    transfer_dir.mkdir(parents=True, exist_ok=True)
+
+    platform = state.get("platform", "linux")
+    if platform == "linux":
+        subprocess.run(
+            ["sudo", "-n", "chown", "-R", "5000:5000", str(transfer_dir)],
+            capture_output=True,
+            text=True,
+        )
+
+
+def _handle_dbhub(state: State, repo: Path, data_root: Path) -> None:
+    svc_dir = data_root / "docker" / "dbhub"
+    tmpl = repo / "templates" / "docker" / "dbhub" / "dbhub.toml.tmpl"
+    if tmpl.exists():
+        render_file(tmpl, svc_dir / "dbhub.toml", state)
+
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+
+
+def run(state: State) -> None:
+    repo = _repo_dir()
+    data_root = Path(state.get("data_root", "/srv"))
+    registry = _load_registry()
+
+    _generate_missing_secrets(state)
+    services = _selected_service_defs(state, registry)
+
+    for svc in services:
+        if svc.get("host_service"):
+            continue
+
+        svc_id = svc["id"]
+        svc_dir = data_root / "docker" / svc_id
+        log_path = data_root / "logs" / f"step60-{svc_id}.log"
+
+        # --- Render templates ------------------------------------------------
+
+        # .env.example -> .env
+        env_tmpl = repo / "templates" / "docker" / svc_id / ".env.example"
+        if env_tmpl.exists():
+            preserve: list[str] = []
+            if svc_id == "n8n":
+                preserve = ["N8N_ENCRYPTION_KEY"]
+            elif svc_id == "immich":
+                preserve = ["IMMICH_DB_PASSWORD", "IMMICH_VERSION"]
+            _render_env_example(state, env_tmpl, svc_dir / ".env", preserve)
+
+        # docker-compose.yml
+        compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
+        if compose_tmpl.exists():
+            render_file(compose_tmpl, svc_dir / "docker-compose.yml", state)
+
+        # Special per-service rendering
+        if svc_id == "authentik":
+            _handle_authentik(state, repo, data_root)
+        elif svc_id == "homepage":
+            _handle_homepage(state, repo, data_root)
+        elif svc_id == "immich":
+            _handle_immich(state, repo, data_root)
+        elif svc_id == "transfer":
+            _handle_transfer(state, repo, data_root)
+        elif svc_id == "dbhub":
+            _handle_dbhub(state, repo, data_root)
+
+        # --- Start service ---------------------------------------------------
+        compose_up(svc_dir, log_path=log_path)
+
+        # --- Post-start special cases ----------------------------------------
+        if svc_id == "authentik":
+            if not health_check("authentik-server", timeout=180):
+                raise RuntimeError("authentik-server health check timed out")
+
+        # --- Caddy route -----------------------------------------------------
+        _render_caddy_route(state, svc, repo, data_root)
+
+    # --- Reload Caddy after all services -------------------------------------
+    _reload_caddy(data_root)
+
+
+# ---------------------------------------------------------------------------
+# Verify
+# ---------------------------------------------------------------------------
+
+
+def verify(state: State) -> VerificationResult:
+    registry = _load_registry()
+    services = _selected_service_defs(state, registry)
+
+    for svc in services:
+        if svc.get("host_service"):
+            continue
+
+        svc_id = svc["id"]
+        port = svc.get("default_port")
+
+        # Determine expected container name
+        container_name = svc_id
+        if svc_id == "authentik":
+            container_name = "authentik-server"
+        elif svc_id == "immich":
+            container_name = "immich_server"
+
+        if not container_running(container_name):
+            return VerificationResult.failure(
+                "services",
+                f"Container {container_name} ({svc_id}) is not running",
+            )
+
+        if port and not container_publishes_port(container_name, port):
+            return VerificationResult.failure(
+                "services",
+                f"Container {container_name} does not publish port {port}",
+            )
+
+    return VerificationResult.success("services", "All selected services are running")
