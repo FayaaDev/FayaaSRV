@@ -59,7 +59,18 @@ def run(state: State) -> None:
         header.read_text() + "\n" + root_route.read_text() + "\n" + footer.read_text()
     )
 
-    # 6. Validate candidate before replacing active file.
+    # 6a. Format the candidate Caddyfile.
+    subprocess.run(
+        [
+            "docker", "run", "--rm",
+            "-v", f"{caddy_next}:/etc/caddy/Caddyfile",
+            "caddy:2", "caddy", "fmt", "--overwrite", "/etc/caddy/Caddyfile",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # 6b. Validate candidate before replacing active file.
     validate = subprocess.run(
         [
             "docker", "run", "--rm",

@@ -174,6 +174,16 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) ->
 
 def _reload_caddy(data_root: Path) -> None:
     caddy_dir = data_root / "docker" / "caddy"
+    caddyfile = caddy_dir / "Caddyfile"
+    subprocess.run(
+        [
+            "docker", "compose", "exec", "caddy",
+            "caddy", "fmt", "--overwrite", "/etc/caddy/Caddyfile",
+        ],
+        cwd=str(caddy_dir),
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(
         [
             "docker", "compose", "exec", "caddy",
