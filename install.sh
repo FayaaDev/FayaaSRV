@@ -246,7 +246,7 @@ ensure_pipx() {
   fi
   log "pipx not found. Installing pipx..."
 
-  if _command_exists apt-get; then
+  if command_exists apt-get; then
     sudo apt update && sudo apt install -y pipx && pipx ensurepath -y
     command_exists pipx && return 0
   fi
