@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 from rakkib.docker import compose_up, container_running, DockerError
+from rakkib.doctor import attempt_fix_cloudflared
 from rakkib.render import render_file
 from rakkib.state import State
 from rakkib.steps import VerificationResult
@@ -29,15 +30,6 @@ def _cloudflared_bin() -> str:
     if local_bin.exists():
         return str(local_bin)
     return "cloudflared"
-
-
-def _ensure_cloudflared() -> None:
-    """Download and install cloudflared via wget + apt if not found."""
-    deb_path = Path("/tmp/cloudflared-linux-amd64.deb")
-    _run(["wget", "-q", "-O", str(deb_path),
-          "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb"])
-    _run(["sudo", "apt", "install", "-y", str(deb_path)])
-    deb_path.unlink(missing_ok=True)
 
 
 def _run(
@@ -116,8 +108,14 @@ def run(state: State) -> None:
     try:
         _run([_cloudflared_bin(), "--version"])
     except RuntimeError:
-        print("cloudflared not found, installing via wget + apt...")
-        _ensure_cloudflared()
+        print("cloudflared not found — installing automatically...")
+        msg = attempt_fix_cloudflared()
+        print(f"[dim]{msg}[/dim]")
+        if shutil.which("cloudflared") is None and not Path(_cloudflared_bin()).exists():
+            raise RuntimeError(
+                "cloudflared installation failed. "
+                "Install manually: https://github.com/cloudflare/cloudflared/releases"
+            )
 
     cert_path = cloudflared_dir / "cert.pem"
     default_cert = Path.home() / ".cloudflared" / "cert.pem"
