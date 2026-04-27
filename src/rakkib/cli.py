@@ -6,6 +6,7 @@ Commands: init, doctor, status, add, uninstall
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,11 +15,64 @@ import click
 from rich.console import Console
 
 from rakkib.agent_handoff import handoff
+from rakkib.doctor import (
+    attempt_fix_cloudflared,
+    attempt_fix_docker,
+    process_owners_for_ports,
+    run_checks,
+    summary_text,
+    to_json,
+)
 from rakkib.interview import run_interview
 from rakkib.state import State
 from rakkib.steps import VerificationResult
+from rakkib.steps import services as services_step
 
 console = Console()
+
+
+def _update_readme_agent_memory(repo_dir: Path, state: State) -> None:
+    """Append or update the Agent Memory block in README.md."""
+    readme_path = repo_dir / "README.md"
+    if not readme_path.exists():
+        return
+
+    foundation = state.get("foundation_services") or []
+    selected = state.get("selected_services") or []
+    data_root = state.get("data_root", "/srv")
+    domain = state.get("domain", "") or ""
+
+    foundation_str = ", ".join(foundation) if foundation else "None"
+    selected_str = ", ".join(selected) if selected else "None"
+
+    block = (
+        "<!-- BEGIN RAKKIB AGENT MEMORY -->\n"
+        "## Deployed Services\n"
+        "\n"
+        f"- **Foundation**: {foundation_str}\n"
+        f"- **Optional**: {selected_str}\n"
+        f"- **Data Root**: {data_root}\n"
+        f"- **Domain**: {domain}\n"
+        "\n"
+        "<!-- END RAKKIB AGENT MEMORY -->\n"
+    )
+
+    content = readme_path.read_text()
+    start_marker = "<!-- BEGIN RAKKIB AGENT MEMORY -->"
+    end_marker = "<!-- END RAKKIB AGENT MEMORY -->"
+
+    if start_marker in content and end_marker in content:
+        start_idx = content.index(start_marker)
+        end_idx = content.index(end_marker) + len(end_marker)
+        # Strip trailing whitespace/newlines from the remainder so we don't accumulate blanks
+        after = content[end_idx:]
+        content = content[:start_idx] + block + after
+    else:
+        if not content.endswith("\n"):
+            content += "\n"
+        content += "\n" + block
+
+    readme_path.write_text(content)
 
 
 def _run_steps(
@@ -137,19 +191,140 @@ def init(ctx: click.Context, agent: str, print_prompt: bool, no_agent: bool, res
 
 
 @cli.command()
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
+@click.option("--interactive", is_flag=True, help="Interactive mode with auto-fix prompts")
 @click.pass_context
-def doctor(ctx: click.Context) -> None:
+def doctor(ctx: click.Context, json_output: bool, interactive: bool) -> None:
     """Run host diagnostics."""
-    console.print("[bold green]Rakkib doctor[/bold green]")
-    # TODO: port scripts/rakkib-doctor logic into Python
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    checks = run_checks(state)
+
+    if json_output:
+        click.echo(to_json(checks))
+    else:
+        if interactive:
+            from rich.panel import Panel
+            from rich.table import Table
+
+            table = Table(title="Rakkib Doctor", show_header=True, header_style="bold magenta")
+            table.add_column("Status", style="bold", width=6)
+            table.add_column("Check", style="dim", width=20)
+            table.add_column("Blocking", width=8)
+            table.add_column("Message")
+
+            for check in checks:
+                status_style = {
+                    "ok": "[green]ok[/green]",
+                    "warn": "[yellow]warn[/yellow]",
+                    "fail": "[red]fail[/red]",
+                }.get(check.status, check.status)
+                blocking_text = "yes" if check.blocking else "no"
+                table.add_row(status_style, check.name, blocking_text, check.message)
+
+            console.print(table)
+
+            # Interactive fixes for blocking failures
+            for check in checks:
+                if check.blocking and check.status == "fail":
+                    console.print(
+                        Panel(
+                            f"[bold red]{check.name}[/bold red]: {check.message}",
+                            title="Blocking Failure",
+                        )
+                    )
+                    fix_result = None
+                    if check.name == "docker":
+                        answer = click.prompt("Attempt to fix docker? (y/N)", default="N", show_default=False)
+                        if answer.lower() == "y":
+                            fix_result = attempt_fix_docker()
+                    elif check.name == "cloudflared_cli":
+                        answer = click.prompt("Attempt to fix cloudflared? (y/N)", default="N", show_default=False)
+                        if answer.lower() == "y":
+                            fix_result = attempt_fix_cloudflared()
+                    elif check.name == "public_ports":
+                        owners = process_owners_for_ports()
+                        console.print("[bold yellow]Port ownership:[/bold yellow]")
+                        for port, info in owners.items():
+                            console.print(f"  {port}: {info}")
+                    else:
+                        console.print(f"[dim]No auto-fix available for {check.name}.[/dim]")
+
+                    if fix_result:
+                        console.print(f"[bold cyan]Fix result:[/bold cyan] {fix_result}")
+
+            # Re-run checks after fixes
+            console.print("\n[bold green]Re-running checks...[/bold green]")
+            checks = run_checks(state)
+            table = Table(title="Updated Results", show_header=True, header_style="bold magenta")
+            table.add_column("Status", style="bold", width=6)
+            table.add_column("Check", style="dim", width=20)
+            table.add_column("Blocking", width=8)
+            table.add_column("Message")
+            for check in checks:
+                status_style = {
+                    "ok": "[green]ok[/green]",
+                    "warn": "[yellow]warn[/yellow]",
+                    "fail": "[red]fail[/red]",
+                }.get(check.status, check.status)
+                blocking_text = "yes" if check.blocking else "no"
+                table.add_row(status_style, check.name, blocking_text, check.message)
+            console.print(table)
+        else:
+            for check in checks:
+                click.echo(f"[{check.status}] {check.name}: {check.message}")
+            click.echo(summary_text(checks))
+
+    fail_count = sum(1 for c in checks if c.status == "fail")
+    if fail_count > 0:
+        ctx.exit(1)
 
 
 @cli.command()
 @click.pass_context
 def status(ctx: click.Context) -> None:
     """Print deployment status and resume point."""
-    console.print("[bold green]Rakkib status[/bold green]")
-    # TODO: read state, show deployed services + resume phase
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    if not state.is_confirmed():
+        console.print(
+            "[yellow]No confirmed deployment state found. Run `rakkib init` to start.[/yellow]"
+        )
+        return
+
+    from rich.table import Table
+
+    table = Table(title="Rakkib Deployment Status", show_header=False)
+    table.add_column("Key", style="bold cyan", width=20)
+    table.add_column("Value")
+
+    table.add_row("Confirmed", "yes")
+    table.add_row("Resume Phase", str(state.resume_phase()))
+    table.add_row("Domain", state.get("domain", "—") or "—")
+    table.add_row("Data Root", state.get("data_root", "/srv") or "/srv")
+    table.add_row("Platform", state.get("platform", "—") or "—")
+
+    foundation = state.get("foundation_services") or []
+    table.add_row("Foundation Services", ", ".join(foundation) if isinstance(foundation, list) else str(foundation))
+
+    selected = state.get("selected_services") or []
+    table.add_row("Selected Services", ", ".join(selected) if isinstance(selected, list) else str(selected))
+
+    addons = state.get("host_addons") or []
+    table.add_row("Host Addons", ", ".join(addons) if isinstance(addons, list) else str(addons))
+
+    subdomains = state.get("subdomains") or {}
+    if isinstance(subdomains, dict) and subdomains:
+        subdomain_lines = "\n".join(f"  {svc}: {sub}" for svc, sub in subdomains.items())
+        table.add_row("Subdomains", subdomain_lines)
+    else:
+        table.add_row("Subdomains", "—")
+
+    console.print(table)
 
 
 @cli.command()
@@ -158,7 +333,92 @@ def status(ctx: click.Context) -> None:
 def add(ctx: click.Context, service: str) -> None:
     """Add a service to an existing deployment."""
     console.print(f"[bold green]Rakkib add {service}[/bold green]")
-    # TODO: run per-service wizard + Step 60 slice (Wave 5)
+
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    registry = services_step._load_registry()
+    by_id = {s["id"]: s for s in registry["services"]}
+
+    # 1. Validate service slug
+    if service not in by_id:
+        console.print(f"[bold red]Error:[/bold red] Service '{service}' not found in registry.")
+        sys.exit(1)
+
+    svc = by_id[service]
+    state_bucket = svc.get("state_bucket", "selected_services")
+
+    # 2. Check if already deployed
+    if state_bucket == "always":
+        console.print(f"[yellow]Service '{service}' is always deployed.[/yellow]")
+        return
+
+    foundation = set(state.get("foundation_services", []) or [])
+    selected = set(state.get("selected_services", []) or [])
+
+    if service in foundation or service in selected:
+        console.print(f"[yellow]Service '{service}' is already deployed.[/yellow]")
+        return
+
+    # 3. Handle dependencies
+    missing_deps = []
+    for dep in svc.get("depends_on", []):
+        dep_svc = by_id.get(dep, {})
+        dep_bucket = dep_svc.get("state_bucket", "selected_services")
+        if dep_bucket == "always":
+            continue
+        if dep not in foundation and dep not in selected:
+            missing_deps.append(dep)
+
+    if missing_deps:
+        console.print(
+            f"[bold red]Error:[/bold red] Missing dependencies for '{service}': {', '.join(missing_deps)}"
+        )
+        sys.exit(1)
+
+    # 4. Prompt for subdomain customization
+    default_subdomain = svc.get("default_subdomain")
+    if default_subdomain:
+        subdomain = click.prompt(
+            f"Subdomain for {service}?",
+            default=default_subdomain,
+        )
+        if not re.match(r"^[a-z0-9-]+$", subdomain):
+            console.print(
+                f"[bold red]Error:[/bold red] Subdomain must match ^[a-z0-9-]+$"
+            )
+            sys.exit(1)
+        state.set(f"subdomains.{service}", subdomain)
+        # Also set top-level alias so templates resolve {{SERVICE_SUBDOMAIN}}
+        placeholder = svc.get("subdomain_placeholder")
+        if placeholder:
+            state.set(placeholder, subdomain)
+
+    # 5. Update state
+    if state_bucket == "foundation_services":
+        current = list(state.get("foundation_services", []) or [])
+        current.append(service)
+        state.set("foundation_services", current)
+    else:
+        current = list(state.get("selected_services", []) or [])
+        current.append(service)
+        state.set("selected_services", current)
+
+    state.save(state_path)
+    console.print(f"[dim]Added {service} to {state_bucket}.[/dim]")
+
+    # 6. Generate missing secrets
+    services_step._generate_missing_secrets(state)
+    state.save(state_path)
+
+    # 7. Run Step 60 for just this service
+    services_step.run_single_service(state, service)
+    console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
+
+    # 8. Update README.md
+    _update_readme_agent_memory(repo_dir, state)
+    console.print(f"[dim]Updated README.md with deployed services.[/dim]")
 
 
 @cli.command()

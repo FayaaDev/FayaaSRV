@@ -269,6 +269,56 @@ def _handle_dbhub(state: State, repo: Path, data_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path) -> None:
+    """Render templates, create dirs, and start a single service."""
+    if svc.get("host_service"):
+        return
+
+    svc_id = svc["id"]
+    svc_dir = data_root / "docker" / svc_id
+    log_path = data_root / "logs" / f"step60-{svc_id}.log"
+
+    # --- Render templates ------------------------------------------------
+
+    # .env.example -> .env
+    env_tmpl = repo / "templates" / "docker" / svc_id / ".env.example"
+    if env_tmpl.exists():
+        preserve: list[str] = []
+        if svc_id == "n8n":
+            preserve = ["N8N_ENCRYPTION_KEY"]
+        elif svc_id == "immich":
+            preserve = ["IMMICH_DB_PASSWORD", "IMMICH_VERSION"]
+        _render_env_example(state, env_tmpl, svc_dir / ".env", preserve)
+
+    # docker-compose.yml
+    compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
+    if compose_tmpl.exists():
+        render_file(compose_tmpl, svc_dir / "docker-compose.yml", state)
+
+    # Special per-service rendering
+    if svc_id == "authentik":
+        _handle_authentik(state, repo, data_root)
+    elif svc_id == "homepage":
+        _handle_homepage(state, repo, data_root)
+    elif svc_id == "immich":
+        _handle_immich(state, repo, data_root)
+    elif svc_id == "transfer":
+        _handle_transfer(state, repo, data_root)
+    elif svc_id == "dbhub":
+        _handle_dbhub(state, repo, data_root)
+
+    # --- Start service ---------------------------------------------------
+    compose_up(svc_dir, log_path=log_path)
+
+    # --- Post-start special cases ----------------------------------------
+    if svc_id == "authentik":
+        if not health_check("authentik-server", timeout=180):
+            raise RuntimeError("authentik-server health check timed out")
+
+    # --- Caddy route -----------------------------------------------------
+    _render_caddy_route(state, svc, repo, data_root)
+
+
 def run(state: State) -> None:
     repo = _repo_dir()
     data_root = Path(state.get("data_root", "/srv"))
@@ -278,54 +328,25 @@ def run(state: State) -> None:
     services = _selected_service_defs(state, registry)
 
     for svc in services:
-        if svc.get("host_service"):
-            continue
-
-        svc_id = svc["id"]
-        svc_dir = data_root / "docker" / svc_id
-        log_path = data_root / "logs" / f"step60-{svc_id}.log"
-
-        # --- Render templates ------------------------------------------------
-
-        # .env.example -> .env
-        env_tmpl = repo / "templates" / "docker" / svc_id / ".env.example"
-        if env_tmpl.exists():
-            preserve: list[str] = []
-            if svc_id == "n8n":
-                preserve = ["N8N_ENCRYPTION_KEY"]
-            elif svc_id == "immich":
-                preserve = ["IMMICH_DB_PASSWORD", "IMMICH_VERSION"]
-            _render_env_example(state, env_tmpl, svc_dir / ".env", preserve)
-
-        # docker-compose.yml
-        compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
-        if compose_tmpl.exists():
-            render_file(compose_tmpl, svc_dir / "docker-compose.yml", state)
-
-        # Special per-service rendering
-        if svc_id == "authentik":
-            _handle_authentik(state, repo, data_root)
-        elif svc_id == "homepage":
-            _handle_homepage(state, repo, data_root)
-        elif svc_id == "immich":
-            _handle_immich(state, repo, data_root)
-        elif svc_id == "transfer":
-            _handle_transfer(state, repo, data_root)
-        elif svc_id == "dbhub":
-            _handle_dbhub(state, repo, data_root)
-
-        # --- Start service ---------------------------------------------------
-        compose_up(svc_dir, log_path=log_path)
-
-        # --- Post-start special cases ----------------------------------------
-        if svc_id == "authentik":
-            if not health_check("authentik-server", timeout=180):
-                raise RuntimeError("authentik-server health check timed out")
-
-        # --- Caddy route -----------------------------------------------------
-        _render_caddy_route(state, svc, repo, data_root)
+        _deploy_single_service(state, svc, repo, data_root)
 
     # --- Reload Caddy after all services -------------------------------------
+    _reload_caddy(data_root)
+
+
+def run_single_service(state: State, svc_id: str) -> None:
+    """Deploy a single service by ID."""
+    repo = _repo_dir()
+    data_root = Path(state.get("data_root", "/srv"))
+    registry = _load_registry()
+
+    by_id = {s["id"]: s for s in registry["services"]}
+    if svc_id not in by_id:
+        raise ValueError(f"Service {svc_id} not found in registry")
+
+    _generate_missing_secrets(state)
+    svc = by_id[svc_id]
+    _deploy_single_service(state, svc, repo, data_root)
     _reload_caddy(data_root)
 
 

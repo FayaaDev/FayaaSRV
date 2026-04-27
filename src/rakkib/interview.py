@@ -421,9 +421,11 @@ def _handle_repeat(
                     answer = default
                 if _validate(answer, field):
                     state.set(f"subdomains.{slug}", answer)
+                    state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", answer)
                     break
         else:
             state.set(f"subdomains.{slug}", default)
+            state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", default)
 
 
 # ---------------------------------------------------------------------------
