@@ -143,13 +143,13 @@ def redact_state(data: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 _STEP_CONTEXT_FILES: dict[str, list[str]] = {
-    "layout": ["steps/10-layout.md"],
-    "caddy": ["steps/30-caddy.md", "questions/02-identity.md"],
-    "postgres": ["steps/50-postgres.md", "questions/05-secrets.md"],
-    "services": ["steps/60-services.md", "questions/03-services.md", "registry.yaml"],
-    "cron": ["steps/80-cron-jobs.md"],
-    "cloudflare": ["steps/40-cloudflare.md", "questions/04-cloudflare.md"],
-    "verify": ["steps/90-verify.md"],
+    "layout": ["data/steps/10-layout.md"],
+    "caddy": ["data/steps/30-caddy.md", "data/questions/02-identity.md"],
+    "postgres": ["data/steps/50-postgres.md", "data/questions/05-secrets.md"],
+    "services": ["data/steps/60-services.md", "data/questions/03-services.md", "data/registry.yaml"],
+    "cron": ["data/steps/80-cron-jobs.md"],
+    "cloudflare": ["data/steps/40-cloudflare.md", "data/questions/04-cloudflare.md"],
+    "verify": ["data/steps/90-verify.md"],
 }
 
 

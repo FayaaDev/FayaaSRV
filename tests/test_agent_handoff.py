@@ -184,20 +184,20 @@ class TestBuildStateSlice:
 
 class TestQuestionFilesForStep:
     def test_reads_existing_files(self, tmp_path: Path):
-        (tmp_path / "steps").mkdir()
-        (tmp_path / "steps" / "10-layout.md").write_text("# Layout")
+        (tmp_path / "data" / "steps").mkdir(parents=True)
+        (tmp_path / "data" / "steps" / "10-layout.md").write_text("# Layout")
         files = question_files_for_step("layout", tmp_path)
-        assert files == [("steps/10-layout.md", "# Layout")]
+        assert files == [("data/steps/10-layout.md", "# Layout")]
 
     def test_skips_missing_files(self, tmp_path: Path):
         files = question_files_for_step("layout", tmp_path)
         assert files == []
 
     def test_caddy_reads_multiple(self, tmp_path: Path):
-        (tmp_path / "steps").mkdir()
-        (tmp_path / "questions").mkdir()
-        (tmp_path / "steps" / "30-caddy.md").write_text("# Caddy")
-        (tmp_path / "questions" / "02-identity.md").write_text("# Identity")
+        (tmp_path / "data" / "steps").mkdir(parents=True)
+        (tmp_path / "data" / "questions").mkdir(parents=True)
+        (tmp_path / "data" / "steps" / "30-caddy.md").write_text("# Caddy")
+        (tmp_path / "data" / "questions" / "02-identity.md").write_text("# Identity")
         files = question_files_for_step("caddy", tmp_path)
         assert len(files) == 2
 

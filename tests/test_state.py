@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from rakkib.schema import load_all_schemas
 from rakkib.state import State, _coerce_compare, _deep_merge, _eval_when
+
+QUESTIONS_DIR = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data" / "questions"
+
+
+@pytest.fixture(autouse=True)
+def patch_load_all_schemas():
+    """Patch load_all_schemas in state module to use bundled question files."""
+    schemas = load_all_schemas(QUESTIONS_DIR)
+    with patch("rakkib.state.load_all_schemas", return_value=schemas):
+        yield
 
 
 def test_state_get_and_set():

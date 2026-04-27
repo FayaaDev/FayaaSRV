@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-QUESTIONS_DIR = Path("questions")
+QUESTIONS_DIR = Path(__file__).resolve().parent / "data" / "questions"
 
 
 @dataclass

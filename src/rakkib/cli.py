@@ -185,7 +185,7 @@ def cli(ctx: click.Context) -> None:
     """Rakkib — agent-driven personal server kit."""
     ctx.ensure_object(dict)
     if "repo_dir" not in ctx.obj:
-        ctx.obj["repo_dir"] = Path(__file__).resolve().parent.parent.parent
+        ctx.obj["repo_dir"] = Path(__file__).resolve().parent
 
 
 @cli.command()
@@ -211,7 +211,7 @@ def init(ctx: click.Context, agent: str, print_prompt: bool, no_agent: bool, res
         _run_steps(state, repo_dir, agent=agent, print_prompt=print_prompt, no_agent=no_agent)
         return
 
-    state = run_interview(state, questions_dir=repo_dir / "questions")
+    state = run_interview(state, questions_dir=repo_dir / "data" / "questions")
     state.save(state_path)
     console.print("[bold green]Interview complete. State saved to .fss-state.yaml[/bold green]")
 

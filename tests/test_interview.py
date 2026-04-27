@@ -91,7 +91,8 @@ class TestRunInterview:
         mock_load.return_value = [schema1]
 
         state = State({"confirmed": True})
-        run_interview(state)
+        with patch.object(State, "resume_phase", return_value=1):
+            run_interview(state)
 
         mock_confirm.assert_called_once()
         assert mock_run_phase.call_count == 1

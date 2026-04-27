@@ -8,7 +8,7 @@ import pytest
 
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 
-QUESTIONS_DIR = Path(__file__).resolve().parent.parent / "questions"
+QUESTIONS_DIR = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data" / "questions"
 
 
 def test_load_all_schemas_finds_all_six():

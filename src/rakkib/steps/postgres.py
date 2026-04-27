@@ -17,8 +17,8 @@ from rakkib.steps import VerificationResult
 
 
 def _repo_dir() -> Path:
-    """Return the repository root (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent.parent.parent
+    """Return the package data directory (contains ``templates/``)."""
+    return Path(__file__).resolve().parent.parent / "data"
 
 
 def _parse_env(text: str) -> dict[str, str]:
