@@ -504,7 +504,8 @@ def verify(state: State) -> VerificationResult:
                 f"Container {container_name} ({svc_id}) is not running",
             )
 
-        if port and not container_publishes_port(container_name, port):
+        needs_host_port = svc.get("host_port", False)
+        if port and needs_host_port and not container_publishes_port(container_name, port):
             return VerificationResult.failure(
                 "services",
                 f"Container {container_name} does not publish port {port}",

@@ -10,6 +10,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: true
     notes: "Reverse proxy. Always installed."
 
   - id: cloudflared
@@ -37,6 +38,7 @@ services:
       - POSTGRES_PASSWORD
     depends_on: []
     host_service: false
+    host_port: true
     notes: "Single postgres instance serves all services. Port bound to 127.0.0.1 only."
 
   # --- Foundation Bundle (recommended, presented as a pre-checked group) ---
@@ -59,6 +61,7 @@ services:
       - NOCODB_OIDC_CLIENT_SECRET
     depends_on: [postgres]
     host_service: false
+    host_port: false
     notes: "No-code database UI. Foundation bundle service. Supports OIDC via Authentik when auth is selected."
 
   - id: authentik
@@ -77,6 +80,7 @@ services:
       - AUTHENTIK_ADMIN_PASS
     depends_on: [postgres]
     host_service: false
+    host_port: false
     notes: "SSO / auth proxy. Foundation bundle service. Deploys server + worker + redis containers. Applies blueprints for selected downstream services on first start."
 
   - id: homepage
@@ -92,6 +96,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: false
     notes: "Service dashboard. Foundation bundle service. services.yaml generated from selected service list."
 
   - id: uptime-kuma
@@ -107,6 +112,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: false
     notes: "Uptime monitoring. Foundation bundle service."
 
   - id: dockge
@@ -122,6 +128,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: false
     notes: "Docker Compose manager UI. Foundation bundle service. Mounts the stacks directory."
 
   # --- Optional Services (Tier 1) ---
@@ -140,6 +147,7 @@ services:
       - N8N_ENCRYPTION_KEY
     depends_on: [postgres]
     host_service: false
+    host_port: false
     notes: "Workflow automation. NEVER rotate N8N_ENCRYPTION_KEY after first run. Uses the upstream n8nio/n8n image."
 
   - id: dbhub
@@ -154,6 +162,7 @@ services:
     env_keys: []
     depends_on: [postgres]
     host_service: false
+    host_port: true
     notes: "Database browser. Optional. Uses dbhub.toml config file."
 
   - id: immich
@@ -170,6 +179,7 @@ services:
       - IMMICH_VERSION
     depends_on: []
     host_service: false
+    host_port: false
     notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
 
   - id: transfer
@@ -184,6 +194,7 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: true
     notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
 
   - id: jellyfin
@@ -198,4 +209,5 @@ services:
     env_keys: []
     depends_on: []
     host_service: false
+    host_port: true
     notes: "Media server. Optional. Self-hosted streaming for movies, TV, music, and photos."

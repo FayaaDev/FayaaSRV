@@ -346,23 +346,47 @@ class TestVerify:
     @patch("rakkib.steps.services._repo_dir")
     @patch("rakkib.steps.services.container_running")
     @patch("rakkib.steps.services.container_publishes_port")
-    def test_port_not_published_fails(
+    def test_port_not_published_fails_for_host_port_service(
         self,
         mock_port: MagicMock,
         mock_running: MagicMock,
         mock_repo: MagicMock,
-        fake_repo: Path,
     ):
-        mock_repo.return_value = fake_repo
+        """A service with host_port=True must publish its port to pass verify."""
+        mock_repo.return_value = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data"
         mock_running.return_value = True
         mock_port.return_value = False
+        # dbhub has host_port=True; if port is not published, verify must fail
         state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
+            "foundation_services": [],
+            "selected_services": ["dbhub"],
         })
         result = services_step.verify(state)
         assert result.ok is False
         assert "does not publish port" in result.message
+
+    @patch("rakkib.steps.services._repo_dir")
+    @patch("rakkib.steps.services.container_running")
+    @patch("rakkib.steps.services.container_publishes_port")
+    def test_network_only_service_passes_without_host_port(
+        self,
+        mock_port: MagicMock,
+        mock_running: MagicMock,
+        mock_repo: MagicMock,
+    ):
+        """A service with host_port=False should pass verify even if port is not published."""
+        mock_repo.return_value = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data"
+        mock_running.return_value = True
+        mock_port.return_value = False
+        # dockge has host_port=False; verify should succeed without port check
+        state = State({
+            "foundation_services": ["dockge"],
+            "selected_services": [],
+        })
+        result = services_step.verify(state)
+        assert result.ok is True
+        # container_publishes_port should NOT be called for host_port=False services
+        mock_port.assert_not_called()
 
     @patch("rakkib.steps.services._repo_dir")
     @patch("rakkib.steps.services.container_running")
