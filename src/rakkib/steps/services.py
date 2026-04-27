@@ -235,6 +235,15 @@ def _handle_authentik(state: State, repo: Path, data_root: Path) -> None:
     ):
         media_dir.mkdir(parents=True, exist_ok=True)
 
+    authentik_data = data_root / "data" / "authentik"
+    platform = state.get("platform", "linux")
+    if platform == "linux":
+        subprocess.run(
+            ["sudo", "-n", "chown", "-R", "1000:1000", str(authentik_data)],
+            capture_output=True,
+            text=True,
+        )
+
     blueprint_map = {
         "nocodb": "templates/docker/authentik/blueprints/nocodb.yaml.tmpl",
         "homepage": "templates/docker/authentik/blueprints/proxy-homepage.yaml.tmpl",
