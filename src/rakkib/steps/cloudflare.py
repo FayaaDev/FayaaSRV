@@ -19,6 +19,10 @@ from rakkib.render import render_file
 from rakkib.state import State
 from rakkib.steps import VerificationResult
 
+METRICS_RETRY_ATTEMPTS = 20
+METRICS_RETRY_INTERVAL_SEC = 3
+LOGS_TAIL_LINES = 30
+
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
@@ -445,9 +449,10 @@ def verify(state: State) -> VerificationResult:
             "cloudflared container is not running",
         )
 
-    # metrics endpoint responds (retry for up to 15 s — cloudflared takes a moment after start)
+    # metrics endpoint responds (cloudflared can take 30-60s to dial edge and bind metrics)
     metrics_ok = False
-    for _ in range(5):
+    restart_count = 0
+    for _ in range(METRICS_RETRY_ATTEMPTS):
         health = subprocess.run(
             ["curl", "-fsS", f"http://127.0.0.1:{metrics_port}/metrics"],
             capture_output=True,
@@ -456,12 +461,34 @@ def verify(state: State) -> VerificationResult:
         if health.returncode == 0:
             metrics_ok = True
             break
-        time.sleep(3)
-    if not metrics_ok:
-        return VerificationResult.failure(
-            "cloudflare",
-            f"cloudflared metrics endpoint failed on port {metrics_port}",
+        rc = subprocess.run(
+            ["docker", "inspect", "-f", "{{.RestartCount}}", "cloudflared"],
+            capture_output=True,
+            text=True,
         )
+        try:
+            restart_count = int(rc.stdout.strip())
+        except ValueError:
+            restart_count = 0
+        if restart_count > 0:
+            break
+        time.sleep(METRICS_RETRY_INTERVAL_SEC)
+    if not metrics_ok:
+        logs = subprocess.run(
+            ["docker", "logs", "--tail", str(LOGS_TAIL_LINES), "cloudflared"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        log_tail = (logs.stdout + logs.stderr).strip() or "(no logs available)"
+        msg = f"cloudflared metrics endpoint failed on port {metrics_port}"
+        if restart_count > 0:
+            msg += (
+                f"\ncloudflared container is restarting (RestartCount={restart_count}) "
+                "— likely crash-looping"
+            )
+        msg += f"\n--- last {LOGS_TAIL_LINES} lines of docker logs cloudflared ---\n{log_tail}"
+        return VerificationResult.failure("cloudflare", msg)
 
     return VerificationResult.success(
         "cloudflare", "Cloudflare tunnel is running and healthy"
