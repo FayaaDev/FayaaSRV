@@ -101,23 +101,6 @@ fields:
       "10": vergo_terminal
     records:
       - host_addons
-  - id: customize_subdomains
-    type: confirm
-    prompt: Do you want to customize any subdomains? Defaults come from the service catalog. [y/N]
-    accepted_inputs:
-      y: true
-      n: false
-      "yes": true
-      "no": false
-  - id: service_subdomain
-    type: text
-    repeat_for: selected_service_slugs
-    prompt_template: "Subdomain for <service>? [default: <default>]"
-    validate:
-      pattern: ^[a-z0-9-]+$
-      message: Use lowercase letters, numbers, and hyphens only.
-    records:
-      - subdomains
 rules:
   - if_selected: transfer
     require_confirm: transfer_public_risk
@@ -136,7 +119,7 @@ Numeric checklist positions may still be accepted as convenience aliases, but ca
 
 When rendering the checklist, the selectable label must always be the service or addon name shown below (`NocoDB`, `Authentik`, `Homepage`, `VErgo Terminal`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
 
-After all three rounds, offer subdomain customization for selected services only. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
+Subdomains are automatically set to the defaults from the service catalog. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
 
 ---
 
@@ -210,23 +193,6 @@ Ask:
 - `10` selects `vergo_terminal`.
 - If the user presses Enter with no input, no host addons are selected.
 - Warn before recording `vergo_terminal`: "VErgo Terminal modifies the admin user's shell dotfiles (`~/.zshrc`, `~/.zshenv`, `~/.p10k.zsh`, and on Mac `~/.wezterm.lua`). Existing files are backed up before replacement."
-
----
-
-## Subdomain Customization
-
-Host addons do not receive subdomains and must not be included in this section.
-
-After the service and host-addon rounds, ask:
-
-> "Do you want to customize any subdomains? Defaults: nocodb, auth, home, status, dockge, n8n, dbhub, immich, transfer. [y/N]"
-
-If `y`:
-- For each selected service (foundation + optional), ask: "Subdomain for `<service>`? [default: `<default>`]"
-- Empty input keeps the default.
-- Record the answer under the service slug key, not the display label or raw subdomain string. Example: Authentik uses `subdomains.authentik: auth`, Homepage uses `subdomains.homepage: home`.
-
-If `n`, use all defaults.
 
 ---
 

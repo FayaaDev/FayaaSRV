@@ -43,6 +43,7 @@ fields:
   - id: zone_in_cloudflare
     type: confirm
     prompt: Is this base domain already managed in Cloudflare in the same account you will use for this server? [y/N]
+    default: true
     accepted_inputs:
       y: true
       n: false
@@ -51,28 +52,26 @@ fields:
     records:
       - cloudflare.zone_in_cloudflare
   - id: admin_user
-    type: text
-    prompt: What is the admin username on this machine? (e.g. ubuntu — used in file paths and service ownership)
-    validate:
-      non_empty: true
-    default_from_host:
-      linux: id -un
-      sudo_linux: SUDO_USER
+    type: derived
+    source: host
+    detect:
+      linux: 'if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER}" != "root" ]; then printf %s "$SUDO_USER"; else id -un; fi'
+      mac: id -un
     records:
       - admin_user
   - id: admin_email
-    type: text
-    prompt: What is the admin email address? (used for NocoDB admin account and service notifications)
-    validate:
-      pattern: .+@.+
-      message: Enter a valid email address.
+    type: derived
+    source: prior_answer
+    derive_from: [admin_user, domain]
+    template: "{{admin_user}}@{{domain}}"
     records:
       - admin_email
   - id: tz
-    type: text
-    prompt: What is your timezone in IANA format? (e.g. America/New_York, Europe/London, Asia/Riyadh, Asia/Tokyo, Australia/Sydney, UTC)
-    validate:
-      non_empty: true
+    type: derived
+    source: host
+    detect:
+      linux: 'timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo UTC'
+      mac: 'systemsetup -gettimezone 2>/dev/null | awk "{print \$3}" || echo UTC'
     records:
       - tz
   - id: lan_ip
@@ -111,7 +110,13 @@ fields:
 
 ## Instructions for the Agent
 
-Ask the user the following five questions in order. Validate each answer as specified before accepting it. Record all values into `.fss-state.yaml`. Do not advance to `questions/03-services.md` until all five answers are validated and recorded.
+Ask the user the questions below in order. Record all values into `.fss-state.yaml`.
+
+The following values are auto-derived and must not be prompted for:
+
+- `admin_user` (detected from the host; prefers `SUDO_USER` when present)
+- `admin_email` (derived; may be overridden later when NocoDB is selected)
+- `tz` (detected from the host; falls back to `UTC`)
 
 Use the `platform` value already recorded in phase 1 to set the `data_root` default.
 Detect `lan_ip` from the machine instead of asking for it. On Linux, prefer `hostname -I` and record the first non-loopback IPv4 address. On Mac, use a command such as `ipconfig getifaddr en0` and fall back to another active interface if needed.
@@ -148,26 +153,6 @@ If `n`, explain that the domain is not yet in a Cloudflare state this installer 
 The agent may continue the interview and local-only setup, but must clearly state that `steps/40-cloudflare.md` and public verification in `steps/90-verify.md` cannot fully pass until the domain is managed in Cloudflare.
 
 Record answer as `cloudflare.zone_in_cloudflare` (Phase 4 will use this value).
-
-### Q3 — Admin Username
-
-Ask: "What is the admin username on this machine? (e.g. ubuntu — used in file paths and service ownership)"
-
-On Linux, suggest the current normal user from `id -un` as the default. If running a root repair/debug session through `sudo -E`, suggest the detected `SUDO_USER` value when it is set and not `root`.
-
-Validation: must be non-empty.
-
-### Q4 — Admin Email
-
-Ask: "What is the admin email address? (used for NocoDB admin account and service notifications)"
-
-Validation: must be non-empty and contain `@`.
-
-### Q5 — Timezone
-
-Ask: "What is your timezone in IANA format? (e.g. America/New_York, Europe/London, Asia/Riyadh, Asia/Tokyo, Australia/Sydney, UTC)"
-
-Validation: must be non-empty.
 
 ---
 

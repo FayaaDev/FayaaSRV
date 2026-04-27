@@ -159,16 +159,14 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
     state.set("selected_services", optional_selected)
     state.set("host_addons", host_selected)
 
+    # Default NocoDB admin email when NocoDB is installed.
+    if "nocodb" in foundation_selected:
+        state.set("admin_email", "admin@nocodb.com")
+
     _build_subdomain_defaults(foundation_items + optional_items, state)
 
-    customize = prompt_confirm(
-        "Do you want to customize any subdomains?",
-        default=False,
-    )
-    state.set("customize_subdomains", customize)
-
-    if customize:
-        _customize_subdomains(foundation_items + optional_items, state)
+    # Subdomains are always defaults; keep the flow non-interactive.
+    state.set("customize_subdomains", False)
 
 
 def _build_subdomain_defaults(items: list[dict[str, Any]], state: State) -> None:

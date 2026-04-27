@@ -66,6 +66,7 @@ fields:
   - id: docker_installed
     type: confirm
     prompt: Is Docker already installed and running on this machine? [y/N]
+    default: true
     accepted_inputs:
       y: true
       n: false
