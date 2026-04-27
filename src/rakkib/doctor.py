@@ -1,4 +1,4 @@
-"""Host preflight checks ported from scripts/rakkib-doctor.
+"""Host preflight checks.
 
 Each check returns a CheckResult with name, status, blocking flag, and message.
 """

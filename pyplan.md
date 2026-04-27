@@ -113,7 +113,7 @@ The Wave 0 PATH fix is still needed. The `rakkib pull` command becomes optional 
 - `.fss-state.yaml` shape is unchanged. A user mid-install with a v1 state file can finish under v2 without editing anything.
 - `registry.yaml` gains an `image:` field per service — additive, not breaking.
 - `AGENT_PROTOCOL.md` and `questions/*.md` stay in the repo as human-readable spec; the AgentSchema YAML inside them becomes the single machine-authoritative source. Agents that someone wants to point at the repo manually can still read them.
-- `bin/rakkib` (bash) is removed once `pipx install rakkib` is the install path. `cmd_uninstall` logic moves into the Python CLI.
+- `bin/rakkib` (bash) has been removed; `pipx install rakkib` is the install path. `cmd_uninstall` logic lives in the Python CLI.
 
 ---
 
@@ -122,7 +122,7 @@ The Wave 0 PATH fix is still needed. The `rakkib pull` command becomes optional 
 **Add:** `pyproject.toml`, `src/rakkib/**`, `tests/**`.
 **Modify:** `install.sh` (Python + pipx bootstrap), `registry.yaml` (add `image:` per service).
 **Demote:** `AGENT_PROTOCOL.md`, `questions/*.md` (still in repo, no longer runtime).
-**Remove:** `bin/rakkib`, `lib/common.sh` (logic absorbed into Python), `scripts/rakkib-doctor` (becomes `rakkib doctor`).
+**Removed:** `bin/rakkib`, `lib/common.sh` (logic absorbed into Python), `scripts/rakkib-doctor` (replaced by `rakkib doctor`).
 
 ---
 

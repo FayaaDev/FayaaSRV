@@ -13,7 +13,7 @@ Reduce user drop-off in the Cloudflare portion of the Rakkib install flow by mak
 - [x] Add explicit Step 40 verification checkpoints for successful login, correct zone/account access, tunnel reuse-or-create, credentials placement, and DNS route creation.
 - [x] Add a documented retry and recovery path for expired login links, wrong-account approvals, missing local credentials, and tunnel name collisions.
 - [x] Decide how to model the Cloudflare browser-login auth artifact (`cert.pem`) and update docs so its role is consistent with backup and restore expectations.
-- [x] Add a lightweight diagnostic or verification helper for Cloudflare auth readiness, either in `scripts/rakkib-doctor` or as a clearly defined Step 40 command sequence.
+- [x] Add a lightweight diagnostic or verification helper for Cloudflare auth readiness in `rakkib doctor` or as a clearly defined Step 40 command sequence.
 - [x] Re-review all touched docs for consistency with `AGENT_PROTOCOL.md`, especially around `browser_login`, `api_token`, existing tunnels, and no-token-default behavior.
 
 ## Verification
@@ -30,8 +30,8 @@ Reduce user drop-off in the Cloudflare portion of the Rakkib install flow by mak
 - Updated the Phase 4 and Phase 6 docs so users are warned in advance that Step 40 will pause for Cloudflare approval.
 - Rewrote Step 40 so browser login happens before tunnel discovery for new tunnels and added concrete recovery branches.
 - Standardized `{{DATA_ROOT}}/data/cloudflared/cert.pem` as the documented browser-login auth artifact without persisting it in `.fss-state.yaml`.
-- Added non-destructive Cloudflare readiness checks to `scripts/rakkib-doctor`.
-- Verified `scripts/rakkib-doctor` syntax with `bash -n scripts/rakkib-doctor`.
+- Added non-destructive Cloudflare readiness checks to `rakkib doctor`.
+- Verified `rakkib doctor` via pytest.
 
 ## AgentSchema Key Alignment
 
