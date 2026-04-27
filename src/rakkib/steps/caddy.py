@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 from rakkib.render import render_file
@@ -140,13 +141,19 @@ def verify(state: State) -> VerificationResult:
             "caddy", f"Docker network {docker_net} does not exist"
         )
 
-    # Health endpoint responds?
-    health = subprocess.run(
-        ["curl", "-s", "http://localhost/health"],
-        capture_output=True,
-        text=True,
-    )
-    if health.returncode != 0 or "OK" not in health.stdout:
+    # Health endpoint responds? Retry for up to 30 s to allow container startup.
+    deadline = time.time() + 30
+    health = None
+    while time.time() < deadline:
+        health = subprocess.run(
+            ["curl", "-s", "--max-time", "3", "http://localhost/health"],
+            capture_output=True,
+            text=True,
+        )
+        if health.returncode == 0 and "OK" in health.stdout:
+            break
+        time.sleep(2)
+    if health is None or health.returncode != 0 or "OK" not in health.stdout:
         return VerificationResult.failure("caddy", "Caddy health check failed")
 
     return VerificationResult.success("caddy", "Caddy is running and healthy")
