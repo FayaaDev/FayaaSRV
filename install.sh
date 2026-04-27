@@ -86,8 +86,33 @@ ensure_tooling() {
   command_exists curl || warn "curl is not installed; install it before Cloudflare and download steps."
 }
 
+# Block until all dpkg/apt lock files are free.
+# On fresh Ubuntu 24.04, unattended-upgrades holds these at first boot.
+# flock is always present (util-linux), so this is safe on bare metal.
+wait_for_apt_locks() {
+  local lock_files=(
+    /var/lib/dpkg/lock-frontend
+    /var/lib/dpkg/lock
+    /var/lib/apt/lists/lock
+    /var/cache/apt/archives/lock
+  )
+  local waited=0
+  while true; do
+    local busy=0
+    for f in "${lock_files[@]}"; do
+      [[ -e "$f" ]] && sudo flock -n "$f" true 2>/dev/null || { busy=1; break; }
+    done
+    [[ $busy -eq 0 ]] && return 0
+    if [[ $waited -eq 0 ]]; then
+      log "Waiting for apt/dpkg locks (unattended-upgrades may be running on first boot)..."
+    fi
+    sleep 5
+    waited=$((waited + 5))
+    [[ $waited -ge 300 ]] && die "Timed out after 5 min waiting for apt locks. Fix: sudo killall unattended-upgrades"
+  done
+}
+
 # Install python3 + python3-venv via the system package manager.
-# Uses DPkg::Lock::Timeout so it waits for apt locks automatically.
 ensure_python3_and_venv() {
   local need_python need_venv
   need_python=0; need_venv=0
@@ -107,11 +132,12 @@ ensure_python3_and_venv() {
       pkgs+=(python3-venv)
       [[ -n "$pyver" ]] && pkgs+=("python${pyver}-venv")
     fi
+    wait_for_apt_locks
     log "Refreshing apt index..."
-    sudo apt-get update -qq -o Acquire::Retries=3 -o DPkg::Lock::Timeout=120 \
+    sudo apt-get update -qq -o Acquire::Retries=3 \
       || warn "apt-get update failed; continuing with existing index."
     log "Installing ${pkgs[*]} via apt-get..."
-    sudo apt-get install -y -qq --no-install-recommends -o DPkg::Lock::Timeout=120 "${pkgs[@]}" \
+    sudo apt-get install -y -qq --no-install-recommends "${pkgs[@]}" \
       || die "Failed to install ${pkgs[*]}. Run 'sudo apt-get update && sudo apt-get install --no-install-recommends ${pkgs[*]}' and rerun install.sh."
   elif command_exists dnf; then
     local pkgs=()
