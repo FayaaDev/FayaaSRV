@@ -385,211 +385,136 @@ class TestDoctor:
 class TestAdd:
     def _make_registry(self, extra_services=None):
         services = [
-            {"id": "postgres", "state_bucket": "always", "depends_on": [], "default_subdomain": None, "subdomain_placeholder": None},
-            {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN"},
-            {"id": "authentik", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "auth", "subdomain_placeholder": "AUTHENTIK_SUBDOMAIN"},
-            {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN"},
-            {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN"},
-            {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["authentik"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN"},
+            {"id": "postgres", "state_bucket": "always", "depends_on": [], "default_subdomain": None, "subdomain_placeholder": None, "notes": "Shared database backend."},
+            {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN", "notes": "Service dashboard."},
+            {"id": "authentik", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "auth", "subdomain_placeholder": "AUTHENTIK_SUBDOMAIN", "notes": "SSO proxy.", "authentik": {"blueprint": "templates/docker/authentik/blueprints/proxy-authentik.yaml.tmpl"}},
+            {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN", "notes": "No-code database UI.", "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"}},
+            {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}},
+            {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["authentik"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
         ]
         if extra_services:
             services.extend(extra_services)
         return {"services": services}
 
-    def test_add_invalid_service(self, tmp_path: Path):
+    def test_add_rejects_invalid_dependency_selection(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text("confirmed: true\n")
 
-        with patch("rakkib.steps.services._load_registry") as mock_reg:
+        with (
+            patch("rakkib.steps.services._load_registry") as mock_reg,
+            patch("rakkib.cli.prompt_checkbox", return_value=["hermes"]),
+        ):
             mock_reg.return_value = self._make_registry()
-            result = runner.invoke(cli, ["add", "invalid"], obj={"repo_dir": repo_dir})
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 1
-        assert "not found in registry" in result.output
+        assert "Invalid service selection" in result.output
+        assert "hermes requires authentik" in result.output
 
-    def test_add_always_service(self, tmp_path: Path):
+    def test_add_no_changes(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("confirmed: true\n")
+        state_file.write_text("foundation_services:\n  - homepage\nselected_services: []\n")
 
-        with patch("rakkib.steps.services._load_registry") as mock_reg:
+        with (
+            patch("rakkib.steps.services._load_registry") as mock_reg,
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage"]),
+        ):
             mock_reg.return_value = self._make_registry()
-            result = runner.invoke(cli, ["add", "postgres"], obj={"repo_dir": repo_dir})
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "always deployed" in result.output
+        assert "No service changes selected" in result.output
 
-    def test_add_already_deployed(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("foundation_services:\n  - nocodb\n")
-
-        with patch("rakkib.steps.services._load_registry") as mock_reg:
-            mock_reg.return_value = self._make_registry()
-            result = runner.invoke(cli, ["add", "nocodb"], obj={"repo_dir": repo_dir})
-
-        assert result.exit_code == 0
-        assert "already deployed" in result.output
-
-    def test_add_missing_dependencies(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("foundation_services:\n  - homepage\n")
-
-        with patch("rakkib.steps.services._load_registry") as mock_reg:
-            mock_reg.return_value = self._make_registry()
-            result = runner.invoke(cli, ["add", "hermes"], obj={"repo_dir": repo_dir})
-
-        assert result.exit_code == 1
-        assert "Missing dependencies" in result.output
-        assert "authentik" in result.output
-
-    def test_add_invalid_subdomain(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("foundation_services:\n  - homepage\n  - authentik\nselected_services: []\n")
-
-        with patch("rakkib.steps.services._load_registry") as mock_reg:
-            mock_reg.return_value = self._make_registry()
-            result = runner.invoke(
-                cli,
-                ["add", "n8n"],
-                input="bad_subdomain!\n",
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 1
-        assert "Subdomain must match" in result.output
-
-    def test_add_success(self, tmp_path: Path):
+    def test_add_aborts_when_not_confirmed(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
             "foundation_services:\n  - homepage\n  - authentik\n"
-            "selected_services: []\n"
-            "data_root: /srv\n"
-            "domain: example.com\n"
+            "selected_services:\n  - n8n\n"
+            "subdomains:\n"
+            "  homepage: home\n"
+            "  authentik: auth\n"
+            "  n8n: n8n\n"
+            "AUTHENTIK_SUBDOMAIN: auth\n"
+            "HOMEPAGE_SUBDOMAIN: home\n"
+            "N8N_SUBDOMAIN: n8n\n"
         )
-        readme = repo_dir / "README.md"
-        readme.write_text("# Rakkib\n")
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
-            patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
-            patch("rakkib.steps.services.run_single_service") as mock_run,
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "authentik"]),
+            patch("rakkib.cli.prompt_confirm", return_value=False),
+            patch("rakkib.steps.services.remove_single_service") as mock_remove,
         ):
             mock_reg.return_value = self._make_registry()
-            result = runner.invoke(
-                cli,
-                ["add", "n8n"],
-                input="\n",
-                obj={"repo_dir": repo_dir},
-            )
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "deployed successfully" in result.output
+        assert "Aborted" in result.output
+        mock_remove.assert_not_called()
+
+        saved_state = State.load(state_file)
+        assert saved_state.get("selected_services") == ["n8n"]
+
+    def test_add_syncs_selected_services(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "foundation_services:\n  - homepage\n  - authentik\n"
+            "selected_services:\n  - n8n\n"
+            "data_root: /srv\n"
+            "domain: example.com\n"
+            "subdomains:\n"
+            "  homepage: home\n"
+            "  authentik: auth\n"
+            "  n8n: n8n\n"
+            "AUTHENTIK_SUBDOMAIN: auth\n"
+            "HOMEPAGE_SUBDOMAIN: home\n"
+            "N8N_SUBDOMAIN: n8n\n"
+        )
+        call_order: list[str] = []
+
+        with (
+            patch("rakkib.steps.services._load_registry") as mock_reg,
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "nocodb"]),
+            patch("rakkib.cli.prompt_confirm", return_value=True),
+            patch("rakkib.steps.services.remove_single_service") as mock_remove,
+            patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
+            patch("rakkib.steps.postgres.run") as mock_postgres_run,
+            patch("rakkib.steps.services.run") as mock_services_run,
+        ):
+            mock_reg.return_value = self._make_registry()
+            mock_secrets.side_effect = lambda state: call_order.append("secrets")
+            mock_postgres_run.side_effect = lambda state: call_order.append("postgres")
+            mock_services_run.side_effect = lambda state: call_order.append("services")
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        assert "synced successfully" in result.output
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["n8n", "authentik"]
         mock_secrets.assert_called_once()
-        mock_run.assert_called_once()
-        args, _ = mock_run.call_args
-        assert args[1] == "n8n"
+        mock_postgres_run.assert_called_once()
+        mock_services_run.assert_called_once()
+        assert call_order == ["secrets", "postgres", "services"]
 
-        # Verify state was updated
         saved_state = State.load(state_file)
-        assert "n8n" in (saved_state.get("selected_services") or [])
-        assert saved_state.get("subdomains.n8n") == "n8n"
-        assert saved_state.get("N8N_SUBDOMAIN") == "n8n"
-
-        # Verify README was updated
-        readme_content = readme.read_text()
-        assert "RAKKIB AGENT MEMORY" in readme_content
-        assert "Foundation" in readme_content
-        assert "Optional" in readme_content
-
-    def test_add_custom_subdomain(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "foundation_services:\n  - homepage\n  - authentik\n"
-            "selected_services: []\n"
-            "data_root: /srv\n"
-            "domain: example.com\n"
-        )
-        readme = repo_dir / "README.md"
-        readme.write_text("# Rakkib\n")
-
-        with (
-            patch("rakkib.steps.services._load_registry") as mock_reg,
-            patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
-            patch("rakkib.steps.services.run_single_service") as mock_run,
-        ):
-            mock_reg.return_value = self._make_registry()
-            result = runner.invoke(
-                cli,
-                ["add", "n8n"],
-                input="automation\n",
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        saved_state = State.load(state_file)
-        assert saved_state.get("subdomains.n8n") == "automation"
-        assert saved_state.get("N8N_SUBDOMAIN") == "automation"
-
-    def test_add_updates_existing_readme_block(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "foundation_services:\n  - homepage\n"
-            "selected_services: []\n"
-            "data_root: /srv\n"
-            "domain: example.com\n"
-        )
-        readme = repo_dir / "README.md"
-        readme.write_text(
-            "# Rakkib\n\n"
-            "<!-- BEGIN RAKKIB AGENT MEMORY -->\n"
-            "## Deployed Services\n\n"
-            "- **Foundation**: homepage\n"
-            "- **Optional**: None\n"
-            "- **Data Root**: /srv\n"
-            "- **Domain**: example.com\n\n"
-            "<!-- END RAKKIB AGENT MEMORY -->\n"
-        )
-
-        with (
-            patch("rakkib.steps.services._load_registry") as mock_reg,
-            patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
-            patch("rakkib.steps.services.run_single_service") as mock_run,
-        ):
-            mock_reg.return_value = self._make_registry()
-            result = runner.invoke(
-                cli,
-                ["add", "authentik"],
-                input="\n",
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        content = readme.read_text()
-        assert content.count("BEGIN RAKKIB AGENT MEMORY") == 1
-        assert "homepage, authentik" in content
+        assert saved_state.get("foundation_services") == ["homepage", "nocodb"]
+        assert saved_state.get("selected_services") == []
+        assert saved_state.get("subdomains") == {"homepage": "home", "nocodb": "nocodb"}
+        assert saved_state.get("HOMEPAGE_SUBDOMAIN") == "home"
+        assert saved_state.get("NOCODB_SUBDOMAIN") == "nocodb"
+        assert saved_state.get("AUTHENTIK_SUBDOMAIN") is None
+        assert saved_state.get("N8N_SUBDOMAIN") is None
 
 
 class TestUninstallPathBlock:

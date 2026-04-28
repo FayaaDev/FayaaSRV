@@ -100,6 +100,9 @@ services:
       timeout: 10
       retries: 3
     notes: "No-code database UI. Foundation bundle service. Supports OIDC via Authentik when auth is selected."
+    hooks:
+      pre_start:
+        - service_postgres_login_preflight
 
   - id: authentik
     state_bucket: foundation_services
@@ -143,7 +146,7 @@ services:
       post_render:
         - authentik_blueprints
       pre_start:
-        - authentik_postgres_preflight
+        - service_postgres_login_preflight
       post_start:
         - authentik_wait_healthy
     homepage:
@@ -320,6 +323,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Workflow automation. NEVER rotate N8N_ENCRYPTION_KEY after first run. Uses the upstream n8nio/n8n image."
+    hooks:
+      pre_start:
+        - service_postgres_login_preflight
 
   - id: dbhub
     state_bucket: selected_services

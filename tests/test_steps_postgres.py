@@ -65,6 +65,16 @@ def test_postgres_run_generates_init_sql(tmp_path):
     assert "CREATE DATABASE nocodb_db OWNER nocodb" in content
 
 
+def test_generate_init_sql_falls_back_to_flat_state_secret(tmp_path):
+    state = _make_state(tmp_path)
+    state.set("AUTHENTIK_DB_PASS", "flat-authentik-pass")
+    state.set("secrets.values.AUTHENTIK_DB_PASS", None)
+
+    content = postgres._generate_init_sql(state)
+
+    assert "CREATE ROLE authentik WITH LOGIN PASSWORD 'flat-authentik-pass';" in content
+
+
 def test_postgres_run_merges_existing_env(tmp_path):
     state = _make_state(tmp_path)
     postgres_dir = tmp_path / "docker" / "postgres"

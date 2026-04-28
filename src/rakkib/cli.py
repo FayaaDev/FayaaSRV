@@ -6,7 +6,6 @@ Commands: init, pull, doctor, status, add, restart, uninstall, privileged, auth
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from questionary import Choice
 from rich.console import Console
 
 from rakkib.doctor import (
@@ -27,12 +27,13 @@ from rakkib.doctor import (
 )
 from rakkib.interview import run_interview
 from rakkib.state import State
-from rakkib.steps import STEP_MODULES, VerificationResult
+from rakkib.steps import STEP_MODULES, VerificationResult, selected_service_defs
+from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
 from rakkib.steps.cloudflare import _cloudflared_bin
+from rakkib.tui import prompt_checkbox, prompt_confirm
 
 console = Console()
-_RX_SUBDOMAIN = re.compile(r"^[a-z0-9-]+$")
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +69,116 @@ def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
         return sudo_user
     console.print("[red]Admin user is required; pass --admin-user or record admin_user in state.[/red]")
     raise click.Abort()
+
+
+def _service_label(svc: dict[str, Any]) -> str:
+    notes = str(svc.get("notes", "")).strip()
+    summary = notes.split(".", 1)[0].strip()
+    return f"{svc['id']} - {summary}" if summary else svc["id"]
+
+
+def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
+    current = set(state.get("foundation_services", []) or [])
+    current.update(state.get("selected_services", []) or [])
+
+    choices: list[Choice] = []
+    sections = [
+        ("Always Installed", "always"),
+        ("Foundation Services", "foundation_services"),
+        ("Optional Services", "selected_services"),
+    ]
+
+    for title, bucket in sections:
+        bucket_services = [svc for svc in registry["services"] if svc.get("state_bucket") == bucket]
+        if not bucket_services:
+            continue
+        choices.append(Choice(title=f"━━ {title} ━━", value=f"__header_{bucket}__", disabled=True))
+        for svc in bucket_services:
+            checked = bucket == "always" or svc["id"] in current
+            disabled = bucket == "always"
+            choices.append(
+                Choice(
+                    title=f"  {_service_label(svc)}",
+                    value=svc["id"],
+                    checked=checked,
+                    disabled=disabled,
+                )
+            )
+
+    return choices
+
+
+def _validate_service_dependencies(selected_ids: set[str], registry: dict[str, Any]) -> list[str]:
+    by_id = {svc["id"]: svc for svc in registry["services"]}
+    errors: list[str] = []
+
+    for svc_id in sorted(selected_ids):
+        svc = by_id[svc_id]
+        missing = []
+        for dep in svc.get("depends_on", []):
+            dep_svc = by_id.get(dep, {})
+            if dep_svc.get("state_bucket") == "always":
+                continue
+            if dep not in selected_ids:
+                missing.append(dep)
+        if missing:
+            errors.append(f"{svc_id} requires {', '.join(missing)}")
+
+    return errors
+
+
+def _apply_service_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
+    foundation_ids = [
+        svc["id"]
+        for svc in registry["services"]
+        if svc.get("state_bucket") == "foundation_services" and svc["id"] in selected_ids
+    ]
+    optional_ids = [
+        svc["id"]
+        for svc in registry["services"]
+        if svc.get("state_bucket") == "selected_services" and svc["id"] in selected_ids
+    ]
+
+    state.set("foundation_services", foundation_ids)
+    state.set("selected_services", optional_ids)
+
+    subdomains: dict[str, str] = {}
+    current_subdomains = state.get("subdomains", {}) or {}
+    secrets_values = dict(state.get("secrets.values", {}) or {})
+    for svc in registry["services"]:
+        svc_id = svc["id"]
+        placeholder = svc.get("subdomain_placeholder")
+        if svc_id not in selected_ids:
+            if placeholder:
+                state.delete(placeholder)
+            for key in (svc.get("secrets") or {}).keys():
+                state.delete(key)
+                secrets_values.pop(key, None)
+            for condition in svc.get("conditional_secrets", []):
+                for key in (condition.get("keys") or {}).keys():
+                    state.delete(key)
+                    secrets_values.pop(key, None)
+            continue
+
+        default_subdomain = svc.get("default_subdomain")
+        if not default_subdomain:
+            continue
+
+        subdomain = current_subdomains.get(svc_id) or default_subdomain
+        subdomains[svc_id] = subdomain
+        if placeholder:
+            state.set(placeholder, subdomain)
+
+    state.set("subdomains", subdomains)
+    state.set("secrets.values", secrets_values)
+
+
+def _summarize_service_diff(added: list[str], removed: list[str]) -> None:
+    if added:
+        console.print(f"[green]Will install:[/green] {', '.join(added)}")
+    if removed:
+        console.print(f"[red]Will remove:[/red] {', '.join(removed)}")
+        console.print("[yellow]Unchecked services will be fully purged, including data and service databases.[/yellow]")
 
 
 
@@ -355,93 +466,61 @@ def status(ctx: click.Context) -> None:
 
 
 @cli.command()
-@click.argument("service")
 @click.pass_context
-def add(ctx: click.Context, service: str) -> None:
-    """Add a service to an existing deployment."""
-    console.print(f"[bold green]Rakkib add {service}[/bold green]")
+def add(ctx: click.Context) -> None:
+    """Sync deployed services against the registry using a checkbox TUI."""
+    console.print("[bold green]Rakkib add[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
     state_path = repo_dir / ".fss-state.yaml"
     state = State.load(state_path)
 
     registry = services_step._load_registry()
-    by_id = {s["id"]: s for s in registry["services"]}
+    old_selected = set(state.get("foundation_services", []) or [])
+    old_selected.update(state.get("selected_services", []) or [])
 
-    # 1. Validate service slug
-    if service not in by_id:
-        console.print(f"[bold red]Error:[/bold red] Service '{service}' not found in registry.")
+    selected = prompt_checkbox(
+        "Select services to keep installed:",
+        choices=_build_add_choices(state, registry),
+    )
+    selected_ids = set(selected)
+
+    dependency_errors = _validate_service_dependencies(selected_ids, registry)
+    if dependency_errors:
+        console.print("[bold red]Error:[/bold red] Invalid service selection:")
+        for error in dependency_errors:
+            console.print(f"  - {error}")
         sys.exit(1)
 
-    svc = by_id[service]
-    state_bucket = svc.get("state_bucket", "selected_services")
+    added = sorted(selected_ids - old_selected)
+    removed = sorted(old_selected - selected_ids)
 
-    # 2. Check if already deployed
-    if state_bucket == "always":
-        console.print(f"[yellow]Service '{service}' is always deployed.[/yellow]")
+    if not added and not removed:
+        console.print("[yellow]No service changes selected.[/yellow]")
         return
 
-    foundation = set(state.get("foundation_services", []) or [])
-    selected = set(state.get("selected_services", []) or [])
-
-    if service in foundation or service in selected:
-        console.print(f"[yellow]Service '{service}' is already deployed.[/yellow]")
+    _summarize_service_diff(added, removed)
+    if not prompt_confirm("Apply these service changes?", default=False):
+        console.print("[yellow]Aborted.[/yellow]")
         return
 
-    # 3. Handle dependencies
-    missing_deps = []
-    for dep in svc.get("depends_on", []):
-        dep_svc = by_id.get(dep, {})
-        dep_bucket = dep_svc.get("state_bucket", "selected_services")
-        if dep_bucket == "always":
-            continue
-        if dep not in foundation and dep not in selected:
-            missing_deps.append(dep)
+    removal_order = [
+        svc["id"]
+        for svc in reversed(selected_service_defs(state, registry))
+        if svc["id"] in removed
+    ]
+    for svc_id in removal_order:
+        services_step.remove_single_service(state, svc_id)
 
-    if missing_deps:
-        console.print(
-            f"[bold red]Error:[/bold red] Missing dependencies for '{service}': {', '.join(missing_deps)}"
-        )
-        sys.exit(1)
-
-    # 4. Prompt for subdomain customization
-    default_subdomain = svc.get("default_subdomain")
-    if default_subdomain:
-        subdomain = click.prompt(
-            f"Subdomain for {service}?",
-            default=default_subdomain,
-        )
-        if not _RX_SUBDOMAIN.match(subdomain):
-            console.print(
-                f"[bold red]Error:[/bold red] Subdomain must match ^[a-z0-9-]+$"
-            )
-            sys.exit(1)
-        state.set(f"subdomains.{service}", subdomain)
-        # Also set top-level alias so templates resolve {{SERVICE_SUBDOMAIN}}
-        placeholder = svc.get("subdomain_placeholder")
-        if placeholder:
-            state.set(placeholder, subdomain)
-
-    # 5. Update state
-    if state_bucket == "foundation_services":
-        current = list(state.get("foundation_services", []) or [])
-        current.append(service)
-        state.set("foundation_services", current)
-    else:
-        current = list(state.get("selected_services", []) or [])
-        current.append(service)
-        state.set("selected_services", current)
-
-    state.save(state_path)
-    console.print(f"[dim]Added {service} to {state_bucket}.[/dim]")
-
-    # 6. Generate missing secrets
+    _apply_service_selection(state, registry, selected_ids)
     services_step._generate_missing_secrets(state)
     state.save(state_path)
 
-    # 7. Run Step 5 for just this service
-    services_step.run_single_service(state, service)
-    console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
+    postgres_step.run(state)
+    services_step.run(state)
+    state.save(state_path)
+
+    console.print("[bold green]Service selection synced successfully.[/bold green]")
 
 
 @cli.command()

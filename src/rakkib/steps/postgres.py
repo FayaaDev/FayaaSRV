@@ -63,6 +63,17 @@ def _generate_init_sql(state: State) -> str:
     secrets = state.get("secrets.values", {}) or {}
     services = selected_service_defs(state, load_service_registry())
 
+    def _password_for(svc_id: str, key: str) -> str:
+        value = secrets.get(key)
+        if value is None:
+            value = state.get(key)
+        if value is None:
+            raise RuntimeError(
+                f"Postgres provisioning requires secret '{key}' for service '{svc_id}'. "
+                "Set the password in state or re-run secret generation before Step 4."
+            )
+        return str(value)
+
     def _add_service(name: str, role: str, password: str, db_name: str | None = None) -> None:
         db = db_name or role
         lines.extend(
@@ -90,7 +101,7 @@ def _generate_init_sql(state: State) -> str:
         _add_service(
             postgres.get("display_name", svc["id"]),
             role,
-            secrets.get(postgres["password_key"], ""),
+            _password_for(svc["id"], postgres["password_key"]),
             postgres.get("db", role),
         )
 

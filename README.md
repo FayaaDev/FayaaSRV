@@ -39,7 +39,7 @@ rakkib pull
 rakkib init              # run the interview wizard
 rakkib pull              # install prereqs and apply all steps
 rakkib status            # show confirmed state and deployment summary
-rakkib add <service>     # add a service to an existing deployment
+rakkib add              # sync service selection for an existing deployment
 rakkib restart <service> # restart a single deployed service
 rakkib restart --all     # restart all services in dependency order
 rakkib doctor            # run host diagnostics

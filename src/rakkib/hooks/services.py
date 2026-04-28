@@ -189,6 +189,28 @@ def authentik_blueprints(
             _write_text_if_changed(blueprints_dir / f"{selected_svc['id']}.yaml", rendered)
 
 
+def _service_postgres_credentials(state, svc: dict) -> tuple[str, str, str]:
+    postgres = svc.get("postgres") or {}
+    role = postgres.get("role", svc["id"])
+    db_name = postgres.get("db", role)
+    password_key = postgres.get("password_key")
+    if not password_key:
+        raise RuntimeError(
+            f"postgres login pre-flight is configured for service '{svc['id']}' without a password_key"
+        )
+
+    password = state.get(f"secrets.values.{password_key}")
+    if password is None:
+        password = state.get(password_key)
+    if not password:
+        raise RuntimeError(
+            f"postgres login pre-flight failed for service '{svc['id']}': missing database password "
+            f"'{password_key}' in state. Re-run `rakkib pull` or sync services again so Step 4 can provision Postgres."
+        )
+
+    return role, db_name, str(password)
+
+
 def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) -> None:
     """Regenerate shared artifacts that derive from the full selected service set."""
     selected_ids = {svc["id"] for svc in selected_service_defs(state, registry)}
@@ -226,7 +248,7 @@ def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) ->
             )
 
 
-def authentik_postgres_preflight(
+def service_postgres_login_preflight(
     state,
     svc: dict,
     repo: Path,
@@ -234,18 +256,36 @@ def authentik_postgres_preflight(
     log_path: Path,
     registry: dict,
 ) -> None:
-    """Fail fast if the shared postgres container doesn't have the authentik DB."""
-    del state, svc, repo, data_root, log_path, registry
+    """Fail fast if a service cannot log into the shared postgres database."""
+    del repo, data_root, log_path, registry
+    role, db_name, password = _service_postgres_credentials(state, svc)
+
     result = subprocess.run(
-        ["docker", "exec", "postgres", "pg_isready", "-U", "authentik", "-d", "authentik"],
+        [
+            "docker",
+            "exec",
+            "-e",
+            f"PGPASSWORD={password}",
+            "postgres",
+            "psql",
+            "-h",
+            "127.0.0.1",
+            "-U",
+            role,
+            "-d",
+            db_name,
+            "-c",
+            "select 1;",
+        ],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(
-            "authentik postgres pre-flight failed: the 'authentik' database/role is not ready "
-            "in the postgres container. Ensure Step 4 completed successfully.\n"
-            f"pg_isready output: {result.stdout.strip() or result.stderr.strip()}"
+            f"postgres login pre-flight failed for service '{svc['id']}': the database login is not ready "
+            "in the postgres container. Ensure Step 4 completed successfully and that the "
+            "rendered service password matches the Postgres role password.\n"
+            f"psql output: {result.stdout.strip() or result.stderr.strip()}"
         )
 
 
@@ -283,7 +323,7 @@ POST_RENDER_HOOKS = {
 }
 
 PRE_START_HOOKS = {
-    "authentik_postgres_preflight": authentik_postgres_preflight,
+    "service_postgres_login_preflight": service_postgres_login_preflight,
 }
 
 POST_START_HOOKS = {

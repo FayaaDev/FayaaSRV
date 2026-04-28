@@ -6,6 +6,7 @@ Deploy foundation bundle services and selected optional services.
 from __future__ import annotations
 
 import functools
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
@@ -13,6 +14,7 @@ from typing import Callable
 import yaml
 
 from rakkib.docker import (
+    compose_down,
     compose_up,
     container_publishes_port,
     container_running,
@@ -249,6 +251,65 @@ def _reload_caddy(data_root: Path) -> None:
         text=True,
         check=True,
     )
+
+
+def _drop_service_postgres_resources(svc: dict) -> None:
+    postgres = svc.get("postgres") or {}
+    if not postgres:
+        return
+
+    role = postgres.get("role", svc["id"])
+    db_name = postgres.get("db", role)
+    sql = "\n".join(
+        [
+            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();",
+            f"DROP DATABASE IF EXISTS {db_name};",
+            f"DROP ROLE IF EXISTS {role};",
+        ]
+    )
+    subprocess.run(
+        ["docker", "exec", "-i", "postgres", "psql", "-U", "postgres"],
+        input=sql,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+def remove_single_service(state: State, svc_id: str) -> None:
+    """Fully remove a single service from the host."""
+    registry = _load_registry()
+    by_id = {s["id"]: s for s in registry["services"]}
+    if svc_id not in by_id:
+        raise ValueError(f"Service {svc_id} not found in registry")
+
+    svc = by_id[svc_id]
+    data_root = Path(state.get("data_root", "/srv"))
+    service_dir = data_root / "docker" / svc_id
+    log_path = data_root / "logs" / f"step5-{svc_id}.log"
+
+    if (service_dir / "docker-compose.yml").exists():
+        compose_down(service_dir, volumes=True, log_path=log_path)
+
+    shutil.rmtree(service_dir, ignore_errors=True)
+    for relative_dir in svc.get("data_dirs", []):
+        shutil.rmtree(data_root / relative_dir, ignore_errors=True)
+    shutil.rmtree(data_root / "data" / svc_id, ignore_errors=True)
+
+    route_path = data_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy"
+    if route_path.exists():
+        route_path.unlink()
+
+    blueprint_path = data_root / "data" / "authentik" / "blueprints" / "custom" / f"{svc_id}.yaml"
+    if blueprint_path.exists():
+        blueprint_path.unlink()
+
+    for extra in svc.get("extra_templates", []):
+        dst = data_root / extra["dst"]
+        if dst.exists():
+            dst.unlink()
+
+    _drop_service_postgres_resources(svc)
 
 
 # ---------------------------------------------------------------------------

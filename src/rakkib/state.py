@@ -62,6 +62,30 @@ class State:
             node = node[part]
         node[parts[-1]] = value
 
+    def delete(self, key: str) -> None:
+        """Delete a dot-notated key if it exists."""
+        parts = key.split(".")
+        node = self._data
+        parents: list[tuple[dict[str, Any], str]] = []
+
+        for part in parts[:-1]:
+            if not isinstance(node, dict) or part not in node:
+                return
+            parents.append((node, part))
+            node = node[part]
+
+        if not isinstance(node, dict) or parts[-1] not in node:
+            return
+
+        del node[parts[-1]]
+
+        for parent, child_key in reversed(parents):
+            child = parent.get(child_key)
+            if isinstance(child, dict) and not child:
+                del parent[child_key]
+            else:
+                break
+
     def merge(self, other: dict[str, Any]) -> None:
         """Deep-merge another dict into this state."""
         _deep_merge(self._data, other)

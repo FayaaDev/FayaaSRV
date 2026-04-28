@@ -19,3 +19,13 @@ curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | b
 - **The venv lives at `<repo>/.venv`**, not system-wide.
 - **The rakkib symlink goes to `~/.local/bin/rakkib`**, and `ensure_shell_path()` adds that to PATH in `~/.bashrc`, `~/.zshrc`, and `~/.profile`.
 - **curl-pipe safety:** The script is designed to be piped from `curl ... | bash`. Never add prompts that require `/dev/tty` when stdin is a pipe.
+
+## Service Additions
+
+- **Service additions are registry-driven.** Prefer declarative changes in `src/rakkib/data/registry.yaml`, templates under `src/rakkib/data/templates/`, and hook wiring in `src/rakkib/hooks/services.py`.
+- **Do not add new hardcoded `if svc_id == ...` branches** in Python unless the behavior genuinely cannot be expressed through registry fields, templates, or hooks.
+- **`rakkib add` is part of the contract.** It now opens a registry-driven checkbox TUI that lists all services from `src/rakkib/data/registry.yaml`, marks already-installed services with `[X]`, and syncs the server to match the final selection.
+- **Unchecked services are fully removed.** The `rakkib add` sync flow is destructive for deselected services: it tears down containers, removes rendered config, removes service data directories, deletes related generated artifacts, and drops service-specific Postgres databases/roles when declared in the registry.
+- **New services must work with both `pull` and `rakkib add`.** A service is not complete unless it can be selected in the `rakkib add` TUI, deployed through that flow, and cleanly removed again through deselection.
+- **Use the project-local skill** `.opencode/skills/rakkib-add-service/SKILL.md` when adding a new service so registry fields, templates, hooks, and verification updates are handled consistently.
+- **Keep verification aligned with the registry architecture.** At minimum, make sure any new registry references resolve cleanly and update snapshot or fixture expectations when rendered outputs change materially.
