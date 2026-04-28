@@ -11,7 +11,6 @@ foundation_services:
   - dockge
 selected_services:
   - n8n
-  - dbhub
   - immich
   - transfer
   - jellyfin
@@ -22,7 +21,6 @@ subdomains:
   uptime-kuma: status
   dockge: dock
   n8n: flow
-  dbhub: db
   immich: photos
   transfer: send
   jellyfin: media
@@ -32,7 +30,6 @@ HOMEPAGE_SUBDOMAIN: home
 UPTIME_KUMA_SUBDOMAIN: status
 DOCKGE_SUBDOMAIN: dock
 N8N_SUBDOMAIN: flow
-DBHUB_SUBDOMAIN: db
 IMMICH_SUBDOMAIN: photos
 TRANSFER_SUBDOMAIN: send
 JELLYFIN_SUBDOMAIN: media

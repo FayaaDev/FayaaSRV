@@ -327,42 +327,6 @@ services:
       pre_start:
         - service_postgres_login_preflight
 
-  - id: dbhub
-    state_bucket: selected_services
-    required: false
-    optional: true
-    image: bytebase/dbhub:latest
-    default_port: 8080
-    default_subdomain: dbhub
-    subdomain_key: dbhub
-    subdomain_placeholder: DBHUB_SUBDOMAIN
-    env_keys: []
-    depends_on: [postgres]
-    host_service: false
-    host_port: true
-    caddy:
-      template: dbhub.caddy.tmpl
-      public_template: dbhub-public.caddy.tmpl
-    extra_templates:
-      - src: templates/docker/dbhub/dbhub.toml.tmpl
-        dst: docker/dbhub/dbhub.toml
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-dbhub.yaml.tmpl
-    homepage:
-      category: Tools
-      name: DBHub
-      description: Database browser
-      icon: dbhub.png
-    monitoring:
-      enabled: true
-      type: http
-      target: public_url
-      path: /
-      interval: 60
-      timeout: 10
-      retries: 3
-    notes: "Database browser. Optional. Uses dbhub.toml config file."
-
   - id: immich
     state_bucket: selected_services
     required: false
@@ -381,6 +345,7 @@ services:
     host_port: false
     caddy:
       template: immich.caddy.tmpl
+      public_template: immich-public.caddy.tmpl
     env_preserve_keys:
       - IMMICH_DB_PASSWORD
       - IMMICH_VERSION
@@ -393,6 +358,8 @@ services:
         length: 32
       IMMICH_VERSION:
         value: release
+    authentik:
+      blueprint: templates/docker/authentik/blueprints/proxy-immich.yaml.tmpl
     homepage:
       category: Media
       name: Immich
@@ -458,6 +425,9 @@ services:
     host_port: true
     caddy:
       template: jellyfin.caddy.tmpl
+      public_template: jellyfin-public.caddy.tmpl
+    authentik:
+      blueprint: templates/docker/authentik/blueprints/proxy-jellyfin.yaml.tmpl
     homepage:
       category: Media
       name: Jellyfin

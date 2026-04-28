@@ -192,7 +192,7 @@ run_validation() {
 print_plan
 confirm_restore
 
-for service in immich dbhub n8n nocodb cloudflared caddy postgres; do
+for service in immich n8n nocodb cloudflared caddy postgres; do
     compose_down "$service"
 done
 
@@ -209,7 +209,7 @@ fi
 compose_up postgres
 restore_postgres
 
-for service in caddy cloudflared nocodb n8n dbhub immich; do
+for service in caddy cloudflared nocodb n8n immich; do
     compose_up "$service"
 done
 

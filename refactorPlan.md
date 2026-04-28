@@ -195,8 +195,8 @@ Every item below is a Python branch keyed on `svc_id`:
 
 | # | Where | What's hardcoded | Lines |
 |---|---|---|---|
-| A | `services.py` `_render_caddy_route` | `auth_switchable = ("homepage", "uptime-kuma", "dockge", "n8n", "dbhub")` selecting `<id>.caddy.tmpl` vs `<id>-public.caddy.tmpl` | 182-184 |
-| B | `services.py` `_deploy_single_service` | `if/elif svc_id == ...` dispatch into `_handle_authentik`/`_handle_homepage`/`_handle_n8n`/`_handle_immich`/`_handle_transfer`/`_handle_dbhub` | 439-450 |
+| A | `services.py` `_render_caddy_route` | `auth_switchable = ("homepage", "uptime-kuma", "dockge", "n8n")` selecting `<id>.caddy.tmpl` vs `<id>-public.caddy.tmpl` | 182-184 |
+| B | `services.py` `_deploy_single_service` | `if/elif svc_id == ...` dispatch into `_handle_authentik`/`_handle_homepage`/`_handle_n8n`/`_handle_immich`/`_handle_transfer` | 439-450 |
 | C | `services.py` `_handle_homepage` | `_HOMEPAGE_CARDS` dict (category, name, description, icon) for each service | 274-284 |
 | D | `services.py` `_generate_missing_secrets` | Per-service `_ensure(...)` blocks for secret keys + factories; cross-service `nocodb && authentik → OIDC pair`; `n8n_mode == "fresh"` gate | 85-129 |
 | E | `services.py` `verify` | `if svc_id == "authentik": container_name = "authentik-server"` etc. | 572-576 |
@@ -237,8 +237,8 @@ A complete service entry after Phase 3 (using NocoDB as example):
   # chown: { uid: 1000, gid: 1000 }            # optional; linux-only
 
   # (B) Bespoke renders / hooks (resolved against rakkib/hooks/services.py)
-  # extra_templates:
-  #   - { src: templates/docker/dbhub/dbhub.toml.tmpl, dst: docker/dbhub/dbhub.toml }
+#   extra_templates:
+  #   - { src: templates/docker/n8n/.env.tmpl, dst: docker/n8n/.env }
   # hooks:
   #   pre_start:   [authentik_postgres_preflight]
   #   post_render: [homepage_services_yaml, authentik_blueprints]

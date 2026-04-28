@@ -209,7 +209,7 @@ class TestRunField:
             type="multi_select",
             selection_mode="add_to_empty",
             prompt="Add?",
-            canonical_values=["n8n", "dbhub"],
+            canonical_values=["n8n", "immich"],
             default=[],
             numeric_aliases={"6": "n8n"},
             records=["selected_services"],

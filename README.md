@@ -79,7 +79,6 @@ sudo rakkib privileged fix-repo-owner --state .fss-state.yaml
 | Service | Image |
 |---------|-------|
 | n8n | `n8nio/n8n:latest` — workflow automation |
-| DBHub | `bytebase/dbhub:latest` — database browser |
 | Immich | `ghcr.io/immich-app/immich-server:release` — photo/video library |
 | transfer.sh | `dutchcoders/transfer.sh:latest-noroot` — file sharing |
 | Jellyfin | `jellyfin/jellyfin:latest` — media server |

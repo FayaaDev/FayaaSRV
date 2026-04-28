@@ -35,8 +35,3 @@
         href: https://media.example.com
         description: Media server
         icon: jellyfin.png
-- Tools:
-    - DBHub:
-        href: https://db.example.com
-        description: Database browser
-        icon: dbhub.png

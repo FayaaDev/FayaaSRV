@@ -98,7 +98,7 @@ retention_bucket() {
 
 discover_services() {
     local service
-    for service in caddy cloudflared postgres nocodb n8n dbhub immich openclaw; do
+    for service in caddy cloudflared postgres nocodb n8n immich openclaw; do
         if [[ -d "${DATA_ROOT}/docker/${service}" || -d "${DATA_ROOT}/data/${service}" ]]; then
             SERVICES+=("$service")
         fi

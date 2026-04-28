@@ -31,7 +31,7 @@ class TestEvalWhen:
     def test_in_list(self):
         state = State({"selected_services": ["n8n", "immich"]})
         assert eval_when("n8n in selected_services", state) is True
-        assert eval_when("dbhub in selected_services", state) is False
+        assert eval_when("immich in selected_services", state) is False
 
     def test_and(self):
         state = State({"tunnel_strategy": "new", "accept_browser_login": False})

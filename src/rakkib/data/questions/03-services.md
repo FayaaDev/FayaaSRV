@@ -47,24 +47,19 @@ service_catalog:
       numeric_alias: 6
       subdomain_key: n8n
       default_subdomain: n8n
-    - slug: dbhub
-      label: DBHub
-      numeric_alias: 7
-      subdomain_key: dbhub
-      default_subdomain: dbhub
     - slug: immich
       label: Immich
-      numeric_alias: 8
+      numeric_alias: 7
       subdomain_key: immich
       default_subdomain: immich
     - slug: transfer
       label: transfer.sh
-      numeric_alias: 9
+      numeric_alias: 8
       subdomain_key: transfer
       default_subdomain: transfer
     - slug: jellyfin
       label: Jellyfin
-      numeric_alias: 10
+      numeric_alias: 9
       subdomain_key: jellyfin
       default_subdomain: jellyfin
   host_addons:
@@ -89,13 +84,12 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Optional Services: type service slugs to add (e.g. `n8n immich`); numeric aliases like `6 8` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, dbhub, immich, transfer, jellyfin]
+    canonical_values: [n8n, immich, transfer, jellyfin]
     numeric_aliases:
       "6": n8n
-      "7": dbhub
-      "8": immich
-      "9": transfer
-      "10": jellyfin
+      "7": immich
+      "8": transfer
+      "9": jellyfin
     records:
       - selected_services
   - id: host_addons
@@ -150,13 +144,12 @@ Foundation Bundle (recommended):
 
 Optional Services:
   [ ] 6  n8n           — workflow automation    →  n8n.<domain>
-  [ ] 7  DBHub         — database browser       →  dbhub.<domain>
-  [ ] 8  Immich        — photo library          →  immich.<domain>
-  [ ] 9  transfer.sh   — public file sharing    →  transfer.<domain>
-  [ ] 10 Jellyfin      — media server           →  jellyfin.<domain>
+  [ ] 7  Immich        — photo library          →  immich.<domain>
+  [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
+  [ ] 9  Jellyfin      — media server           →  jellyfin.<domain>
 
 Optional Host Addons:
-  [ ] 10 VErgo Terminal — zsh, prompt, completions, CLI UX
+  [ ] 9  VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
 
 ---
@@ -193,11 +186,11 @@ Ask:
 
 Ask:
 
-> "Optional Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `10` are also accepted, or press Enter to skip all:"
+> "Optional Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `9` are also accepted, or press Enter to skip all:"
 
 - Parse the response as a space-separated list of canonical addon slugs.
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical addon slugs before recording state.
-- `10` selects `vergo_terminal`.
+- `9` selects `vergo_terminal`.
 - If the user presses Enter with no input, no host addons are selected.
 - Warn before recording `vergo_terminal`: "VErgo Terminal modifies the admin user's shell dotfiles (`~/.zshrc`, `~/.zshenv`, `~/.p10k.zsh`, and on Mac `~/.wezterm.lua`). Existing files are backed up before replacement."
 
@@ -223,7 +216,6 @@ subdomains:
   uptime-kuma: status            # always present if uptime-kuma is in foundation_services
   dockge: dockge                 # always present if dockge is in foundation_services
   n8n: n8n                       # only if n8n is in selected_services
-  dbhub: dbhub                   # only if dbhub is in selected_services
   immich: immich                 # only if immich is in selected_services
   transfer: transfer             # only if transfer is in selected_services
   jellyfin: jellyfin             # only if jellyfin is in selected_services
@@ -240,7 +232,6 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.uptime-kuma` → `{{UPTIME_KUMA_SUBDOMAIN}}`
 - `subdomains.dockge`     → `{{DOCKGE_SUBDOMAIN}}`
 - `subdomains.n8n`        → `{{N8N_SUBDOMAIN}}`
-- `subdomains.dbhub`      → `{{DBHUB_SUBDOMAIN}}`
 - `subdomains.immich`     → `{{IMMICH_SUBDOMAIN}}`
 - `subdomains.transfer`   → `{{TRANSFER_SUBDOMAIN}}`
 - `subdomains.jellyfin`   → `{{JELLYFIN_SUBDOMAIN}}`

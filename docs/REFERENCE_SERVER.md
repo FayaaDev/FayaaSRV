@@ -49,14 +49,11 @@ Deploy: `rsync -a --delete dist/ /srv/apps/static/<project>/`
 | PostgreSQL | `postgres` / 5432 | — | `/srv/docker/postgres/` |
 | n8n | `n8n` / 5678 | `n8n.example.com` | `/srv/docker/n8n/` |
 | NocoDB | `nocodb` / 8080 | `nocodb.example.com` | `/srv/docker/nocodb/` |
-| DBHub (MCP) | `dbhub` / 5009 | — | `/srv/docker/dbhub/` |
 | AdGuard | `adguard` / 3443 | `adblock.example.com` | `/srv/docker/adguard/` |
 | SehaRadar | `seha-radar` / 8080 | `seha-radar.example.com` | `/srv/docker/SehaRadar/` |
 | DashPy | `dashpy` / 8050 | `dashpy.example.com` | `/srv/docker/dashpy/` |
 | OpenCode | systemd / 4097 | (local only) | `/etc/systemd/system/opencode-serve.service` |
 | OpenClaw | systemd / 18789 | `claw.example.com` | `~/.openclaw/openclaw.json` |
-
-**DBHub** is the standard MCP for Postgres access (`http://127.0.0.1:5009/mcp`). Keep local-only. Use least-privilege per-database users.
 
 ---
 

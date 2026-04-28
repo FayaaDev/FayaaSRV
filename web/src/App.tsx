@@ -9,7 +9,7 @@ const repoUrl = 'https://github.com/FayaaDev/Rakkib'
 
 type Service = {
   name: string
-  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'mcp' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
+  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
 }
 
 const services: Service[] = [
@@ -22,7 +22,6 @@ const services: Service[] = [
   { name: 'Uptime Kuma', icon: 'monitor' },
   { name: 'Dockge', icon: 'docker' },
   { name: 'n8n', icon: 'workflow' },
-  { name: 'DBHub', icon: 'mcp' },
   { name: 'Immich', icon: 'photos' },
   { name: 'transfer.sh', icon: 'transfer' },
   { name: 'OpenClaw', icon: 'claw' },
@@ -64,17 +63,6 @@ function ServiceIcon({ icon }: { icon: Service['icon'] }) {
         <circle cx="24" cy="9" r="3" />
         <circle cx="16" cy="23" r="3" />
         <path d="M11 9h10M10 12l4 8M22 12l-4 8" />
-      </svg>
-    )
-  }
-
-  if (icon === 'mcp') {
-    return (
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <rect x="6" y="6" width="8" height="8" />
-        <rect x="18" y="6" width="8" height="8" />
-        <rect x="12" y="18" width="8" height="8" />
-        <path d="M14 10h4M10 14l4 4M22 14l-4 4" />
       </svg>
     )
   }

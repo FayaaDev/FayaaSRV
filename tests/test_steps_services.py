@@ -280,9 +280,9 @@ class TestSpecialHandlers:
         state = State(
             {
                 "foundation_services": ["nocodb", "homepage"],
-                "selected_services": ["dbhub"],
+                "selected_services": ["n8n"],
                 "domain": "example.com",
-                "subdomains": {"nocodb": "data", "dbhub": "sql"},
+                "subdomains": {"nocodb": "data", "n8n": "flow"},
             }
         )
         registry = services_step._load_registry()
@@ -290,23 +290,23 @@ class TestSpecialHandlers:
         content = (tmp_path / "data" / "homepage" / "config" / "services.yaml").read_text()
         assert "NocoDB" in content
         assert "https://data.example.com" in content
-        assert "DBHub" in content
+        assert "n8n" in content
 
     def test_render_extra_templates(self, fake_repo, tmp_path):
-        tmpl = fake_repo / "templates" / "docker" / "dbhub" / "dbhub.toml.tmpl"
+        tmpl = fake_repo / "templates" / "docker" / "n8n" / "n8n.env.tmpl"
         tmpl.parent.mkdir(parents=True, exist_ok=True)
-        tmpl.write_text("# dbhub config")
+        tmpl.write_text("# n8n config")
         state = State({})
         svc = {
             "extra_templates": [
                 {
-                    "src": "templates/docker/dbhub/dbhub.toml.tmpl",
-                    "dst": "docker/dbhub/dbhub.toml",
+                    "src": "templates/docker/n8n/n8n.env.tmpl",
+                    "dst": "docker/n8n/n8n.env",
                 }
             ]
         }
         services_step._render_extra_templates(state, svc, fake_repo, tmp_path)
-        assert (tmp_path / "docker" / "dbhub" / "dbhub.toml").exists()
+        assert (tmp_path / "docker" / "n8n" / "n8n.env").exists()
 
     @patch("rakkib.hooks.services.subprocess.run")
     @patch("rakkib.hooks.services.container_running", return_value=True)
@@ -314,14 +314,14 @@ class TestSpecialHandlers:
         state = State(
             {
                 "foundation_services": ["homepage", "uptime-kuma", "nocodb"],
-                "selected_services": ["dbhub"],
+                "selected_services": ["n8n"],
                 "domain": "example.com",
                 "data_root": str(tmp_path),
                 "subdomains": {
                     "homepage": "home",
                     "uptime-kuma": "status",
                     "nocodb": "data",
-                    "dbhub": "sql",
+                    "n8n": "flow",
                 },
                 "UPTIME_KUMA_ADMIN_USER": "admin",
                 "UPTIME_KUMA_ADMIN_PASS": "secret-pass",
@@ -336,7 +336,7 @@ class TestSpecialHandlers:
         assert payload["admin"]["password"] == "secret-pass"
         service_ids = {monitor["service_id"] for monitor in payload["monitors"]}
         assert "nocodb" in service_ids
-        assert "dbhub" in service_ids
+        assert "n8n" in service_ids
         sync_script = tmp_path / "data" / "uptime-kuma" / "sync-monitors.cjs"
         assert sync_script.exists()
         assert any("uptime-kuma" in str(call.args[0]) for call in mock_run.call_args_list)
@@ -489,10 +489,10 @@ class TestVerify:
         mock_repo.return_value = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data"
         mock_running.return_value = True
         mock_port.return_value = False
-        # dbhub has host_port=True; if port is not published, verify must fail
+        # transfer has host_port=True; if port is not published, verify must fail
         state = State({
             "foundation_services": [],
-            "selected_services": ["dbhub"],
+            "selected_services": ["transfer"],
         })
         result = services_step.verify(state)
         assert result.ok is False

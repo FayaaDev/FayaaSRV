@@ -17,15 +17,6 @@
     {
       "interval": 60,
       "maxretries": 3,
-      "name": "DBHub",
-      "service_id": "dbhub",
-      "timeout": 10,
-      "type": "http",
-      "url": "https://db.example.com/"
-    },
-    {
-      "interval": 60,
-      "maxretries": 3,
       "name": "Dockge",
       "service_id": "dockge",
       "timeout": 10,
