@@ -604,21 +604,6 @@ class TestHandleRepeat:
         assert empty_state.get("subdomains.authentik") == "auth"
         assert empty_state.get("subdomains.n8n") == "n8n"
 
-    def test_customize_subdomains(self, sample_schema, empty_state):
-        field = FieldDef(
-            id="service_subdomain",
-            type="text",
-            repeat_for="selected_service_slugs",
-            prompt_template="Subdomain for <service>? [default: <default>]",
-            validate={"pattern": "^[a-z0-9-]+$", "message": "Invalid"},
-            records=["subdomains"],
-        )
-        empty_state.set("foundation_services", ["nocodb"])
-        empty_state.set("customize_subdomains", True)
-        with patch("rakkib.interview.prompt_text", return_value="db"):
-            _handle_repeat(field, empty_state, sample_schema)
-        assert empty_state.get("subdomains.nocodb") == "db"
-
 
 # ---------------------------------------------------------------------------
 # Rules enforcement
@@ -723,17 +708,6 @@ class TestRecordFieldValue:
         _record_field_value(field, "val", empty_state)
         assert empty_state.get("a") == "val"
         assert empty_state.get("b") == "val"
-
-    def test_derived_value_override(self, empty_state):
-        field = FieldDef(
-            id="x",
-            type="text",
-            records=["a", "b"],
-            derived_value={"b": "override"},
-        )
-        _record_field_value(field, "val", empty_state)
-        assert empty_state.get("a") == "val"
-        assert empty_state.get("b") == "override"
 
     def test_empty_records_uses_id(self, empty_state):
         field = FieldDef(id="customize_subdomains", type="confirm", records=[])

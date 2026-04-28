@@ -1,8 +1,8 @@
 """TUI prompt wrappers — questionary-based interactive prompts.
 
-This module decouples interview.py and agent_handoff.py from the specific
-prompt library (questionary), making tests easier to mock and allowing
-future prompt library swaps with minimal changes.
+Decouples the interview engine from the specific prompt library (questionary),
+making tests easier to mock and allowing future prompt library swaps with
+minimal changes.
 """
 
 from __future__ import annotations

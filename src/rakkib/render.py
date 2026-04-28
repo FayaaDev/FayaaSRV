@@ -1,6 +1,5 @@
 """Template rendering — placeholder substitution from state -> template files.
 
-Follows lib/placeholders.md rules:
 - {{PLACEHOLDER}} syntax for direct string substitution
 - Nested state values must be flattened before substitution
 - Missing placeholders are left as-is (uses jinja2.DebugUndefined)

@@ -178,17 +178,6 @@ def _build_subdomain_defaults(items: list[dict[str, Any]], state: State) -> None
         state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", default_sub)
 
 
-def _customize_subdomains(items: list[dict[str, Any]], state: State) -> None:
-    """Prompt the user to customize subdomain for each service."""
-    for item in items:
-        slug = item["slug"]
-        default_sub = item.get("default_subdomain", slug)
-        answer = prompt_text(f"Subdomain for {slug}? [{default_sub}] ", default=default_sub)
-        if answer and answer.strip():
-            state.set(f"subdomains.{slug}", answer.strip())
-            state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", answer.strip())
-
-
 # ---------------------------------------------------------------------------
 # Derived fields
 # ---------------------------------------------------------------------------
@@ -231,10 +220,6 @@ def _handle_derived(field: FieldDef, state: State) -> None:
                 value = value["default"]
 
         _record_field_value(field, value, state)
-        return
-
-    if field.derived_value:
-        _record_dict(field.derived_value, state)
         return
 
 
@@ -470,28 +455,10 @@ def _handle_repeat(
                 slug = item.get("slug", "")
                 defaults[slug] = item.get("default_subdomain", slug)
 
-    customize = state.get("customize_subdomains", False)
-    if customize is None:
-        customize = False
-
     for slug in slugs:
         default = defaults.get(slug, slug)
-        if customize:
-            prompt = (
-                field.prompt_template.replace("<service>", slug)
-                .replace("<default>", default)
-            )
-            while True:
-                answer = prompt_text(prompt, default=default)
-                if answer == "":
-                    answer = default
-                if _validate(answer, field):
-                    state.set(f"subdomains.{slug}", answer)
-                    state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", answer)
-                    break
-        else:
-            state.set(f"subdomains.{slug}", default)
-            state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", default)
+        state.set(f"subdomains.{slug}", default)
+        state.set(f"{slug.upper().replace('-', '_')}_SUBDOMAIN", default)
 
 
 # ---------------------------------------------------------------------------
@@ -634,10 +601,7 @@ def _record_field_value(field: FieldDef, value: Any, state: State) -> None:
     """
     if field.records:
         for record_key in field.records:
-            if field.derived_value and record_key in field.derived_value:
-                state.set(record_key, field.derived_value[record_key])
-            else:
-                state.set(record_key, value)
+            state.set(record_key, value)
     else:
         state.set(field.id, value)
 

@@ -39,12 +39,6 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 
-def _require_root(ctx: click.Context) -> None:
-    if os.geteuid() != 0:
-        console.print("[bold red]Error:[/bold red] This helper must be run with sudo or from a root shell.")
-        ctx.exit(1)
-
-
 def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
     if explicit:
         return explicit
