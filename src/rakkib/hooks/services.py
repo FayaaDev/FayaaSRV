@@ -460,6 +460,7 @@ def openclaw_install(
             "--install-daemon",
             "--skip-bootstrap",
             "--skip-skills",
+            "--accept-risk",
         ],
         check=False,
     )
