@@ -8,6 +8,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -29,21 +30,87 @@ def _repo_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "data"
 
 
-def _find_cloudflared_default(name: str) -> Path | None:
-    """Return first existing file under ~/.cloudflared or /root/.cloudflared."""
-    for base in (Path.home() / ".cloudflared", Path("/root/.cloudflared")):
-        candidate = base / name
-        if candidate.exists():
-            return candidate
-    return None
-
-
 def _cloudflared_bin() -> str:
     """Return the path to the cloudflared binary."""
     local_bin = Path.home() / ".local" / "bin" / "cloudflared"
     if local_bin.exists():
         return str(local_bin)
     return "cloudflared"
+
+
+def _candidate_cloudflared_paths(name: str, admin_user: str | None = None) -> list[Path]:
+    """Return likely host paths for cloudflared auth artifacts."""
+    candidates = [
+        Path.home() / ".cloudflared" / name,
+        Path("/root/.cloudflared") / name,
+    ]
+    if admin_user:
+        candidates.append(Path("/home") / admin_user / ".cloudflared" / name)
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate not in seen:
+            unique.append(candidate)
+            seen.add(candidate)
+    return unique
+
+
+def _find_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path | None:
+    """Return the first existing auth artifact from common cloudflared locations."""
+    for candidate in _candidate_cloudflared_paths(name, admin_user=admin_user):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _has_missing_creds_error(stderr: str | None) -> bool:
+    """Return True when cloudflared reports missing local tunnel credentials."""
+    text = (stderr or "").lower()
+    return "credentials file" in text and "not found" in text
+
+
+def _is_existing_tunnel_name_error(stderr: str | None) -> bool:
+    """Return True when create failed because the tunnel name already exists."""
+    text = (stderr or "").lower()
+    markers = (
+        "already exists",
+        "name is taken",
+        "duplicate name",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _is_benign_dns_route_error(stderr: str | None) -> bool:
+    """Return True when a DNS route error means the record already exists."""
+    text = (stderr or "").lower()
+    markers = (
+        "already exists",
+        "already routed",
+        "already configured",
+        "record already exists",
+        "route already exists",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _next_tunnel_name(base_name: str, existing_names: set[str]) -> str:
+    """Return a fresh tunnel name derived from the requested base name."""
+    suffix = int(time.time())
+    candidate = f"{base_name}-{suffix}"
+    while candidate in existing_names:
+        suffix += 1
+        candidate = f"{base_name}-{suffix}"
+    return candidate
+
+
+def _extract_created_tunnel_name(stderr: str | None, requested_name: str) -> str:
+    """Extract the actual created tunnel name from cloudflared output when available."""
+    text = stderr or ""
+    match = re.search(r"with name\s+([^\s]+)", text)
+    if match:
+        return match.group(1).strip("'\"")
+    return requested_name
 
 
 def _run(
@@ -90,6 +157,60 @@ def _get_tunnel_uuid(tunnel_name: str, env: dict[str, str] | None = None) -> str
     return None
 
 
+def _list_tunnels(env: dict[str, str] | None = None) -> list[dict]:
+    """Return tunnel list data, or an empty list when unavailable."""
+    result = _run(
+        [_cloudflared_bin(), "tunnel", "list", "--output", "json"],
+        env=env,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _create_tunnel_with_fallback(
+    requested_name: str,
+    env: dict[str, str] | None = None,
+) -> tuple[str, str]:
+    """Create a fresh tunnel, retrying with a derived name when needed."""
+    current_names = {str(t.get("name")) for t in _list_tunnels(env=env) if t.get("name")}
+    create_result = _run(
+        [_cloudflared_bin(), "tunnel", "create", requested_name],
+        env=env,
+        check=False,
+    )
+    tunnel_name = requested_name
+    if create_result.returncode != 0:
+        if _has_missing_creds_error(create_result.stderr):
+            raise RuntimeError(create_result.stderr.strip() or "cloudflared tunnel create failed")
+        if not _is_existing_tunnel_name_error(create_result.stderr):
+            raise RuntimeError(
+                create_result.stderr.strip() or f"Failed to create tunnel '{requested_name}'"
+            )
+        tunnel_name = _next_tunnel_name(requested_name, current_names)
+        create_result = _run(
+            [_cloudflared_bin(), "tunnel", "create", tunnel_name],
+            env=env,
+            check=False,
+        )
+        if create_result.returncode != 0:
+            raise RuntimeError(
+                create_result.stderr.strip() or f"Failed to create tunnel '{tunnel_name}'"
+            )
+    else:
+        tunnel_name = _extract_created_tunnel_name(create_result.stderr, requested_name)
+
+    tunnel_uuid = _get_tunnel_uuid(tunnel_name, env=env)
+    if not tunnel_uuid:
+        raise RuntimeError(f"Failed to get UUID for newly created tunnel '{tunnel_name}'")
+    return tunnel_name, tunnel_uuid
+
+
 def run(state: State) -> None:
     data_root = Path(state.get("data_root", "/srv"))
     auth_method = state.get("cloudflare.auth_method")
@@ -133,11 +254,12 @@ def run(state: State) -> None:
 
     cert_path = cloudflared_dir / "cert.pem"
     token_env: dict[str, str] | None = None
+    previous_tunnel_name = tunnel_name
 
     # 4-5. Handle auth methods
     if auth_method == "browser_login":
         if not cert_path.exists():
-            default_cert = _find_cloudflared_default("cert.pem")
+            default_cert = _find_cloudflared_artifact("cert.pem", admin_user=admin_user)
             if default_cert is not None:
                 shutil.copy2(default_cert, cert_path)
             else:
@@ -166,7 +288,7 @@ def run(state: State) -> None:
                         f"{result.stderr.strip() if result.stderr else 'unknown error'}"
                     )
 
-                default_cert = _find_cloudflared_default("cert.pem")
+                default_cert = _find_cloudflared_artifact("cert.pem", admin_user=admin_user)
                 if default_cert is not None and not cert_path.exists():
                     shutil.copy2(default_cert, cert_path)
 
@@ -218,7 +340,7 @@ def run(state: State) -> None:
         if not tunnel_uuid or not creds_host_path or not Path(creds_host_path).exists():
             # Need to repair auth
             if not cert_path.exists():
-                default_cert = _find_cloudflared_default("cert.pem")
+                default_cert = _find_cloudflared_artifact("cert.pem", admin_user=admin_user)
                 if default_cert is not None:
                     shutil.copy2(default_cert, cert_path)
                 else:
@@ -235,7 +357,7 @@ def run(state: State) -> None:
                             f"cloudflared tunnel login failed: "
                             f"{result.stderr.strip() if result.stderr else 'unknown error'}"
                         )
-                    default_cert = _find_cloudflared_default("cert.pem")
+                    default_cert = _find_cloudflared_artifact("cert.pem", admin_user=admin_user)
                     if default_cert is not None and not cert_path.exists():
                         shutil.copy2(default_cert, cert_path)
 
@@ -247,15 +369,7 @@ def run(state: State) -> None:
         if existing_uuid:
             tunnel_uuid = existing_uuid
         else:
-            _run(
-                [_cloudflared_bin(), "tunnel", "create", tunnel_name],
-                env=token_env,
-            )
-            tunnel_uuid = _get_tunnel_uuid(tunnel_name, env=token_env)
-            if not tunnel_uuid:
-                raise RuntimeError(
-                    f"Failed to get UUID for newly created tunnel '{tunnel_name}'"
-                )
+            tunnel_name, tunnel_uuid = _create_tunnel_with_fallback(tunnel_name, env=token_env)
 
     elif tunnel_strategy == "existing":
         if not tunnel_uuid:
@@ -284,9 +398,43 @@ def run(state: State) -> None:
     creds_container_path = f"/home/nonroot/.cloudflared/{tunnel_uuid}.json"
 
     if not creds_host_path.exists():
-        default_creds = _find_cloudflared_default(f"{tunnel_uuid}.json")
+        recorded_creds = state.get("cloudflare.tunnel_creds_host_path")
+        default_creds = None
+        if recorded_creds:
+            recorded_path = Path(str(recorded_creds))
+            if recorded_path.exists():
+                default_creds = recorded_path
+        if default_creds is None:
+            default_creds = _find_cloudflared_artifact(
+                f"{tunnel_uuid}.json",
+                admin_user=admin_user,
+            )
         if default_creds is not None:
             shutil.copy2(default_creds, creds_host_path)
+        elif tunnel_strategy == "new":
+            replacement_name, replacement_uuid = _create_tunnel_with_fallback(
+                previous_tunnel_name,
+                env=token_env,
+            )
+            print(
+                "Existing Cloudflare tunnel was found but local credentials were unavailable. "
+                f"Creating a fresh tunnel '{replacement_name}' and continuing."
+            )
+            tunnel_name = replacement_name
+            tunnel_uuid = replacement_uuid
+            creds_host_path = cloudflared_dir / f"{tunnel_uuid}.json"
+            creds_container_path = f"/home/nonroot/.cloudflared/{tunnel_uuid}.json"
+            replacement_creds = _find_cloudflared_artifact(
+                f"{tunnel_uuid}.json",
+                admin_user=admin_user,
+            )
+            if replacement_creds is not None and replacement_creds != creds_host_path:
+                shutil.copy2(replacement_creds, creds_host_path)
+            elif not creds_host_path.exists():
+                raise RuntimeError(
+                    "Created a fresh Cloudflare tunnel but could not locate its credentials file. "
+                    "Run cloudflared tunnel login and re-run rakkib pull."
+                )
         else:
             raise RuntimeError(
                 f"Tunnel credentials file not found at {creds_host_path}, "
@@ -315,6 +463,7 @@ def run(state: State) -> None:
 
     # 13. Update state with final values
     state.set("cloudflare.tunnel_uuid", tunnel_uuid)
+    state.set("cloudflare.tunnel_name", tunnel_name)
     state.set("cloudflare.tunnel_creds_host_path", str(creds_host_path))
     state.set("cloudflare.tunnel_creds_container_path", creds_container_path)
 
@@ -356,6 +505,8 @@ def run(state: State) -> None:
             check=False,
         )
         if route_result.returncode != 0:
+            if _is_benign_dns_route_error(route_result.stderr):
+                continue
             # Fallback: try with tunnel_name
             route_result = _run(
                 [_cloudflared_bin(), "tunnel", "route", "dns", tunnel_name, route],
@@ -363,6 +514,8 @@ def run(state: State) -> None:
                 check=False,
             )
             if route_result.returncode != 0:
+                if _is_benign_dns_route_error(route_result.stderr):
+                    continue
                 raise RuntimeError(
                     f"DNS route creation failed for {route}: "
                     f"{route_result.stderr.strip() if route_result.stderr else 'unknown error'}"

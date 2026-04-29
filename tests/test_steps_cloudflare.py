@@ -39,10 +39,12 @@ def _subprocess_side_effect(
     tunnel_info_ok: bool = True,
     tunnel_create_ok: bool = True,
     route_dns_ok: bool = True,
+    route_dns_stderr: str = "",
     curl_ok: bool = True,
     container_running: bool = True,
     metrics_ok: bool = True,
     tunnels_json: list | None = None,
+    tunnel_create_stderr: str = "",
 ):
     def side_effect(cmd, **kwargs):
         r = MagicMock()
@@ -66,8 +68,10 @@ def _subprocess_side_effect(
                 r.returncode = 0 if tunnel_info_ok else 1
             elif sub == "tunnel" and sub2 == "create":
                 r.returncode = 0 if tunnel_create_ok else 1
+                r.stderr = tunnel_create_stderr
             elif sub == "tunnel" and sub2 == "route":
                 r.returncode = 0 if route_dns_ok else 1
+                r.stderr = route_dns_stderr
         elif bin_name == "curl":
             # metrics check uses curl
             if "metrics" in cmd[-1] if cmd else "":
@@ -233,6 +237,99 @@ class TestRun:
 
         assert state.get("cloudflare.tunnel_uuid") == "repaired-uuid"
 
+    def test_run_reuses_existing_tunnel_when_creds_found_in_admin_home(self, tmp_path):
+        state = _make_state(tmp_path)
+        cloudflared_dir = tmp_path / "data" / "cloudflared"
+        cloudflared_dir.mkdir(parents=True)
+        (cloudflared_dir / "cert.pem").write_text("cert")
+        reused_creds = tmp_path / "reused-uuid.json"
+        reused_creds.write_text("{}")
+
+        with patch("rakkib.steps.cloudflare._find_cloudflared_artifact") as mock_find:
+            with patch("rakkib.steps.cloudflare._run") as mock_run:
+                with patch("rakkib.steps.cloudflare.compose_up"):
+                    mock_find.side_effect = lambda name, admin_user=None: reused_creds if name == "reused-uuid.json" else None
+                    mock_run.side_effect = _subprocess_side_effect(
+                        tunnels_json=[{"name": "rakkib-example", "id": "reused-uuid"}]
+                    )
+                    cloudflare.run(state)
+
+        assert state.get("cloudflare.tunnel_uuid") == "reused-uuid"
+        assert state.get("cloudflare.tunnel_name") == "rakkib-example"
+        assert (tmp_path / "data" / "cloudflared" / "reused-uuid.json").exists()
+
+    def test_run_creates_fresh_tunnel_when_existing_creds_are_missing(self, tmp_path):
+        state = _make_state(tmp_path)
+        cloudflared_dir = tmp_path / "data" / "cloudflared"
+        cloudflared_dir.mkdir(parents=True)
+        (cloudflared_dir / "cert.pem").write_text("cert")
+
+        def run_side_effect(cmd, **kwargs):
+            if cmd[:4] == ["cloudflared", "tunnel", "list", "--output"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = json.dumps(
+                    [
+                        {"name": "rakkib-example", "id": "stale-uuid"},
+                        {"name": "rakkib-example-1700000000", "id": "fresh-uuid"},
+                    ]
+                )
+                result.stderr = ""
+                return result
+            if cmd[:3] == ["cloudflared", "--version"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = "cloudflared 1.0"
+                result.stderr = ""
+                return result
+            if cmd[:3] == ["cloudflared", "tunnel", "list"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = json.dumps([{"name": "rakkib-example", "id": "stale-uuid"}])
+                result.stderr = ""
+                return result
+            if cmd[:4] == ["cloudflared", "tunnel", "create", "rakkib-example"]:
+                result = MagicMock()
+                result.returncode = 1
+                result.stdout = ""
+                result.stderr = "tunnel with that name already exists"
+                return result
+            if cmd[:4] == ["cloudflared", "tunnel", "create", "rakkib-example-1700000000"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = "Tunnel credentials written to /root/.cloudflared/fresh-uuid.json"
+                return result
+            if cmd[:3] == ["cloudflared", "tunnel", "info"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+                return result
+            if cmd[:4] == ["cloudflared", "tunnel", "route", "dns"]:
+                result = MagicMock()
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+                return result
+            raise AssertionError(f"Unexpected command: {cmd}")
+
+        fresh_creds = tmp_path / "root-cloudflared" / "fresh-uuid.json"
+        fresh_creds.parent.mkdir(parents=True)
+        fresh_creds.write_text("{}")
+
+        with patch("rakkib.steps.cloudflare._cloudflared_bin", return_value="cloudflared"):
+            with patch("rakkib.steps.cloudflare.time.time", return_value=1700000000):
+                with patch("rakkib.steps.cloudflare._find_cloudflared_artifact") as mock_find:
+                    with patch("rakkib.steps.cloudflare._run", side_effect=run_side_effect):
+                        with patch("rakkib.steps.cloudflare.compose_up"):
+                            mock_find.side_effect = lambda name, admin_user=None: fresh_creds if name == "fresh-uuid.json" else None
+                            cloudflare.run(state)
+
+        assert state.get("cloudflare.tunnel_uuid") == "fresh-uuid"
+        assert state.get("cloudflare.tunnel_name") == "rakkib-example-1700000000"
+        assert (tmp_path / "data" / "cloudflared" / "fresh-uuid.json").exists()
+
     def test_run_sets_credentials_permissions(self, tmp_path):
         state = _make_state(tmp_path)
         cloudflared_dir = tmp_path / "data" / "cloudflared"
@@ -263,6 +360,20 @@ class TestRun:
         with patch("rakkib.steps.cloudflare._run") as mock_run:
             mock_run.side_effect = _subprocess_side_effect(route_dns_ok=False)
             with pytest.raises(RuntimeError, match="DNS route creation failed"):
+                cloudflare.run(state)
+
+    def test_run_accepts_existing_dns_route_errors(self, tmp_path):
+        state = _make_state(tmp_path)
+        cloudflared_dir = tmp_path / "data" / "cloudflared"
+        cloudflared_dir.mkdir(parents=True)
+        (cloudflared_dir / "test-uuid-123.json").write_text("{}")
+
+        with patch("rakkib.steps.cloudflare._run") as mock_run:
+            with patch("rakkib.steps.cloudflare.compose_up"):
+                mock_run.side_effect = _subprocess_side_effect(
+                    route_dns_ok=False,
+                    route_dns_stderr="record already exists for that hostname",
+                )
                 cloudflare.run(state)
 
     def test_run_raises_on_missing_credentials(self, tmp_path):
