@@ -7,6 +7,7 @@ ${DATA_ROOT}/logs/<step>.log so no LLM watches the stream.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -23,12 +24,21 @@ class DockerError(Exception):
         self.stderr = stderr
 
 
+def _docker_timeout() -> int:
+    raw = os.environ.get("RAKKIB_DOCKER_TIMEOUT", "3600")
+    try:
+        return int(raw)
+    except ValueError:
+        return 3600
+
+
 def compose_up(
     project_dir: Path | str,
     profiles: list[str] | None = None,
     services: list[str] | None = None,
     log_path: Path | str | None = None,
     detach: bool = True,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose up for the given project directory."""
     cmd = ["docker", "compose", "--project-directory", str(project_dir)]
@@ -41,31 +51,33 @@ def compose_up(
     if services:
         cmd.extend(services)
 
-    return _run(cmd, log_path=log_path)
+    return _run(cmd, log_path=log_path, timeout=timeout)
 
 
 def compose_pull(
     project_dir: Path | str,
     services: list[str] | None = None,
     log_path: Path | str | None = None,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose pull for the given project directory."""
     cmd = ["docker", "compose", "--project-directory", str(project_dir), "pull"]
     if services:
         cmd.extend(services)
-    return _run(cmd, log_path=log_path)
+    return _run(cmd, log_path=log_path, timeout=timeout)
 
 
 def compose_down(
     project_dir: Path | str,
     volumes: bool = False,
     log_path: Path | str | None = None,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose down for the given project directory."""
     cmd = ["docker", "compose", "--project-directory", str(project_dir), "down"]
     if volumes:
         cmd.append("--volumes")
-    return _run(cmd, log_path=log_path)
+    return _run(cmd, log_path=log_path, timeout=timeout)
 
 
 def health_check(
@@ -189,27 +201,43 @@ def _run(
     cmd: list[str],
     log_path: Path | str | None = None,
     check: bool = True,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a command, optionally redirecting stdout/stderr to a log file.
 
     When check is True (default), raises DockerError on non-zero exit codes.
     """
-    if log_path:
-        log_file = Path(log_path)
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        with log_file.open("a") as fh:
-            result = subprocess.run(
-                cmd,
-                stdout=fh,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-    else:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+    effective_timeout = timeout if timeout is not None else _docker_timeout()
+    log_file = Path(log_path) if log_path else None
+    try:
+        if log_file:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with log_file.open("a") as fh:
+                result = subprocess.run(
+                    cmd,
+                    stdout=fh,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    timeout=effective_timeout,
+                )
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=effective_timeout)
+    except subprocess.TimeoutExpired as exc:
+        log_hint = f" See log: {log_file}" if log_file else ""
+        if log_file:
+            with log_file.open("a") as fh:
+                fh.write(f"\nCommand timed out after {effective_timeout}s: {' '.join(cmd)}\n")
+        raise DockerError(
+            message=f"Command timed out after {effective_timeout}s: {' '.join(cmd)}.{log_hint}",
+            cmd=cmd,
+            returncode=124,
+            stderr=str(exc),
+        ) from exc
 
     if check and result.returncode != 0:
+        log_hint = f" See log: {log_file}" if log_file else ""
         raise DockerError(
-            message=f"Command failed with exit code {result.returncode}: {' '.join(cmd)}",
+            message=f"Command failed with exit code {result.returncode}: {' '.join(cmd)}.{log_hint}",
             cmd=cmd,
             returncode=result.returncode,
             stderr=result.stderr,

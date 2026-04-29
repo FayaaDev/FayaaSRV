@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import Callable
 
 import yaml
+from rich.console import Console
 
 from rakkib.docker import (
+    DockerError,
     compose_down,
     compose_up,
     container_publishes_port,
@@ -32,6 +34,9 @@ from rakkib.render import render_file
 from rakkib.secrets import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
+
+
+console = Console()
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +330,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     log_path = data_root / "logs" / f"step5-{svc_id}.log"
     registry = _load_registry()
     hooks = svc.get("hooks") or {}
+    console.print(f"[dim]Deploying {svc_id}... log: {log_path}[/dim]")
 
     # --- Caddy route (always, for both host and Docker services) ---------
     _render_caddy_route(state, svc, repo, data_root)
@@ -357,7 +363,13 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     _render_extra_templates(state, svc, repo, data_root)
 
     # --- Start service ---------------------------------------------------
-    compose_up(svc_dir, log_path=log_path)
+    try:
+        compose_up(svc_dir, log_path=log_path)
+    except DockerError as exc:
+        raise RuntimeError(
+            f"Service '{svc_id}' failed to start. "
+            f"Env: {env_path}. Compose: {svc_dir / 'docker-compose.yml'}. Log: {log_path}. {exc}"
+        ) from exc
 
     _run_named_hooks(hooks.get("post_start", []), POST_START_HOOKS, state, svc, repo, data_root, log_path, registry)
 

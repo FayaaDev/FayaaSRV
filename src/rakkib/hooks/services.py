@@ -11,12 +11,14 @@ import time
 from pathlib import Path
 
 from rakkib.docker import container_running
+from rakkib.doctor import wait_for_apt_locks
 from rakkib.render import render_file
 from rakkib.steps import selected_service_defs
 
 
 _KUMA_MANAGED_PREFIX = "Managed by Rakkib (service: "
 _OPENCLAW_INSTALL_URL = "https://openclaw.ai/install.sh"
+_OPENCLAW_COMMAND_TIMEOUT = 900
 _OPENCLAW_GATEWAY_TIMEOUT = 180
 _OPENCLAW_GATEWAY_BIND = "lan"
 
@@ -59,6 +61,9 @@ def _run_as_user(
     command: list[str],
     *,
     check: bool = True,
+    timeout: int | None = None,
+    extra_env: dict[str, str] | None = None,
+    timeout_label: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(
@@ -70,6 +75,8 @@ def _run_as_user(
             "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{user_uid}/bus",
         }
     )
+    if extra_env:
+        env.update(extra_env)
 
     run_cmd = command
     if os.geteuid() == 0 and os.environ.get("USER") != username:
@@ -84,14 +91,41 @@ def _run_as_user(
             f"LOGNAME={username}",
             f"XDG_RUNTIME_DIR=/run/user/{user_uid}",
             f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{user_uid}/bus",
-        ] + command
+        ]
+        if extra_env:
+            run_cmd.extend(f"{key}={value}" for key, value in extra_env.items())
+        run_cmd += command
 
-    return subprocess.run(run_cmd, capture_output=True, text=True, check=check, env=env)
+    try:
+        return subprocess.run(run_cmd, capture_output=True, text=True, check=check, env=env, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        label = timeout_label or " ".join(command)
+        raise RuntimeError(
+            f"{label} timed out after {timeout} seconds. "
+            "If Ubuntu unattended-upgrades or another package manager is still running, wait for it to finish and rerun `rakkib add openclaw`."
+        ) from exc
 
 
-def _run_as_service_user(state, command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def _run_as_service_user(
+    state,
+    command: list[str],
+    *,
+    check: bool = True,
+    timeout: int | None = None,
+    extra_env: dict[str, str] | None = None,
+    timeout_label: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     admin_user, home_dir, user_uid = _service_admin_user(state)
-    return _run_as_user(admin_user, home_dir, user_uid, command, check=check)
+    return _run_as_user(
+        admin_user,
+        home_dir,
+        user_uid,
+        command,
+        check=check,
+        timeout=timeout,
+        extra_env=extra_env,
+        timeout_label=timeout_label,
+    )
 
 
 def _root_user() -> tuple[str, Path, int]:
@@ -122,7 +156,13 @@ def _resolve_openclaw_bin(state) -> Path | None:
 
 
 def _run_openclaw(state, openclaw_bin: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_as_service_user(state, [str(openclaw_bin), *args], check=check)
+    return _run_as_service_user(
+        state,
+        [str(openclaw_bin), *args],
+        check=check,
+        timeout=_OPENCLAW_COMMAND_TIMEOUT,
+        timeout_label=f"OpenClaw command `{openclaw_bin} {' '.join(args)}`",
+    )
 
 
 def _openclaw_output(result: subprocess.CompletedProcess[str]) -> str:
@@ -141,6 +181,15 @@ def _openclaw_paths(home_dir: Path) -> tuple[Path, Path]:
         home_dir / ".openclaw" / "openclaw.json",
         home_dir / ".config" / "systemd" / "user" / "openclaw-gateway.service",
     )
+
+
+def _wait_for_openclaw_package_locks() -> None:
+    if shutil.which("apt-get") is None:
+        return
+
+    lock_error = wait_for_apt_locks()
+    if lock_error:
+        raise RuntimeError(f"OpenClaw setup cannot continue while apt/dpkg is locked. {lock_error}")
 
 
 def _openclaw_gateway_healthcheck(timeout: int = _OPENCLAW_GATEWAY_TIMEOUT) -> bool:
@@ -460,6 +509,8 @@ def openclaw_install(
     if shutil.which("curl") is None:
         raise RuntimeError("OpenClaw setup requires curl. Install curl and re-run `rakkib pull`.")
 
+    _wait_for_openclaw_package_locks()
+
     if os.geteuid() == 0:
         admin_user, _, _ = _service_admin_user(state)
         subprocess.run(["loginctl", "enable-linger", admin_user], capture_output=True, text=True, check=True)
@@ -469,8 +520,11 @@ def openclaw_install(
     if openclaw_bin is None:
         install = _run_as_service_user(
             state,
-            ["bash", "-lc", f"curl -fsSL {_OPENCLAW_INSTALL_URL} | bash -s -- --no-onboard"],
+            ["bash", "-lc", f"curl -fsSL {_OPENCLAW_INSTALL_URL} | bash -s -- --no-onboard --no-prompt"],
             check=False,
+            timeout=_OPENCLAW_COMMAND_TIMEOUT,
+            extra_env={"OPENCLAW_NO_PROMPT": "1"},
+            timeout_label="OpenClaw installer",
         )
         if install.returncode != 0:
             raise RuntimeError(

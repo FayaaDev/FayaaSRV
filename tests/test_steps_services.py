@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -343,6 +344,38 @@ class TestRunSingleService:
         mock_compose.assert_called_once()
         mock_reload.assert_called_once()
 
+    @patch("rakkib.steps.services.compose_up")
+    @patch("rakkib.steps.services._reload_caddy")
+    @patch("rakkib.steps.services.sync_shared_artifacts")
+    def test_deploys_immich_single_service(self, mock_sync, mock_reload, mock_compose, tmp_path):
+        data_root = tmp_path / "srv"
+        state = State(
+            {
+                "data_root": str(data_root),
+                "domain": "example.com",
+                "docker_net": "caddy_net",
+                "selected_services": ["immich"],
+                "subdomains": {"immich": "photos"},
+                "IMMICH_SUBDOMAIN": "photos",
+                "IMMICH_DB_PASSWORD": "immich-password",
+                "IMMICH_VERSION": "release",
+                "TZ": "Asia/Riyadh",
+            }
+        )
+
+        services_step.run_single_service(state, "immich")
+
+        env_path = data_root / "docker" / "immich" / ".env"
+        compose_path = data_root / "docker" / "immich" / "docker-compose.yml"
+        assert env_path.exists()
+        assert "UPLOAD_LOCATION=" in env_path.read_text()
+        assert "DB_PASSWORD=immich-password" in env_path.read_text()
+        assert compose_path.exists()
+        mock_compose.assert_called_once()
+        assert Path(mock_compose.call_args.args[0]).name == "immich"
+        mock_reload.assert_called_once()
+        mock_sync.assert_called_once()
+
     @patch("rakkib.steps.services._repo_dir")
     def test_raises_for_unknown_service(self, mock_repo, fake_repo, tmp_path):
         mock_repo.return_value = fake_repo
@@ -369,10 +402,12 @@ class TestSpecialHandlers:
     @patch("rakkib.hooks.services._run_openclaw")
     @patch("rakkib.hooks.services._resolve_openclaw_bin")
     @patch("rakkib.hooks.services._run_as_service_user")
+    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
     @patch("rakkib.hooks.services.shutil.which", return_value="/usr/bin/curl")
     def test_openclaw_install_installs_without_onboard_then_uses_absolute_path(
         self,
         _mock_curl,
+        mock_wait_for_locks,
         mock_run_as_user,
         mock_resolve_bin,
         mock_run_openclaw,
@@ -387,7 +422,9 @@ class TestSpecialHandlers:
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         install_cmd = mock_run_as_user.call_args_list[0].args[1]
-        assert install_cmd[-1] == "curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard"
+        assert install_cmd[-1] == "curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard --no-prompt"
+        assert mock_run_as_user.call_args_list[0].kwargs["extra_env"] == {"OPENCLAW_NO_PROMPT": "1"}
+        mock_wait_for_locks.assert_called_once()
         first_call = mock_run_openclaw.call_args_list[0].args
         second_call = mock_run_openclaw.call_args_list[1].args
         assert first_call[0] == state
@@ -397,8 +434,24 @@ class TestSpecialHandlers:
         assert second_call[1] == Path("/home/admin/.local/bin/openclaw")
         assert second_call[2][0] == "onboard"
 
+    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value="Timed out waiting for apt/dpkg locks: /var/lib/dpkg/lock-frontend. unattended-upgrades is running.")
+    @patch("rakkib.hooks.services.shutil.which", side_effect=lambda cmd: "/usr/bin/apt-get" if cmd == "apt-get" else "/usr/bin/curl")
+    def test_openclaw_install_fails_actionably_when_apt_lock_wait_times_out(self, _mock_which, _mock_wait):
+        state = State({"admin_user": "admin"})
+
+        with patch("rakkib.hooks.services.os.geteuid", return_value=1000):
+            with pytest.raises(RuntimeError, match="unattended-upgrades"):
+                service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
+
+    @patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000))
+    @patch("rakkib.hooks.services.subprocess.run", side_effect=subprocess.TimeoutExpired(["openclaw", "gateway", "restart"], 1))
+    def test_openclaw_command_timeout_is_actionable(self, _mock_run, _mock_user):
+        with pytest.raises(RuntimeError, match="timed out"):
+            service_hooks._run_openclaw(State({"admin_user": "admin"}), Path("/home/admin/.local/bin/openclaw"), ["gateway", "restart"], check=False)
+
     @patch("rakkib.hooks.services._run_openclaw")
-    def test_openclaw_install_updates_bind_when_config_exists(self, mock_run_openclaw):
+    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
+    def test_openclaw_install_updates_bind_when_config_exists(self, _mock_wait, mock_run_openclaw):
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
@@ -430,9 +483,10 @@ class TestSpecialHandlers:
             json.dumps(service_hooks._openclaw_allowed_origins(state)),
         ]
 
-    @patch("rakkib.hooks.services.subprocess.run")
     @patch("rakkib.hooks.services._run_openclaw")
-    def test_openclaw_install_tolerates_nonzero_onboard_when_artifacts_exist(self, mock_run_openclaw, _mock_subprocess):
+    @patch("rakkib.hooks.services.subprocess.run")
+    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
+    def test_openclaw_install_tolerates_nonzero_onboard_when_artifacts_exist(self, _mock_wait, _mock_subprocess, mock_run_openclaw):
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=1, stdout="Updated ~/.openclaw/openclaw.json", stderr="daemon warning"),
@@ -458,9 +512,10 @@ class TestSpecialHandlers:
         assert mock_run_openclaw.call_args_list[1].args[2][0] == "onboard"
         assert mock_run_openclaw.call_args_list[2].args[2] == ["config", "set", "gateway.bind", "lan"]
 
-    @patch("rakkib.hooks.services.subprocess.run")
     @patch("rakkib.hooks.services._run_openclaw")
-    def test_openclaw_install_raises_with_stderr_when_onboard_fails_without_artifacts(self, mock_run_openclaw, _mock_subprocess):
+    @patch("rakkib.hooks.services.subprocess.run")
+    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
+    def test_openclaw_install_raises_with_stderr_when_onboard_fails_without_artifacts(self, _mock_wait, _mock_subprocess, mock_run_openclaw):
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=1, stdout="Updated ~/.openclaw/openclaw.json", stderr="failed to reach systemd user bus"),

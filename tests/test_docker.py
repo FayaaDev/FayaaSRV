@@ -58,6 +58,12 @@ class TestComposeUp:
         _, kwargs = mock_run.call_args
         assert kwargs.get("log_path") == "/tmp/log.txt"
 
+    @patch("rakkib.docker._run")
+    def test_timeout(self, mock_run: MagicMock):
+        compose_up("/tmp/proj", timeout=12)
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("timeout") == 12
+
 
 class TestComposePull:
     @patch("rakkib.docker._run")
@@ -296,3 +302,17 @@ class TestRun:
         assert log.exists()
         _, kwargs = mock_subprocess.call_args
         assert kwargs["stdout"] is not None
+
+    @patch("rakkib.docker.subprocess.run")
+    def test_timeout_raises_with_log_hint(self, mock_subprocess: MagicMock, tmp_path: Path):
+        log = tmp_path / "docker.log"
+        mock_subprocess.side_effect = subprocess.TimeoutExpired(["docker", "compose", "up"], 5)
+
+        from rakkib.docker import _run
+
+        with pytest.raises(DockerError) as exc_info:
+            _run(["docker", "compose", "up"], log_path=log, timeout=5)
+
+        assert exc_info.value.returncode == 124
+        assert str(log) in str(exc_info.value)
+        assert "timed out" in log.read_text()

@@ -483,9 +483,10 @@ def status(ctx: click.Context) -> None:
 
 
 @cli.command()
+@click.argument("service", required=False)
 @click.pass_context
-def add(ctx: click.Context) -> None:
-    """Sync deployed services against the registry using a checkbox TUI."""
+def add(ctx: click.Context, service: str | None) -> None:
+    """Sync deployed services against the registry."""
     console.print("[bold green]Rakkib add[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
@@ -496,11 +497,20 @@ def add(ctx: click.Context) -> None:
     old_selected = set(state.get("foundation_services", []) or [])
     old_selected.update(state.get("selected_services", []) or [])
 
-    selected = prompt_checkbox(
-        "Select services to keep installed:",
-        choices=_build_add_choices(state, registry),
-    )
-    selected_ids = set(selected)
+    if service:
+        by_id = {svc["id"]: svc for svc in registry["services"]}
+        if service not in by_id:
+            console.print(f"[bold red]Error:[/bold red] Unknown service '{service}'.")
+            sys.exit(1)
+        selected_ids = set(old_selected)
+        if by_id[service].get("state_bucket") != "always":
+            selected_ids.add(service)
+    else:
+        selected = prompt_checkbox(
+            "Select services to keep installed:",
+            choices=_build_add_choices(state, registry),
+        )
+        selected_ids = set(selected)
 
     dependency_errors = _validate_service_dependencies(selected_ids, registry)
     if dependency_errors:
@@ -533,7 +543,10 @@ def add(ctx: click.Context) -> None:
     state.save(state_path)
 
     postgres_step.run(state)
-    services_step.run(state)
+    if service:
+        services_step.run_single_service(state, service)
+    else:
+        services_step.run(state)
     state.save(state_path)
 
     console.print("[bold green]Service selection synced successfully.[/bold green]")
