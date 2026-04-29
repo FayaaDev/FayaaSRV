@@ -1,9 +1,3 @@
 	# Homepage dashboard — protected by Authentik forward auth
-	@homepage host {{HOMEPAGE_SUBDOMAIN}}.{{DOMAIN}}
-	handle @homepage {
-		forward_auth authentik-server:9000 {
-			uri /outpost.goauthentik.io/auth/caddy
-			copy_headers X-authentik-username X-authentik-groups X-authentik-email X-authentik-uid
-		}
-		reverse_proxy homepage:3000
-	}
+	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
+	{% call authentik.protected_route("homepage", HOMEPAGE_SUBDOMAIN ~ "." ~ DOMAIN, "homepage:3000") %}{% endcall %}

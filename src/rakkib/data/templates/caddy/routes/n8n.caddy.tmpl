@@ -1,13 +1,7 @@
 # n8n automation service — protected by Authentik forward auth
-	@n8n host {{N8N_SUBDOMAIN}}.{{DOMAIN}}
-	handle @n8n {
-		forward_auth authentik-server:9000 {
-			uri /outpost.goauthentik.io/auth/caddy
-			copy_headers X-authentik-username X-authentik-groups X-authentik-email X-authentik-uid
-		}
-		reverse_proxy n8n:5678 {
-			header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
-			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-		}
-	}
+	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
+	{% call authentik.protected_route("n8n", N8N_SUBDOMAIN ~ "." ~ DOMAIN, "n8n:5678") %}
+		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	{% endcall %}

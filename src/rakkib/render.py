@@ -12,13 +12,25 @@ import re
 from pathlib import Path
 from typing import Any
 
-from jinja2 import DebugUndefined, Environment
+from jinja2 import DebugUndefined, Environment, FileSystemLoader
 
 from rakkib.state import State
 from rakkib.steps import service_enabled_key
 
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_][A-Z0-9_]*)\}\}")
 _env = Environment(undefined=DebugUndefined)
+
+
+def _file_env(template_root: Path) -> Environment:
+    """Return a Jinja environment rooted at *template_root* for file imports."""
+    return Environment(loader=FileSystemLoader(str(template_root)), undefined=DebugUndefined)
+
+
+def _render_template_path(src_path: Path, context: dict[str, Any], template_root: Path) -> str:
+    """Render *src_path* with imports resolved relative to *template_root*."""
+    env = _file_env(template_root)
+    template_name = str(src_path.relative_to(template_root))
+    return env.get_template(template_name).render(**context)
 
 
 def flatten_state(state: State) -> dict[str, Any]:
@@ -66,7 +78,7 @@ def render_file(src: Path | str, dst: Path | str, state: State) -> None:
     src_path = Path(src)
     dst_path = Path(dst)
     context = flatten_state(state)
-    rendered = render_string(src_path.read_text(), context)
+    rendered = _render_template_path(src_path, context, src_path.parent)
     dst_path.write_text(rendered)
 
 
@@ -84,5 +96,5 @@ def render_tree(src_dir: Path | str, dst_dir: Path | str, state: State) -> None:
         rel = src_file.relative_to(src_path)
         dst_file = dst_path / rel.with_suffix("")
         dst_file.parent.mkdir(parents=True, exist_ok=True)
-        rendered = render_string(src_file.read_text(), context)
+        rendered = _render_template_path(src_file, context, src_path)
         dst_file.write_text(rendered)
