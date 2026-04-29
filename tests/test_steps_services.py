@@ -327,8 +327,9 @@ class TestSpecialHandlers:
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
         ]
-        state = State({"admin_user": "admin"})
+        state = State({"admin_user": "admin", "domain": "rakkib.app", "subdomains": {"openclaw": "claw"}})
 
         with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")), patch(
             "pathlib.Path.exists", return_value=True
@@ -336,6 +337,21 @@ class TestSpecialHandlers:
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         assert mock_run_openclaw.call_args_list[1].args[2] == ["config", "set", "gateway.bind", "lan"]
+        assert mock_run_openclaw.call_args_list[2].args[2] == [
+            "config",
+            "set",
+            "gateway.controlUi.allowedOrigins",
+            json.dumps(service_hooks._openclaw_allowed_origins(state)),
+        ]
+
+    def test_openclaw_allowed_origins_include_public_and_local(self):
+        state = State({"domain": "rakkib.app", "subdomains": {"openclaw": "claw"}})
+        assert service_hooks._openclaw_allowed_origins(state) == [
+            "https://claw.rakkib.app",
+            "http://claw.rakkib.app",
+            "http://127.0.0.1:18789",
+            "http://localhost:18789",
+        ]
 
     @patch("rakkib.hooks.services._run_as_user")
     @patch("rakkib.hooks.services._resolve_openclaw_bin_for_user")

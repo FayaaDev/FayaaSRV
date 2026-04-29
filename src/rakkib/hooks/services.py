@@ -176,6 +176,31 @@ def _ensure_openclaw_gateway_bind(state, openclaw_bin: Path) -> None:
         )
 
 
+def _openclaw_allowed_origins(state) -> list[str]:
+    origins = ["http://127.0.0.1:18789", "http://localhost:18789"]
+    domain = str(state.get("domain") or "").strip()
+    subdomain = str(state.get("subdomains.openclaw") or state.get("OPENCLAW_SUBDOMAIN") or "claw").strip()
+    if domain and subdomain:
+        origins.insert(0, f"https://{subdomain}.{domain}")
+        origins.insert(1, f"http://{subdomain}.{domain}")
+    return origins
+
+
+def _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin: Path) -> None:
+    origins = json.dumps(_openclaw_allowed_origins(state))
+    result = _run_openclaw(
+        state,
+        openclaw_bin,
+        ["config", "set", "gateway.controlUi.allowedOrigins", origins],
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "OpenClaw Control UI allowedOrigins update failed. "
+            f"Command output: {result.stdout.strip() or result.stderr.strip()}"
+        )
+
+
 def _homepage_services_content(state, registry: dict) -> str:
     groups: dict[str, list[str]] = {}
     for selected_svc in selected_service_defs(state, registry):
@@ -506,6 +531,7 @@ def openclaw_install(
     config_path = home_dir / ".openclaw" / "openclaw.json"
     if config_path.exists():
         _ensure_openclaw_gateway_bind(state, openclaw_bin)
+        _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
         return
 
     onboard = _run_openclaw(
@@ -536,6 +562,7 @@ def openclaw_install(
         )
 
     _ensure_openclaw_gateway_bind(state, openclaw_bin)
+    _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
 
 
 def openclaw_gateway_restart(
