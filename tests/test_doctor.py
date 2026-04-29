@@ -30,6 +30,7 @@ from rakkib.doctor import (
     run_checks,
     summary_text,
     to_json,
+    wait_for_apt_locks,
 )
 from rakkib.state import State
 
@@ -343,26 +344,79 @@ class TestAttemptFixDocker:
         assert "only supported on Linux" in msg
 
     @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("subprocess.run")
-    def test_get_docker_success(self, mock_run: MagicMock, _cmd: MagicMock, _system: MagicMock):
+    def test_get_docker_success(
+        self,
+        mock_run: MagicMock,
+        _cmd: MagicMock,
+        mock_wait: MagicMock,
+        _system: MagicMock,
+    ):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         msg = attempt_fix_docker()
         assert "get.docker.com" in msg
+        mock_wait.assert_called_once()
 
     @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("subprocess.run")
-    def test_get_docker_failure(self, mock_run: MagicMock, _cmd: MagicMock, _system: MagicMock):
+    def test_get_docker_failure(
+        self,
+        mock_run: MagicMock,
+        _cmd: MagicMock,
+        _wait: MagicMock,
+        _system: MagicMock,
+    ):
         mock_run.return_value = MagicMock(returncode=1, stderr="network error")
         msg = attempt_fix_docker()
         assert "failed" in msg
+
+    @patch("platform.system", return_value="Linux")
+    @patch(
+        "rakkib.doctor.wait_for_apt_locks",
+        return_value="Timed out waiting for apt/dpkg locks",
+    )
+    @patch("rakkib.doctor._command_exists", return_value=True)
+    @patch("subprocess.run")
+    def test_apt_lock_timeout_skips_get_docker(
+        self,
+        mock_run: MagicMock,
+        _cmd: MagicMock,
+        _wait: MagicMock,
+        _system: MagicMock,
+    ):
+        msg = attempt_fix_docker()
+        assert "Timed out waiting" in msg
+        mock_run.assert_not_called()
 
     @patch("platform.system", return_value="Linux")
     @patch("rakkib.doctor._command_exists", return_value=False)
     def test_no_curl(self, _cmd: MagicMock, _system: MagicMock):
         msg = attempt_fix_docker()
         assert "curl is required" in msg
+
+
+class TestWaitForAptLocks:
+    @patch("rakkib.doctor._locked_apt_files", return_value=[])
+    def test_returns_none_when_unlocked(self, _locks: MagicMock):
+        assert wait_for_apt_locks(timeout=0, interval=0) is None
+
+    @patch("time.sleep")
+    @patch("time.monotonic", side_effect=[0, 0, 2])
+    @patch("rakkib.doctor._locked_apt_files", return_value=["/var/lib/dpkg/lock-frontend"])
+    def test_timeout_is_actionable(
+        self,
+        _locks: MagicMock,
+        _time: MagicMock,
+        _sleep: MagicMock,
+    ):
+        msg = wait_for_apt_locks(timeout=1, interval=0)
+        assert msg is not None
+        assert "unattended-upgrades" in msg
+        assert "sudo systemctl stop unattended-upgrades" in msg
 
 
 class TestAttemptFixCompose:

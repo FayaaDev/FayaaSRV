@@ -6,10 +6,12 @@ Each check returns a CheckResult with name, status, blocking flag, and message.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import struct
 import subprocess
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -32,6 +34,66 @@ class CheckResult:
 
 def _command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
+
+
+APT_LOCK_PATHS = (
+    Path("/var/lib/dpkg/lock-frontend"),
+    Path("/var/lib/dpkg/lock"),
+    Path("/var/lib/apt/lists/lock"),
+    Path("/var/cache/apt/archives/lock"),
+)
+
+
+def _locked_apt_files() -> list[str]:
+    """Return apt/dpkg lock files currently held by another process."""
+    lock_targets: dict[tuple[int, int, int], str] = {}
+    for path in APT_LOCK_PATHS:
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        identity = (os.major(stat.st_dev), os.minor(stat.st_dev), stat.st_ino)
+        lock_targets[identity] = str(path)
+
+    if not lock_targets:
+        return []
+
+    try:
+        lines = Path("/proc/locks").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+
+    locked: list[str] = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+        try:
+            major, minor, inode = parts[5].split(":", 2)
+            identity = (int(major, 16), int(minor, 16), int(inode))
+        except ValueError:
+            continue
+        if identity in lock_targets:
+            locked.append(lock_targets[identity])
+    return sorted(set(locked))
+
+
+def wait_for_apt_locks(timeout: int = 600, interval: float = 5) -> str | None:
+    """Wait until apt/dpkg locks clear. Return an error message on timeout."""
+    deadline = time.monotonic() + timeout
+    while True:
+        locked = _locked_apt_files()
+        if not locked:
+            return None
+        if time.monotonic() >= deadline:
+            files = ", ".join(locked)
+            return (
+                f"Timed out waiting for apt/dpkg locks: {files}. "
+                "Another package manager is running, commonly unattended-upgrades on first boot. "
+                "Wait a few minutes and rerun, or if it is stuck run "
+                "'sudo systemctl stop unattended-upgrades' and rerun."
+            )
+        time.sleep(interval)
 
 
 def _normalize_arch(raw: str) -> str | None:
@@ -511,6 +573,11 @@ def attempt_fix_docker() -> str:
 
     if not _command_exists("curl"):
         return "curl is required but not found. Install curl first."
+
+    if _command_exists("apt-get"):
+        lock_error = wait_for_apt_locks()
+        if lock_error:
+            return lock_error
 
     result = subprocess.run(
         ["sh", "-c", "curl -fsSL https://get.docker.com | sh"],
