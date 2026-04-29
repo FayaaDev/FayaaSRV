@@ -71,7 +71,7 @@ class TestResolveNumericAliases:
         assert resolve_numeric_aliases("   ", {"1": "a"}) == []
 
     def test_numeric_aliases(self):
-        aliases = {"1": "nocodb", "2": "authentik", "3": "homepage"}
+        aliases = {"1": "nocodb", "2": "homepage", "3": "uptime-kuma"}
         assert resolve_numeric_aliases("1 3", aliases) == ["nocodb", "homepage"]
 
     def test_mixed(self):

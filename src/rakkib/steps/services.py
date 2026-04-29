@@ -166,13 +166,8 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) ->
     routes_dir = data_root / "docker" / "caddy" / "routes"
     routes_dir.mkdir(parents=True, exist_ok=True)
 
-    foundation = set(state.get("foundation_services", []) or [])
-    authentik_enabled = "authentik" in foundation
-
     caddy = svc.get("caddy") or {}
     tmpl_name = caddy.get("template")
-    if not authentik_enabled and caddy.get("public_template"):
-        tmpl_name = caddy["public_template"]
 
     if tmpl_name is None:
         return
@@ -309,10 +304,6 @@ def remove_single_service(state: State, svc_id: str) -> None:
     route_path = data_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy"
     if route_path.exists():
         route_path.unlink()
-
-    blueprint_path = data_root / "data" / "authentik" / "blueprints" / "custom" / f"{svc_id}.yaml"
-    if blueprint_path.exists():
-        blueprint_path.unlink()
 
     for extra in svc.get("extra_templates", []):
         dst = data_root / extra["dst"]

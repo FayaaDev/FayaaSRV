@@ -7,8 +7,6 @@ import pytest
 from rakkib.secrets import (
     SECRET_GENERATORS,
     ensure_secrets,
-    generate_oidc_client_id,
-    generate_oidc_client_secret,
     generate_password,
     generate_secret_key,
 )
@@ -32,14 +30,6 @@ def test_generate_secret_key_default_length():
     assert len(generate_secret_key()) == 50
 
 
-def test_generate_oidc_client_id_length():
-    assert len(generate_oidc_client_id()) == 32
-
-
-def test_generate_oidc_client_secret_length():
-    assert len(generate_oidc_client_secret()) == 64
-
-
 def test_ensure_secrets_creates_values():
     state = State({})
     ensure_secrets(state)
@@ -57,14 +47,14 @@ def test_ensure_secrets_fills_none():
             "secrets": {
                 "values": {
                     "POSTGRES_PASSWORD": None,
-                    "AUTHENTIK_SECRET_KEY": None,
+                    "NOCODB_DB_PASS": None,
                 }
             }
         }
     )
     ensure_secrets(state)
     assert state.get("secrets.values.POSTGRES_PASSWORD") is not None
-    assert state.get("secrets.values.AUTHENTIK_SECRET_KEY") is not None
+    assert state.get("secrets.values.NOCODB_DB_PASS") is not None
 
 
 def test_ensure_secrets_preserves_existing():
@@ -73,14 +63,14 @@ def test_ensure_secrets_preserves_existing():
             "secrets": {
                 "values": {
                     "POSTGRES_PASSWORD": "keep-me",
-                    "AUTHENTIK_SECRET_KEY": None,
+                    "NOCODB_DB_PASS": None,
                 }
             }
         }
     )
     ensure_secrets(state)
     assert state.get("secrets.values.POSTGRES_PASSWORD") == "keep-me"
-    assert state.get("secrets.values.AUTHENTIK_SECRET_KEY") is not None
+    assert state.get("secrets.values.NOCODB_DB_PASS") is not None
 
 
 def test_ensure_secrets_idempotent():

@@ -1,6 +1,6 @@
 """Secret generation helpers.
 
-Generate POSTGRES_PASSWORD, AUTHENTIK_SECRET_KEY, N8N_ENCRYPTION_KEY, etc.
+Generate POSTGRES_PASSWORD, N8N_ENCRYPTION_KEY, etc.
 """
 
 from __future__ import annotations
@@ -24,21 +24,9 @@ def generate_secret_key(length: int = 50) -> str:
     return "".join(secrets.choice(ALPHANUMERIC) for _ in range(length))
 
 
-def generate_oidc_client_id() -> str:
-    """Return a random 32-char client ID."""
-    return generate_password(32)
-
-
-def generate_oidc_client_secret() -> str:
-    """Return a random 64-char client secret."""
-    return generate_password(64)
-
-
 FACTORIES: dict[str, Callable[..., str]] = {
     "password": generate_password,
     "secret_key": generate_secret_key,
-    "oidc_client_id": generate_oidc_client_id,
-    "oidc_client_secret": generate_oidc_client_secret,
 }
 
 
@@ -47,16 +35,11 @@ FACTORIES: dict[str, Callable[..., str]] = {
 SECRET_GENERATORS: dict[str, Callable[[], str]] = {
     "POSTGRES_PASSWORD": lambda: generate_password(32),
     "NOCODB_DB_PASS": lambda: generate_password(32),
-    "AUTHENTIK_DB_PASS": lambda: generate_password(32),
     "N8N_DB_PASS": lambda: generate_password(32),
     "IMMICH_DB_PASSWORD": lambda: generate_password(32),
-    "AUTHENTIK_SECRET_KEY": lambda: generate_secret_key(50),
     # 32 alphanumeric chars = ~190 bits of entropy, sufficient for n8n.
     "N8N_ENCRYPTION_KEY": lambda: generate_password(32),
-    "NOCODB_OIDC_CLIENT_ID": generate_oidc_client_id,
-    "NOCODB_OIDC_CLIENT_SECRET": generate_oidc_client_secret,
     "NOCODB_ADMIN_PASS": lambda: generate_password(32),
-    "AUTHENTIK_ADMIN_PASS": lambda: generate_password(32),
 }
 
 

@@ -60,8 +60,6 @@ services:
       - NOCODB_DB_PASS
       - ADMIN_EMAIL
       - NOCODB_ADMIN_PASS
-      - NOCODB_OIDC_CLIENT_ID
-      - NOCODB_OIDC_CLIENT_SECRET
     depends_on: [postgres]
     host_service: false
     host_port: false
@@ -72,20 +70,11 @@ services:
         factory: password
       NOCODB_DB_PASS:
         factory: password
-    conditional_secrets:
-      - when_services: [authentik]
-        keys:
-          NOCODB_OIDC_CLIENT_ID:
-            factory: oidc_client_id
-          NOCODB_OIDC_CLIENT_SECRET:
-            factory: oidc_client_secret
     postgres:
       role: nocodb
       db: nocodb_db
       password_key: NOCODB_DB_PASS
       display_name: NocoDB
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/nocodb.yaml.tmpl
     homepage:
       category: Infrastructure
       name: NocoDB
@@ -99,70 +88,10 @@ services:
       interval: 60
       timeout: 10
       retries: 3
-    notes: "No-code database UI. Foundation bundle service. Supports OIDC via Authentik when auth is selected."
+    notes: "No-code database UI. Foundation bundle service."
     hooks:
       pre_start:
         - service_postgres_login_preflight
-
-  - id: authentik
-    state_bucket: foundation_services
-    required: false
-    optional: true
-    foundation: true
-    image: ghcr.io/goauthentik/server:latest
-    default_port: 9000
-    default_subdomain: auth
-    subdomain_key: authentik
-    subdomain_placeholder: AUTHENTIK_SUBDOMAIN
-    env_keys:
-      - AUTHENTIK_SECRET_KEY
-      - AUTHENTIK_DB_PASS
-      - AUTHENTIK_ADMIN_PASS
-    depends_on: [postgres]
-    host_service: false
-    host_port: false
-    container_name: authentik-server
-    caddy:
-      template: authentik.caddy.tmpl
-    data_dirs:
-      - data/authentik/blueprints/custom
-      - data/authentik/media
-      - data/authentik/custom-templates
-    chown:
-      uid: 1000
-      gid: 1000
-    secrets:
-      AUTHENTIK_SECRET_KEY:
-        factory: secret_key
-      AUTHENTIK_DB_PASS:
-        factory: password
-      AUTHENTIK_ADMIN_PASS:
-        factory: password
-    postgres:
-      role: authentik
-      password_key: AUTHENTIK_DB_PASS
-      display_name: Authentik
-    hooks:
-      post_render:
-        - authentik_blueprints
-      pre_start:
-        - service_postgres_login_preflight
-      post_start:
-        - authentik_wait_healthy
-    homepage:
-      category: Infrastructure
-      name: Authentik
-      description: SSO / auth proxy
-      icon: authentik.png
-    monitoring:
-      enabled: true
-      type: http
-      target: public_url
-      path: /
-      interval: 60
-      timeout: 10
-      retries: 3
-    notes: "SSO / auth proxy. Foundation bundle service. Deploys server + worker + redis containers. Applies blueprints for selected downstream services on first start."
 
   - id: homepage
     state_bucket: foundation_services
@@ -179,15 +108,12 @@ services:
     host_service: false
     host_port: false
     caddy:
-      template: homepage.caddy.tmpl
-      public_template: homepage-public.caddy.tmpl
+      template: homepage-public.caddy.tmpl
     data_dirs:
       - data/homepage/config
     hooks:
       post_render:
         - homepage_services_yaml
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-homepage.yaml.tmpl
     notes: "Service dashboard. Foundation bundle service. services.yaml generated from selected service list."
 
   - id: uptime-kuma
@@ -207,15 +133,12 @@ services:
     host_service: false
     host_port: false
     caddy:
-      template: uptime-kuma.caddy.tmpl
-      public_template: uptime-kuma-public.caddy.tmpl
+      template: uptime-kuma-public.caddy.tmpl
     secrets:
       UPTIME_KUMA_ADMIN_USER:
         value: admin
       UPTIME_KUMA_ADMIN_PASS:
         factory: password
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-uptime-kuma.yaml.tmpl
     homepage:
       category: Infrastructure
       name: Uptime Kuma
@@ -246,10 +169,7 @@ services:
     host_service: false
     host_port: false
     caddy:
-      template: dockge.caddy.tmpl
-      public_template: dockge-public.caddy.tmpl
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-dockge.yaml.tmpl
+      template: dockge-public.caddy.tmpl
     homepage:
       category: Infrastructure
       name: Dockge
@@ -283,8 +203,7 @@ services:
     host_service: false
     host_port: false
     caddy:
-      template: n8n.caddy.tmpl
-      public_template: n8n-public.caddy.tmpl
+      template: n8n-public.caddy.tmpl
     env_preserve_keys:
       - N8N_ENCRYPTION_KEY
     data_dirs:
@@ -307,8 +226,6 @@ services:
       db: n8n_db
       password_key: N8N_DB_PASS
       display_name: n8n
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-n8n.yaml.tmpl
     homepage:
       category: Automation
       name: n8n
@@ -344,8 +261,7 @@ services:
     host_service: false
     host_port: false
     caddy:
-      template: immich.caddy.tmpl
-      public_template: immich-public.caddy.tmpl
+      template: immich-public.caddy.tmpl
     env_preserve_keys:
       - IMMICH_DB_PASSWORD
       - IMMICH_VERSION
@@ -358,8 +274,6 @@ services:
         length: 32
       IMMICH_VERSION:
         value: release
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-immich.yaml.tmpl
     homepage:
       category: Media
       name: Immich
@@ -424,10 +338,7 @@ services:
     host_service: false
     host_port: true
     caddy:
-      template: jellyfin.caddy.tmpl
-      public_template: jellyfin-public.caddy.tmpl
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-jellyfin.yaml.tmpl
+      template: jellyfin-public.caddy.tmpl
     homepage:
       category: Media
       name: Jellyfin
@@ -456,10 +367,7 @@ services:
     env_keys: []
     depends_on: []
     caddy:
-      template: openclaw.caddy.tmpl
-      public_template: openclaw-public.caddy.tmpl
-    authentik:
-      blueprint: templates/docker/authentik/blueprints/proxy-openclaw.yaml.tmpl
+      template: openclaw-public.caddy.tmpl
     homepage:
       category: AI
       name: OpenClaw

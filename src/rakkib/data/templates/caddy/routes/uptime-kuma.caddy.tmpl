@@ -1,3 +1,0 @@
-	# Uptime Kuma monitoring — protected by Authentik forward auth
-	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
-	{% call authentik.protected_route("uptime-kuma", UPTIME_KUMA_SUBDOMAIN ~ "." ~ DOMAIN, "uptime-kuma:3001") %}{% endcall %}

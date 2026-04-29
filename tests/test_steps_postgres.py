@@ -16,14 +16,13 @@ def _make_state(tmp_path: Path) -> State:
         {
             "data_root": str(tmp_path),
             "docker_net": "caddy_net",
-            "foundation_services": ["nocodb", "authentik"],
+            "foundation_services": ["nocodb"],
             "selected_services": ["n8n"],
             "secrets": {
                 "mode": "generate",
                 "values": {
                     "POSTGRES_PASSWORD": None,
                     "NOCODB_DB_PASS": None,
-                    "AUTHENTIK_DB_PASS": None,
                     "N8N_DB_PASS": None,
                 },
             },
@@ -60,46 +59,41 @@ def test_postgres_run_generates_init_sql(tmp_path):
     assert sql_path.exists()
     content = sql_path.read_text()
     assert "CREATE ROLE nocodb" in content
-    assert "CREATE ROLE authentik" in content
     assert "CREATE ROLE n8n" in content
     assert "CREATE DATABASE nocodb_db OWNER nocodb" in content
 
 
 def test_generate_init_sql_falls_back_to_flat_state_secret(tmp_path):
     state = _make_state(tmp_path)
-    state.set("AUTHENTIK_DB_PASS", "flat-authentik-pass")
-    state.set("secrets.values.AUTHENTIK_DB_PASS", None)
+    state.set("NOCODB_DB_PASS", "flat-nocodb-pass")
+    state.set("secrets.values.NOCODB_DB_PASS", None)
 
     content = postgres._generate_init_sql(state)
 
-    assert "CREATE ROLE authentik WITH LOGIN PASSWORD 'flat-authentik-pass';" in content
+    assert "CREATE ROLE nocodb WITH LOGIN PASSWORD 'flat-nocodb-pass';" in content
 
 
 def test_generate_init_sql_includes_all_selected_db_services(tmp_path):
     state = _make_state(tmp_path)
     state.set("secrets.values.POSTGRES_PASSWORD", "postgres-pass")
     state.set("secrets.values.NOCODB_DB_PASS", "nocodb-pass")
-    state.set("secrets.values.AUTHENTIK_DB_PASS", "authentik-pass")
     state.set("secrets.values.N8N_DB_PASS", "n8n-pass")
 
     content = postgres._generate_init_sql(state)
 
     assert "CREATE ROLE nocodb WITH LOGIN PASSWORD 'nocodb-pass';" in content
     assert "CREATE DATABASE nocodb_db OWNER nocodb" in content
-    assert "CREATE ROLE authentik WITH LOGIN PASSWORD 'authentik-pass';" in content
-    assert "CREATE DATABASE authentik OWNER authentik" in content
     assert "CREATE ROLE n8n WITH LOGIN PASSWORD 'n8n-pass';" in content
     assert "CREATE DATABASE n8n_db OWNER n8n" in content
 
 
 def test_generate_init_sql_raises_when_service_password_missing(tmp_path):
     state = _make_state(tmp_path)
-    state.set("secrets.values.NOCODB_DB_PASS", "nocodb-pass")
-    state.set("secrets.values.AUTHENTIK_DB_PASS", None)
-    state.set("AUTHENTIK_DB_PASS", None)
+    state.set("secrets.values.NOCODB_DB_PASS", None)
+    state.set("NOCODB_DB_PASS", None)
     state.set("secrets.values.N8N_DB_PASS", "n8n-pass")
 
-    with pytest.raises(RuntimeError, match="AUTHENTIK_DB_PASS"):
+    with pytest.raises(RuntimeError, match="NOCODB_DB_PASS"):
         postgres._generate_init_sql(state)
 
 

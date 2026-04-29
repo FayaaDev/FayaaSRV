@@ -70,7 +70,6 @@ sudo rakkib privileged fix-repo-owner --state .fss-state.yaml
 | Service | Image |
 |---------|-------|
 | NocoDB | `nocodb/nocodb:latest` — no-code database UI |
-| Authentik | `ghcr.io/goauthentik/server:latest` — SSO / auth proxy |
 | Homepage | `ghcr.io/gethomepage/homepage:latest` — service dashboard |
 | Uptime Kuma | `louislam/uptime-kuma:latest` — uptime monitoring |
 | Dockge | `louislam/dockge:latest` — Docker Compose manager UI |

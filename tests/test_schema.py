@@ -93,7 +93,7 @@ def test_phase_3_service_catalog_and_rules():
     assert schema.phase == 3
 
     assert "foundation_bundle" in schema.service_catalog
-    assert len(schema.service_catalog["foundation_bundle"]) == 5
+    assert len(schema.service_catalog["foundation_bundle"]) == 4
     assert schema.service_catalog["foundation_bundle"][0]["slug"] == "nocodb"
     assert [item["slug"] for item in schema.service_catalog["optional_services"]] == [
         "n8n",
@@ -166,8 +166,8 @@ def test_phase_5_secrets_and_execution_generated():
     schema = QuestionSchema.from_file(QUESTIONS_DIR / "05-secrets.md")
     assert schema.phase == 5
 
-    assert len(schema.execution_generated_only) == 3
-    assert schema.execution_generated_only[0]["key"] == "NOCODB_OIDC_CLIENT_ID"
+    assert len(schema.execution_generated_only) == 1
+    assert schema.execution_generated_only[0]["key"] == "IMMICH_VERSION"
 
     field_map = {f.id: f for f in schema.fields}
     secrets_mode = field_map["secrets_mode"]

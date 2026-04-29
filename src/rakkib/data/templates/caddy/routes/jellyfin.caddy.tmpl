@@ -1,7 +1,0 @@
-# Jellyfin media server — protected by Authentik forward auth
-	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
-	{% call authentik.protected_route("jellyfin", JELLYFIN_SUBDOMAIN ~ "." ~ DOMAIN, "jellyfin:8096") %}
-		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
-		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-	{% endcall %}

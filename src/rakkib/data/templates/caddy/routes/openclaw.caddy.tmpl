@@ -1,7 +1,0 @@
-# OpenClaw AI assistant gateway — protected by Authentik forward auth
-	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
-	{% call authentik.protected_route("openclaw", OPENCLAW_SUBDOMAIN ~ "." ~ DOMAIN, HOST_GATEWAY ~ ":18789") %}
-		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
-		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-	{% endcall %}

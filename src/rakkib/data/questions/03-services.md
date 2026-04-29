@@ -21,24 +21,19 @@ service_catalog:
       numeric_alias: 1
       subdomain_key: nocodb
       default_subdomain: nocodb
-    - slug: authentik
-      label: Authentik
-      numeric_alias: 2
-      subdomain_key: authentik
-      default_subdomain: auth
     - slug: homepage
       label: Homepage
-      numeric_alias: 3
+      numeric_alias: 2
       subdomain_key: homepage
       default_subdomain: home
     - slug: uptime-kuma
       label: Uptime Kuma
-      numeric_alias: 4
+      numeric_alias: 3
       subdomain_key: uptime-kuma
       default_subdomain: status
     - slug: dockge
       label: Dockge
-      numeric_alias: 5
+      numeric_alias: 4
       subdomain_key: dockge
       default_subdomain: dockge
   optional_services:
@@ -75,14 +70,13 @@ fields:
   - id: foundation_services
     type: multi_select
     selection_mode: deselect_from_default
-    prompt: "Foundation Bundle: type service slugs to deselect (e.g. `homepage dockge`); numeric aliases like `3 5` are also accepted, or press Enter to accept all:"
-    canonical_values: [nocodb, authentik, homepage, uptime-kuma, dockge]
+    prompt: "Foundation Bundle: type service slugs to deselect (e.g. `homepage dockge`); numeric aliases like `2 4` are also accepted, or press Enter to accept all:"
+    canonical_values: [nocodb, homepage, uptime-kuma, dockge]
     numeric_aliases:
       "1": nocodb
-      "2": authentik
-      "3": homepage
-      "4": uptime-kuma
-      "5": dockge
+      "2": homepage
+      "3": uptime-kuma
+      "4": dockge
     records:
       - foundation_services
   - id: optional_services
@@ -107,6 +101,12 @@ fields:
       "11": vergo_terminal
     records:
       - host_addons
+  - id: service_subdomain
+    type: text
+    repeat_for: selected_service_slugs
+    prompt_template: "Subdomain for <service>? [default: <default>]"
+    records:
+      - subdomains
 rules:
   - if_selected: transfer
     require_confirm: transfer_public_risk
@@ -123,7 +123,7 @@ Present the full service menu below as a TUI-style checklist. Collect selections
 
 Numeric checklist positions may still be accepted as convenience aliases, but canonical recorded inputs are always slugs.
 
-When rendering the checklist, the selectable label must always be the service or addon name shown below (`NocoDB`, `Authentik`, `Homepage`, `VErgo Terminal`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
+When rendering the checklist, the selectable label must always be the service or addon name shown below (`NocoDB`, `Homepage`, `VErgo Terminal`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
 
 Subdomains are automatically set to the defaults from the service catalog. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
 
@@ -143,10 +143,9 @@ Always installed — no choice needed:
 
 Foundation Bundle (recommended):
   [✓] 1  NocoDB        — no-code database UI    →  nocodb.<domain>
-  [✓] 2  Authentik     — SSO / auth proxy       →  auth.<domain>
-  [✓] 3  Homepage      — service dashboard      →  home.<domain>
-  [✓] 4  Uptime Kuma   — uptime monitoring      →  status.<domain>
-  [✓] 5  Dockge        — Compose manager        →  dockge.<domain>
+  [✓] 2  Homepage      — service dashboard      →  home.<domain>
+  [✓] 3  Uptime Kuma   — uptime monitoring      →  status.<domain>
+  [✓] 4  Dockge        — Compose manager        →  dockge.<domain>
 
 Optional Services:
   [ ] 6  n8n           — workflow automation    →  n8n.<domain>
@@ -165,12 +164,12 @@ Optional Host Addons:
 
 Ask:
 
-> "Foundation Bundle: type service slugs to deselect (e.g. `homepage dockge`); numeric aliases like `3 5` are also accepted, or press Enter to accept all:"
+> "Foundation Bundle: type service slugs to deselect (e.g. `homepage dockge`); numeric aliases like `2 4` are also accepted, or press Enter to accept all:"
 
 - Parse the response as a space-separated list of canonical service slugs.
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical service slugs before recording state.
 - Remove the corresponding services from the selected foundation set.
-- If the user presses Enter with no input, keep all five selected.
+- If the user presses Enter with no input, keep all four selected.
 - Re-render the updated checklist showing `[✓]` / `[ ]` states and ask the user to confirm.
 
 ---
@@ -185,7 +184,7 @@ Ask:
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical service slugs before recording state.
 - Add the corresponding services to the selection.
 - If the user presses Enter with no input, none are selected.
-- If `8` selects `transfer`, warn before recording it: "transfer.sh will be deployed as a public unauthenticated upload endpoint. Anyone who can reach the URL can upload files. Rakkib does not put transfer.sh behind Authentik or HTTP basic auth because that interferes with its CLI/API behavior." Ask the user to confirm they accept this risk before recording `transfer`; do not record it if they decline.
+- If `8` selects `transfer`, warn before recording it: "transfer.sh will be deployed as a public unauthenticated upload endpoint. Anyone who can reach the URL can upload files. Rakkib does not put transfer.sh behind HTTP basic auth because that interferes with its CLI/API behavior." Ask the user to confirm they accept this risk before recording `transfer`; do not record it if they decline.
 
 ---
 
@@ -206,27 +205,25 @@ Ask:
 ## Record in .fss-state.yaml
 
 ```yaml
-foundation_services:            # list only those kept from the foundation bundle
+foundation_services:
   - nocodb
-  - authentik
   - homepage
   - uptime-kuma
   - dockge
-selected_services:              # list only those the user added from optional services
+selected_services:
   - n8n
-host_addons:                    # list only selected host addons; no subdomains are created
+host_addons:
   - vergo_terminal
 subdomains:
-  nocodb: nocodb                 # always present if nocodb is in foundation_services
-  authentik: auth                # always present if authentik is in foundation_services
-  homepage: home                 # always present if homepage is in foundation_services
-  uptime-kuma: status            # always present if uptime-kuma is in foundation_services
-  dockge: dockge                 # always present if dockge is in foundation_services
-  n8n: n8n                       # only if n8n is in selected_services
-  immich: immich                 # only if immich is in selected_services
-  transfer: transfer             # only if transfer is in selected_services
-  jellyfin: jellyfin             # only if jellyfin is in selected_services
-  openclaw: claw                 # only if openclaw is in selected_services
+  nocodb: nocodb
+  homepage: home
+  uptime-kuma: status
+  dockge: dockge
+  n8n: n8n
+  immich: immich
+  transfer: transfer
+  jellyfin: jellyfin
+  openclaw: claw
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -234,13 +231,12 @@ Do not introduce alias subdomain keys in new state files. Use the service slug a
 
 During rendering, flatten these values into service placeholders:
 
-- `subdomains.nocodb`     → `{{NOCODB_SUBDOMAIN}}`
-- `subdomains.authentik`  → `{{AUTHENTIK_SUBDOMAIN}}`
-- `subdomains.homepage`   → `{{HOMEPAGE_SUBDOMAIN}}`
-- `subdomains.uptime-kuma` → `{{UPTIME_KUMA_SUBDOMAIN}}`
-- `subdomains.dockge`     → `{{DOCKGE_SUBDOMAIN}}`
-- `subdomains.n8n`        → `{{N8N_SUBDOMAIN}}`
-- `subdomains.immich`     → `{{IMMICH_SUBDOMAIN}}`
-- `subdomains.transfer`   → `{{TRANSFER_SUBDOMAIN}}`
-- `subdomains.jellyfin`   → `{{JELLYFIN_SUBDOMAIN}}`
-- `subdomains.openclaw`   → `{{OPENCLAW_SUBDOMAIN}}`
+- `subdomains.nocodb` -> `{{NOCODB_SUBDOMAIN}}`
+- `subdomains.homepage` -> `{{HOMEPAGE_SUBDOMAIN}}`
+- `subdomains.uptime-kuma` -> `{{UPTIME_KUMA_SUBDOMAIN}}`
+- `subdomains.dockge` -> `{{DOCKGE_SUBDOMAIN}}`
+- `subdomains.n8n` -> `{{N8N_SUBDOMAIN}}`
+- `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
+- `subdomains.transfer` -> `{{TRANSFER_SUBDOMAIN}}`
+- `subdomains.jellyfin` -> `{{JELLYFIN_SUBDOMAIN}}`
+- `subdomains.openclaw` -> `{{OPENCLAW_SUBDOMAIN}}`

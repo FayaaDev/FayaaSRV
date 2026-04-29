@@ -9,7 +9,7 @@ const repoUrl = 'https://github.com/FayaaDev/Rakkib'
 
 type Service = {
   name: string
-  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'shield' | 'monitor' | 'docker'
+  icon: 'proxy' | 'cloud' | 'database' | 'table' | 'workflow' | 'photos' | 'transfer' | 'claw' | 'hermes' | 'monitor' | 'docker'
 }
 
 const services: Service[] = [
@@ -17,7 +17,6 @@ const services: Service[] = [
   { name: 'Cloudflared', icon: 'cloud' },
   { name: 'PostgreSQL', icon: 'database' },
   { name: 'NocoDB', icon: 'table' },
-  { name: 'Authentik', icon: 'shield' },
   { name: 'Homepage', icon: 'monitor' },
   { name: 'Uptime Kuma', icon: 'monitor' },
   { name: 'Dockge', icon: 'docker' },
@@ -106,15 +105,6 @@ function ServiceIcon({ icon }: { icon: Service['icon'] }) {
         <path d="M10 11l6-6 6 6" />
         <rect x="6" y="20" width="20" height="7" rx="2" />
         <path d="M21 24h1" />
-      </svg>
-    )
-  }
-
-  if (icon === 'shield') {
-    return (
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 4l10 4v8c0 6-5 10-10 12-5-2-10-6-10-12V8l10-4Z" />
-        <path d="M12 15l3 3 5-6" />
       </svg>
     )
   }

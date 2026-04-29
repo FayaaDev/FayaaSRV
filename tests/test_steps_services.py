@@ -27,7 +27,6 @@ def fake_repo(tmp_path: Path):
         "services": [
             {"id": "postgres", "depends_on": [], "host_service": False, "default_port": 5432},
             {"id": "nocodb", "depends_on": ["postgres"], "host_service": False, "default_port": 8080},
-            {"id": "authentik", "depends_on": ["postgres"], "host_service": False, "default_port": 9000},
             {"id": "homepage", "depends_on": [], "host_service": False, "default_port": 3000},
             {"id": "openclaw", "depends_on": [], "host_service": True, "default_port": 18789},
         ]
@@ -35,7 +34,7 @@ def fake_repo(tmp_path: Path):
     (repo / "registry.yaml").write_text(yaml.dump(registry))
 
     # Templates
-    for svc in ["postgres", "nocodb", "authentik", "homepage"]:
+    for svc in ["postgres", "nocodb", "homepage"]:
         tmpl_dir = repo / "templates" / "docker" / svc
         tmpl_dir.mkdir(parents=True)
         (tmpl_dir / "docker-compose.yml.tmpl").write_text(f"# {svc} compose\n")
@@ -48,7 +47,7 @@ def fake_repo(tmp_path: Path):
     # Caddy routes
     caddy_dir = repo / "templates" / "caddy" / "routes"
     caddy_dir.mkdir(parents=True)
-    for svc in ["nocodb", "authentik", "homepage"]:
+    for svc in ["nocodb", "homepage"]:
         (caddy_dir / f"{svc}.caddy.tmpl").write_text(f"# {svc} route\n")
 
     return repo
@@ -57,22 +56,19 @@ def fake_repo(tmp_path: Path):
 class TestSelectedServiceDefs:
     def test_dependency_order(self, fake_repo: Path):
         state = State({
-            "foundation_services": ["nocodb", "authentik"],
+            "foundation_services": ["nocodb", "homepage"],
             "selected_services": ["homepage"],
         })
         registry = services_step._load_registry()
         defs = selected_service_defs(state, registry)
         ids = [d["id"] for d in defs]
-        # homepage and authentik both have in-degree 0 (postgres not selected),
-        # so they sort alphabetically: authentik, homepage, nocodb
-        assert ids == ["authentik", "homepage", "nocodb"]
+        assert ids == ["homepage", "nocodb"]
 
     def test_skips_unselected(self, fake_repo: Path):
         state = State({"foundation_services": ["nocodb"]})
         registry = services_step._load_registry()
         defs = selected_service_defs(state, registry)
         ids = [d["id"] for d in defs]
-        assert "authentik" not in ids
         assert "homepage" not in ids
 
 
@@ -94,14 +90,6 @@ class TestGenerateMissingSecrets:
         assert state.get("NOCODB_ADMIN_PASS") is not None
         assert state.get("NOCODB_DB_PASS") is not None
 
-    def test_generates_oidc_when_both_present(self):
-        state = State({
-            "foundation_services": ["nocodb", "authentik"],
-        })
-        services_step._generate_missing_secrets(state)
-        assert state.get("NOCODB_OIDC_CLIENT_ID") is not None
-        assert state.get("NOCODB_OIDC_CLIENT_SECRET") is not None
-
     def test_generates_n8n_encryption_when_fresh(self):
         state = State({
             "selected_services": ["n8n"],
@@ -122,31 +110,29 @@ class TestGenerateMissingSecrets:
         """When secrets.values already has a password (set by Step 4),
         Step 5 must reuse it instead of generating a divergent one."""
         state = State({
-            "foundation_services": ["nocodb", "authentik"],
+            "foundation_services": ["nocodb"],
             "selected_services": ["n8n"],
             "secrets": {
                 "n8n_mode": "fresh",
                 "values": {
-                    "AUTHENTIK_DB_PASS": "from-step4-authentik",
                     "NOCODB_DB_PASS": "from-step4-nocodb",
                     "N8N_DB_PASS": "from-step4-n8n",
                 },
             },
         })
         services_step._generate_missing_secrets(state)
-        assert state.get("AUTHENTIK_DB_PASS") == "from-step4-authentik"
         assert state.get("NOCODB_DB_PASS") == "from-step4-nocodb"
         assert state.get("N8N_DB_PASS") == "from-step4-n8n"
 
     def test_generates_when_secrets_values_empty(self):
         """When secrets.values has no entry, Step 5 should still generate."""
         state = State({
-            "foundation_services": ["authentik"],
+            "foundation_services": ["nocodb"],
             "secrets": {"values": {}},
         })
         services_step._generate_missing_secrets(state)
-        assert state.get("AUTHENTIK_DB_PASS") is not None
-        assert len(state.get("AUTHENTIK_DB_PASS")) > 0
+        assert state.get("NOCODB_DB_PASS") is not None
+        assert len(state.get("NOCODB_DB_PASS")) > 0
 
 
 class TestRenderEnvExample:
@@ -169,21 +155,6 @@ class TestRenderEnvExample:
         services_step._render_env_example(state, tmpl, existing_env, preserve_keys=["KEEP"])
         content = existing_env.read_text()
         assert "old_val" in content
-
-
-class TestAuthentikBlueprints:
-    def test_outpost_blueprint_sets_public_authentik_url(self, tmp_path: Path):
-        state = State({
-            "domain": "example.com",
-            "AUTHENTIK_SUBDOMAIN": "auth",
-        })
-        service_hooks._write_outpost_blueprint(state, tmp_path, ["n8n", "dockge"])
-
-        content = (tmp_path / "outpost.yaml").read_text()
-        assert 'authentik_host: "https://auth.example.com/"' in content
-        assert 'authentik_host_browser: "https://auth.example.com/"' in content
-        assert "provider-n8n" in content
-        assert "provider-dockge" in content
 
 
 class TestRun:
@@ -353,15 +324,13 @@ class TestSpecialHandlers:
                 "admin_user": "admin",
                 "domain": "rakkib.app",
                 "subdomains": {"openclaw": "claw"},
-                "foundation_services": ["authentik"],
+                "foundation_services": ["homepage"],
             }
         )
 
         with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")), patch(
             "pathlib.Path.exists", return_value=True
-        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000), patch(
-            "rakkib.hooks.services._resolve_caddy_proxy_ip", return_value="172.18.0.2"
-        ):
+        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000):
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         assert mock_run_openclaw.call_args_list[1].args[2] == ["config", "set", "gateway.bind", "lan"]
@@ -370,20 +339,6 @@ class TestSpecialHandlers:
             "set",
             "gateway.controlUi.allowedOrigins",
             json.dumps(service_hooks._openclaw_allowed_origins(state)),
-        ]
-        assert mock_run_openclaw.call_args_list[3].args[2] == ["config", "unset", "gateway.auth.token"]
-        assert mock_run_openclaw.call_args_list[4].args[2] == ["config", "set", "gateway.auth.mode", "trusted-proxy"]
-        assert mock_run_openclaw.call_args_list[5].args[2] == [
-            "config",
-            "set",
-            "gateway.auth.trustedProxy.userHeader",
-            "x-authentik-email",
-        ]
-        assert mock_run_openclaw.call_args_list[6].args[2] == [
-            "config",
-            "set",
-            "gateway.trustedProxies",
-            json.dumps(["172.18.0.2"]),
         ]
 
     @patch("rakkib.hooks.services.subprocess.run")
@@ -442,13 +397,6 @@ class TestSpecialHandlers:
             "http://127.0.0.1:18789",
             "http://localhost:18789",
         ]
-
-    @patch("rakkib.hooks.services._run_openclaw")
-    @patch("rakkib.hooks.services._resolve_caddy_proxy_ip", return_value="172.18.0.2")
-    def test_openclaw_trusted_proxy_auth_is_skipped_without_authentik(self, _mock_ip, mock_run_openclaw):
-        state = State({"foundation_services": []})
-        service_hooks._ensure_openclaw_trusted_proxy_auth(state, Path("/home/admin/.local/bin/openclaw"))
-        mock_run_openclaw.assert_not_called()
 
     @patch("rakkib.hooks.services._run_as_user")
     @patch("rakkib.hooks.services._resolve_openclaw_bin_for_user")
@@ -559,18 +507,18 @@ class TestSpecialHandlers:
 
     def test_service_postgres_login_preflight_raises_when_password_missing(self):
         state = State({"secrets": {"values": {}}})
-        svc = {"id": "authentik", "postgres": {"role": "authentik", "password_key": "AUTHENTIK_DB_PASS"}}
+        svc = {"id": "n8n", "postgres": {"role": "n8n", "password_key": "N8N_DB_PASS"}}
 
-        with pytest.raises(RuntimeError, match="AUTHENTIK_DB_PASS"):
+        with pytest.raises(RuntimeError, match="N8N_DB_PASS"):
             service_hooks.service_postgres_login_preflight(state, svc, Path("."), Path("."), Path("hook.log"), {})
 
     @patch("rakkib.hooks.services.subprocess.run")
     def test_service_postgres_login_preflight_raises_on_failed_login(self, mock_run):
         mock_run.return_value = MagicMock(returncode=2, stdout="", stderr="password authentication failed")
-        state = State({"AUTHENTIK_DB_PASS": "bad-pass"})
-        svc = {"id": "authentik", "postgres": {"role": "authentik", "password_key": "AUTHENTIK_DB_PASS"}}
+        state = State({"N8N_DB_PASS": "bad-pass"})
+        svc = {"id": "n8n", "postgres": {"role": "n8n", "password_key": "N8N_DB_PASS"}}
 
-        with pytest.raises(RuntimeError, match="service 'authentik'"):
+        with pytest.raises(RuntimeError, match="service 'n8n'"):
             service_hooks.service_postgres_login_preflight(state, svc, Path("."), Path("."), Path("hook.log"), {})
 
 
@@ -590,10 +538,6 @@ class TestRemoveSingleService:
         data_dir = data_root / "data" / "n8n"
         data_dir.mkdir(parents=True)
         (data_dir / "payload.txt").write_text("payload\n")
-
-        blueprint_dir = data_root / "data" / "authentik" / "blueprints" / "custom"
-        blueprint_dir.mkdir(parents=True)
-        (blueprint_dir / "n8n.yaml").write_text("blueprint\n")
 
         extra_path = data_root / "docker" / "n8n" / "extra.toml"
         extra_path.write_text("config\n")
@@ -617,7 +561,6 @@ class TestRemoveSingleService:
         assert not service_dir.exists()
         assert not (route_path / "n8n.caddy").exists()
         assert not data_dir.exists()
-        assert not (blueprint_dir / "n8n.yaml").exists()
         assert not extra_path.exists()
         sql = mock_run.call_args.kwargs["input"]
         assert "DROP DATABASE IF EXISTS n8n_db;" in sql
@@ -763,20 +706,3 @@ class TestRestartService:
         assert result.ok is True
         # container_publishes_port should NOT be called for host_port=False services
         mock_port.assert_not_called()
-
-    @patch("rakkib.steps.services._repo_dir")
-    @patch("rakkib.steps.services.container_running")
-    @patch("rakkib.steps.services.container_publishes_port")
-    def test_authentik_container_name(self, mock_port, mock_running, mock_repo, fake_repo):
-        mock_repo.return_value = fake_repo
-        mock_running.return_value = True
-        mock_port.return_value = True
-        # Add authentik to fake registry
-        registry = services_step._load_registry()
-        state = State({
-            "foundation_services": ["authentik"],
-            "selected_services": [],
-        })
-        result = services_step.verify(state)
-        assert result.ok is True
-        mock_running.assert_any_call("authentik-server")

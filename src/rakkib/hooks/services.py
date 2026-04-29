@@ -10,8 +10,8 @@ import subprocess
 import time
 from pathlib import Path
 
-from rakkib.docker import capture_container_logs, container_running, health_check
-from rakkib.render import render_file, render_text
+from rakkib.docker import container_running
+from rakkib.render import render_file
 from rakkib.steps import selected_service_defs
 
 
@@ -219,53 +219,6 @@ def _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin: Path) -> No
         )
 
 
-def _resolve_caddy_proxy_ip() -> str:
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", "caddy"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            "Could not resolve the Caddy container IP for OpenClaw trusted-proxy auth. "
-            f"docker inspect output: {result.stderr.strip() or result.stdout.strip()}"
-        )
-
-    ip = result.stdout.strip()
-    if not ip:
-        raise RuntimeError("Could not resolve the Caddy container IP for OpenClaw trusted-proxy auth.")
-    return ip
-
-
-def _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin: Path) -> None:
-    foundation = set(state.get("foundation_services", []) or [])
-    if "authentik" not in foundation:
-        return
-
-    caddy_ip = _resolve_caddy_proxy_ip()
-
-    clear_token = _run_openclaw(state, openclaw_bin, ["config", "unset", "gateway.auth.token"], check=False)
-    clear_output = f"{clear_token.stdout}\n{clear_token.stderr}".lower()
-    if clear_token.returncode != 0 and "not found" not in clear_output and "missing" not in clear_output:
-        raise RuntimeError(
-            "OpenClaw gateway token cleanup failed before enabling trusted-proxy auth. "
-            f"Command output: {clear_token.stdout.strip() or clear_token.stderr.strip()}"
-        )
-
-    updates = [
-        ["config", "set", "gateway.auth.mode", "trusted-proxy"],
-        ["config", "set", "gateway.auth.trustedProxy.userHeader", "x-authentik-email"],
-        ["config", "set", "gateway.trustedProxies", json.dumps([caddy_ip])],
-    ]
-    for command in updates:
-        result = _run_openclaw(state, openclaw_bin, command, check=False)
-        if result.returncode != 0:
-            raise RuntimeError(
-                "OpenClaw trusted-proxy auth update failed. "
-                f"Command output: {result.stdout.strip() or result.stderr.strip()}"
-            )
-
-
 def _homepage_services_content(state, registry: dict) -> str:
     groups: dict[str, list[str]] = {}
     for selected_svc in selected_service_defs(state, registry):
@@ -396,69 +349,6 @@ def homepage_services_yaml(
     _write_text_if_changed(config_dir / "services.yaml", _homepage_services_content(state, registry))
 
 
-def authentik_blueprints(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
-    """Render any selected service Authentik blueprints."""
-    del svc, log_path
-    blueprints_dir = data_root / "data" / "authentik" / "blueprints" / "custom"
-    blueprints_dir.mkdir(parents=True, exist_ok=True)
-
-    proxy_provider_ids: list[str] = []
-    for selected_svc in selected_service_defs(state, registry):
-        blueprint = (selected_svc.get("authentik") or {}).get("blueprint")
-        if not blueprint:
-            continue
-        tmpl = repo / blueprint
-        if tmpl.exists():
-            rendered = render_text(tmpl.read_text(), state)
-            _write_text_if_changed(blueprints_dir / f"{selected_svc['id']}.yaml", rendered)
-            if "proxy" in blueprint:
-                proxy_provider_ids.append(selected_svc["id"])
-
-    _write_outpost_blueprint(state, blueprints_dir, proxy_provider_ids)
-
-
-def _write_outpost_blueprint(state, blueprints_dir: Path, provider_ids: list[str]) -> None:
-    """Write (or remove) the outpost blueprint that binds proxy providers to the embedded outpost."""
-    outpost_file = blueprints_dir / "outpost.yaml"
-    if not provider_ids:
-        outpost_file.unlink(missing_ok=True)
-        return
-
-    domain = str(state.get("domain") or state.get("DOMAIN") or "localhost").strip()
-    authentik_subdomain = str(
-        state.get("AUTHENTIK_SUBDOMAIN") or state.get("subdomains.authentik") or "auth"
-    ).strip()
-    authentik_url = f"https://{authentik_subdomain}.{domain}/"
-    provider_lines = "\n".join(
-        f"        - !Find [authentik_providers_proxy.proxyprovider, [name, provider-{pid}]]"
-        for pid in provider_ids
-    )
-    content = f"""\
-version: 1
-metadata:
-  name: Rakkib - Embedded Outpost Providers
-entries:
-  - model: authentik_outposts.outpost
-    state: present
-    identifiers:
-      name: "authentik Embedded Outpost"
-    attrs:
-      config:
-        authentik_host: "{authentik_url}"
-        authentik_host_browser: "{authentik_url}"
-      providers:
-{provider_lines}
-"""
-    _write_text_if_changed(outpost_file, content)
-
-
 def _service_postgres_credentials(state, svc: dict) -> tuple[str, str, str]:
     postgres = svc.get("postgres") or {}
     role = postgres.get("role", svc["id"])
@@ -492,9 +382,6 @@ def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) ->
             config_dir / "services.yaml",
             _homepage_services_content(state, registry),
         )
-
-    if "authentik" in selected_ids:
-        authentik_blueprints(state, {}, repo, data_root, data_root / "logs" / "step5-authentik.log", registry)
 
     if homepage_changed:
         _restart_service(data_root, "homepage")
@@ -559,34 +446,6 @@ def service_postgres_login_preflight(
         )
 
 
-_AUTHENTIK_HEALTH_TIMEOUT = 360
-
-
-def authentik_wait_healthy(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
-    """Wait for authentik-server to become healthy; capture logs on failure."""
-    del state, svc, repo, data_root, registry
-    if not health_check("authentik-server", timeout=_AUTHENTIK_HEALTH_TIMEOUT):
-        capture_container_logs("authentik-server", log_path)
-        capture_container_logs("authentik-worker", log_path)
-        result = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Health.Status}}", "authentik-server"],
-            capture_output=True,
-            text=True,
-        )
-        last_status = result.stdout.strip() or "unknown"
-        raise RuntimeError(
-            f"authentik-server health check timed out after {_AUTHENTIK_HEALTH_TIMEOUT}s "
-            f"(last status: {last_status}). See {log_path} for container logs."
-        )
-
-
 def openclaw_install(
     state,
     svc: dict,
@@ -637,7 +496,6 @@ def openclaw_install(
     if config_path.exists():
         _ensure_openclaw_gateway_bind(state, openclaw_bin)
         _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
-        _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin)
         return
 
     onboard = _run_openclaw(
@@ -670,7 +528,6 @@ def openclaw_install(
 
     _ensure_openclaw_gateway_bind(state, openclaw_bin)
     _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
-    _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin)
 
 
 def openclaw_gateway_restart(
@@ -740,7 +597,6 @@ def openclaw_gateway_uninstall(
 
 POST_RENDER_HOOKS = {
     "homepage_services_yaml": homepage_services_yaml,
-    "authentik_blueprints": authentik_blueprints,
 }
 
 PRE_START_HOOKS = {
@@ -749,7 +605,6 @@ PRE_START_HOOKS = {
 }
 
 POST_START_HOOKS = {
-    "authentik_wait_healthy": authentik_wait_healthy,
     "openclaw_gateway_restart": openclaw_gateway_restart,
 }
 

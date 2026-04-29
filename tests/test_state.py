@@ -82,12 +82,11 @@ def _phase_2_state() -> dict:
 def _phase_3_state() -> dict:
     return {
         **_phase_2_state(),
-        "foundation_services": ["nocodb", "authentik", "homepage", "uptime-kuma", "dockge"],
+        "foundation_services": ["nocodb", "homepage", "uptime-kuma", "dockge"],
         "selected_services": ["n8n", "immich"],
         "host_addons": ["vergo_terminal"],
         "subdomains": {
             "nocodb": "nocodb",
-            "authentik": "auth",
             "homepage": "home",
             "uptime-kuma": "status",
             "dockge": "dockge",
@@ -124,9 +123,6 @@ def _phase_5_state() -> dict:
                 "POSTGRES_PASSWORD": None,
                 "NOCODB_DB_PASS": None,
                 "NOCODB_ADMIN_PASS": None,
-                "AUTHENTIK_SECRET_KEY": None,
-                "AUTHENTIK_DB_PASS": None,
-                "AUTHENTIK_ADMIN_PASS": None,
                 "N8N_DB_PASS": None,
                 "N8N_ENCRYPTION_KEY": None,
                 "IMMICH_DB_PASSWORD": None,

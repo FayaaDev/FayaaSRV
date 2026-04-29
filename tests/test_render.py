@@ -102,29 +102,25 @@ def test_render_tree(tmp_path):
     assert not (dst / "skip.txt").exists()
 
 
-def test_rendered_homepage_route_proxies_authentik_outpost(tmp_path):
-    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "homepage.caddy.tmpl"
+def test_rendered_homepage_route_is_public(tmp_path):
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "homepage-public.caddy.tmpl"
     dst = tmp_path / "homepage.caddy"
 
     state = State({"domain": "example.com", "HOMEPAGE_SUBDOMAIN": "home"})
     render_file(src, dst, state)
 
     rendered = dst.read_text()
-    assert "reverse_proxy /outpost.goauthentik.io/* authentik-server:9000" in rendered
-    assert "uri /outpost.goauthentik.io/auth/caddy" in rendered
-    assert "copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Uid" in rendered
     assert "reverse_proxy homepage:3000" in rendered
 
 
 def test_rendered_n8n_route_keeps_proxy_headers(tmp_path):
-    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "n8n.caddy.tmpl"
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "n8n-public.caddy.tmpl"
     dst = tmp_path / "n8n.caddy"
 
     state = State({"domain": "example.com", "N8N_SUBDOMAIN": "n8n"})
     render_file(src, dst, state)
 
     rendered = dst.read_text()
-    assert "reverse_proxy /outpost.goauthentik.io/* authentik-server:9000" in rendered
     assert "reverse_proxy n8n:5678 {" in rendered
     assert "header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}" in rendered
     assert "header_up X-Real-IP {http.request.header.CF-Connecting-IP}" in rendered
@@ -173,6 +169,6 @@ def test_render_text_with_underscore_key():
 
 
 def test_render_text_service_enabled_boolean():
-    state = State({"foundation_services": ["authentik"]})
-    result = render_text("{% if AUTHENTIK_ENABLED %}yes{% else %}no{% endif %}", state)
+    state = State({"foundation_services": ["homepage"]})
+    result = render_text("{% if HOMEPAGE_ENABLED %}yes{% else %}no{% endif %}", state)
     assert result == "yes"

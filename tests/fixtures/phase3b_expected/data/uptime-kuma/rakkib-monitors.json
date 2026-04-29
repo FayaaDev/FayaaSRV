@@ -8,15 +8,6 @@
     {
       "interval": 60,
       "maxretries": 3,
-      "name": "Authentik",
-      "service_id": "authentik",
-      "timeout": 10,
-      "type": "http",
-      "url": "https://auth.example.com/"
-    },
-    {
-      "interval": 60,
-      "maxretries": 3,
       "name": "Dockge",
       "service_id": "dockge",
       "timeout": 10,

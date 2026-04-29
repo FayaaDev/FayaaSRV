@@ -498,10 +498,7 @@ def _enforce_rules(schema: QuestionSchema, state: State) -> None:
                     if req_key == "foundation_services":
                         for req_val in req_values:
                             if req_val not in foundation:
-                                console.print(
-                                    f"[yellow]Hermes dashboard exposure requires Authentik protection. "
-                                    f"Re-selecting {req_val}.[/yellow]"
-                                )
+                                console.print(f"[yellow]Re-selecting required service {req_val}.[/yellow]")
                                 foundation = foundation + [req_val]
                         state.set("foundation_services", foundation)
 

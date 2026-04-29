@@ -49,7 +49,7 @@ def sample_schema() -> QuestionSchema:
         service_catalog={
             "foundation_bundle": [
                 {"slug": "nocodb", "default_subdomain": "nocodb"},
-                {"slug": "authentik", "default_subdomain": "auth"},
+                {"slug": "homepage", "default_subdomain": "home"},
             ],
             "optional_services": [
                 {"slug": "n8n", "default_subdomain": "n8n"},
@@ -57,7 +57,7 @@ def sample_schema() -> QuestionSchema:
         },
         rules=[
             {"if_selected": "transfer", "require_confirm": "transfer_public_risk"},
-            {"if_selected": "hermes", "requires": {"foundation_services": ["authentik"]}},
+            {"if_selected": "hermes", "requires": {"foundation_services": ["homepage"]}},
         ],
     )
 
@@ -194,14 +194,14 @@ class TestRunField:
             type="multi_select",
             selection_mode="deselect_from_default",
             prompt="Deselect?",
-            canonical_values=["nocodb", "authentik", "homepage"],
-            default=["nocodb", "authentik", "homepage"],
-            numeric_aliases={"1": "nocodb", "2": "authentik", "3": "homepage"},
+            canonical_values=["nocodb", "homepage", "uptime-kuma"],
+            default=["nocodb", "homepage", "uptime-kuma"],
+            numeric_aliases={"1": "nocodb", "2": "homepage", "3": "uptime-kuma"},
             records=["foundation_services"],
         )
         with patch("rakkib.interview.prompt_checkbox", return_value=["homepage"]):
             _run_field(field, empty_state)
-        assert empty_state.get("foundation_services") == ["nocodb", "authentik"]
+        assert empty_state.get("foundation_services") == ["nocodb", "homepage"]
 
     def test_multi_select_add(self, empty_state):
         field = FieldDef(
@@ -596,12 +596,12 @@ class TestHandleRepeat:
             prompt_template="Subdomain for <service>? [default: <default>]",
             records=["subdomains"],
         )
-        empty_state.set("foundation_services", ["nocodb", "authentik"])
+        empty_state.set("foundation_services", ["nocodb", "homepage"])
         empty_state.set("selected_services", ["n8n"])
         empty_state.set("customize_subdomains", False)
         _handle_repeat(field, empty_state, sample_schema)
         assert empty_state.get("subdomains.nocodb") == "nocodb"
-        assert empty_state.get("subdomains.authentik") == "auth"
+        assert empty_state.get("subdomains.homepage") == "home"
         assert empty_state.get("subdomains.n8n") == "n8n"
 
 
@@ -623,14 +623,14 @@ class TestEnforceRules:
             _enforce_rules(sample_schema, state)
         assert state.get("selected_services") == ["transfer"]
 
-    def test_hermes_adds_authentik(self, sample_schema):
+    def test_hermes_adds_required_service(self, sample_schema):
         state = State({
             "selected_services": ["hermes"],
             "foundation_services": ["nocodb"],
         })
         with patch("rakkib.interview.console.print"):
             _enforce_rules(sample_schema, state)
-        assert "authentik" in state.get("foundation_services")
+        assert "homepage" in state.get("foundation_services")
 
 
 # ---------------------------------------------------------------------------

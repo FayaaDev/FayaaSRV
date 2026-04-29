@@ -240,7 +240,7 @@ class TestStatus:
             "domain: example.com\n"
             "data_root: /srv\n"
             "platform: linux\n"
-            "foundation_services:\n  - nocodb\n  - authentik\n"
+            "foundation_services:\n  - nocodb\n  - homepage\n"
             "selected_services:\n  - n8n\n"
             "host_addons:\n  - vergo_terminal\n"
             "subdomains:\n  nocodb: nocodb\n  n8n: n8n\n"
@@ -387,10 +387,9 @@ class TestAdd:
         services = [
             {"id": "postgres", "state_bucket": "always", "depends_on": [], "default_subdomain": None, "subdomain_placeholder": None, "notes": "Shared database backend."},
             {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN", "notes": "Service dashboard."},
-            {"id": "authentik", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "auth", "subdomain_placeholder": "AUTHENTIK_SUBDOMAIN", "notes": "SSO proxy.", "authentik": {"blueprint": "templates/docker/authentik/blueprints/proxy-authentik.yaml.tmpl"}},
             {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN", "notes": "No-code database UI.", "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"}},
             {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}},
-            {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["authentik"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
+            {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["homepage"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
         ]
         if extra_services:
             services.extend(extra_services)
@@ -412,7 +411,7 @@ class TestAdd:
 
         assert result.exit_code == 1
         assert "Invalid service selection" in result.output
-        assert "hermes requires authentik" in result.output
+        assert "hermes requires homepage" in result.output
 
     def test_add_no_changes(self, tmp_path: Path):
         runner = CliRunner()
@@ -437,20 +436,19 @@ class TestAdd:
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            "foundation_services:\n  - homepage\n  - authentik\n"
+            "foundation_services:\n  - homepage\n  - nocodb\n"
             "selected_services:\n  - n8n\n"
             "subdomains:\n"
             "  homepage: home\n"
-            "  authentik: auth\n"
             "  n8n: n8n\n"
-            "AUTHENTIK_SUBDOMAIN: auth\n"
             "HOMEPAGE_SUBDOMAIN: home\n"
+            "NOCODB_SUBDOMAIN: nocodb\n"
             "N8N_SUBDOMAIN: n8n\n"
         )
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
-            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "authentik"]),
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "nocodb"]),
             patch("rakkib.cli.prompt_confirm", return_value=False),
             patch("rakkib.steps.services.remove_single_service") as mock_remove,
         ):
@@ -470,16 +468,15 @@ class TestAdd:
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            "foundation_services:\n  - homepage\n  - authentik\n"
+            "foundation_services:\n  - homepage\n  - nocodb\n"
             "selected_services:\n  - n8n\n"
             "data_root: /srv\n"
             "domain: example.com\n"
             "subdomains:\n"
             "  homepage: home\n"
-            "  authentik: auth\n"
             "  n8n: n8n\n"
-            "AUTHENTIK_SUBDOMAIN: auth\n"
             "HOMEPAGE_SUBDOMAIN: home\n"
+            "NOCODB_SUBDOMAIN: nocodb\n"
             "N8N_SUBDOMAIN: n8n\n"
         )
         call_order: list[str] = []
@@ -501,7 +498,7 @@ class TestAdd:
 
         assert result.exit_code == 0
         assert "synced successfully" in result.output
-        assert [call.args[1] for call in mock_remove.call_args_list] == ["n8n", "authentik"]
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["n8n"]
         mock_secrets.assert_called_once()
         mock_postgres_run.assert_called_once()
         mock_services_run.assert_called_once()
@@ -513,7 +510,6 @@ class TestAdd:
         assert saved_state.get("subdomains") == {"homepage": "home", "nocodb": "nocodb"}
         assert saved_state.get("HOMEPAGE_SUBDOMAIN") == "home"
         assert saved_state.get("NOCODB_SUBDOMAIN") == "nocodb"
-        assert saved_state.get("AUTHENTIK_SUBDOMAIN") is None
         assert saved_state.get("N8N_SUBDOMAIN") is None
 
 

@@ -37,12 +37,6 @@ fields:
         when: nocodb in foundation_services
       - key: NOCODB_ADMIN_PASS
         when: nocodb in foundation_services
-      - key: AUTHENTIK_SECRET_KEY
-        when: authentik in foundation_services
-      - key: AUTHENTIK_DB_PASS
-        when: authentik in foundation_services
-      - key: AUTHENTIK_ADMIN_PASS
-        when: authentik in foundation_services
       - key: N8N_DB_PASS
         when: n8n in selected_services
       - key: N8N_ENCRYPTION_KEY
@@ -68,12 +62,6 @@ fields:
     records:
       - secrets.values.N8N_ENCRYPTION_KEY
 execution_generated_only:
-  - key: NOCODB_OIDC_CLIENT_ID
-    when: nocodb in foundation_services and authentik in foundation_services
-    reason: Generated during steps/60-services.md; not prompted during the interview.
-  - key: NOCODB_OIDC_CLIENT_SECRET
-    when: nocodb in foundation_services and authentik in foundation_services
-    reason: Generated during steps/60-services.md; not prompted during the interview.
   - key: IMMICH_VERSION
     when: immich in selected_services
     reason: Defaults to `release` during Immich rendering; not prompted during the interview.
@@ -104,9 +92,6 @@ If the answer is `n`, record `mode: manual` and ask for the following values:
 - `POSTGRES_PASSWORD`
 - `NOCODB_DB_PASS` if `nocodb` is in `foundation_services`
 - `NOCODB_ADMIN_PASS` if `nocodb` is in `foundation_services`
-- `AUTHENTIK_SECRET_KEY` if `authentik` is in `foundation_services`
-- `AUTHENTIK_DB_PASS` if `authentik` is in `foundation_services`
-- `AUTHENTIK_ADMIN_PASS` if `authentik` is in `foundation_services`
 
 If `n8n` is selected, also ask for:
 - `N8N_DB_PASS`
@@ -114,8 +99,6 @@ If `n8n` is selected, also ask for:
 
 If `immich` is selected, also ask for:
 - `IMMICH_DB_PASSWORD`
-
-If both `nocodb` and `authentik` are selected, do not ask for `NOCODB_OIDC_CLIENT_ID` or `NOCODB_OIDC_CLIENT_SECRET` during the interview. Those values should still be generated during `steps/60-services.md` because they are internal service-integration credentials rather than user-chosen installation secrets.
 
 Record each value under `secrets.values`.
 
@@ -141,15 +124,12 @@ Warn clearly: `N8N_ENCRYPTION_KEY` must not change after first use.
 
 ```yaml
 secrets:
-  mode: generate              # or: manual
-  n8n_mode: fresh             # only if n8n selected
+  mode: generate
+  n8n_mode: fresh
   values:
     POSTGRES_PASSWORD: null
     NOCODB_DB_PASS: null
     NOCODB_ADMIN_PASS: null
-    AUTHENTIK_SECRET_KEY: null
-    AUTHENTIK_DB_PASS: null
-    AUTHENTIK_ADMIN_PASS: null
     N8N_DB_PASS: null
     N8N_ENCRYPTION_KEY: null
     IMMICH_DB_PASSWORD: null

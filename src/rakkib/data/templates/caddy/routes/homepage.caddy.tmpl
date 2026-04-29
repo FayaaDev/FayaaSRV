@@ -1,3 +1,0 @@
-	# Homepage dashboard — protected by Authentik forward auth
-	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
-	{% call authentik.protected_route("homepage", HOMEPAGE_SUBDOMAIN ~ "." ~ DOMAIN, "homepage:3000") %}{% endcall %}

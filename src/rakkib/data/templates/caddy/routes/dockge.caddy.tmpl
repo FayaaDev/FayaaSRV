@@ -1,3 +1,0 @@
-	# Dockge Compose manager — protected by Authentik forward auth
-	{% import "_authentik-protected-route.caddy.tmpl" as authentik %}
-	{% call authentik.protected_route("dockge", DOCKGE_SUBDOMAIN ~ "." ~ DOMAIN, "dockge:5001") %}{% endcall %}
