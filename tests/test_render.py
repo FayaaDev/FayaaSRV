@@ -113,6 +113,16 @@ def test_rendered_homepage_route_is_public(tmp_path):
     assert "reverse_proxy homepage:3000" in rendered
 
 
+def test_rendered_homepage_env_allows_public_host(tmp_path):
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "docker" / "homepage" / ".env.example"
+    dst = tmp_path / "homepage.env"
+
+    state = State({"domain": "example.com", "HOMEPAGE_SUBDOMAIN": "home"})
+    render_file(src, dst, state)
+
+    assert dst.read_text() == "HOMEPAGE_ALLOWED_HOSTS=home.example.com"
+
+
 def test_rendered_n8n_route_keeps_proxy_headers(tmp_path):
     src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "n8n-public.caddy.tmpl"
     dst = tmp_path / "n8n.caddy"

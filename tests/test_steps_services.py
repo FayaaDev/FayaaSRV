@@ -236,6 +236,95 @@ class TestRun:
         env_path = data_root / "docker" / "nocodb" / ".env"
         assert env_path.exists()
 
+    @patch("rakkib.steps.services.compose_up")
+    @patch("rakkib.steps.services._reload_caddy")
+    @patch("rakkib.steps.services._run_named_hooks")
+    @patch("rakkib.hooks.services.container_running", return_value=False)
+    def test_all_registry_services_render_for_add_sync(
+        self,
+        _mock_hook_container_running: MagicMock,
+        mock_hooks: MagicMock,
+        mock_reload: MagicMock,
+        mock_compose: MagicMock,
+        tmp_path: Path,
+    ):
+        data_root = tmp_path / "srv"
+        state = State(
+            {
+                "data_root": str(data_root),
+                "domain": "example.com",
+                "docker_net": "caddy_net",
+                "platform": "linux",
+                "host_gateway": "172.18.0.1",
+                "foundation_services": ["nocodb", "homepage", "uptime-kuma", "dockge"],
+                "selected_services": ["n8n", "immich", "transfer", "jellyfin", "openclaw"],
+                "subdomains": {
+                    "nocodb": "data",
+                    "homepage": "home",
+                    "uptime-kuma": "status",
+                    "dockge": "dock",
+                    "n8n": "flow",
+                    "immich": "photos",
+                    "transfer": "send",
+                    "jellyfin": "media",
+                    "openclaw": "claw",
+                },
+                "NOCODB_SUBDOMAIN": "data",
+                "HOMEPAGE_SUBDOMAIN": "home",
+                "UPTIME_KUMA_SUBDOMAIN": "status",
+                "DOCKGE_SUBDOMAIN": "dock",
+                "N8N_SUBDOMAIN": "flow",
+                "IMMICH_SUBDOMAIN": "photos",
+                "TRANSFER_SUBDOMAIN": "send",
+                "JELLYFIN_SUBDOMAIN": "media",
+                "OPENCLAW_SUBDOMAIN": "claw",
+                "NOCODB_DB_PASS": "nocodb-pass",
+                "NOCODB_ADMIN_PASS": "nocodb-admin-pass",
+                "ADMIN_EMAIL": "admin@example.com",
+                "UPTIME_KUMA_ADMIN_USER": "admin",
+                "UPTIME_KUMA_ADMIN_PASS": "uptime-pass",
+                "N8N_DB_PASS": "n8n-pass",
+                "N8N_ENCRYPTION_KEY": "n8n-encryption-key-123456789012",
+                "IMMICH_DB_PASSWORD": "immich-password",
+                "IMMICH_VERSION": "release",
+                "TZ": "Asia/Riyadh",
+                "secrets": {
+                    "values": {
+                        "NOCODB_DB_PASS": "nocodb-pass",
+                        "N8N_DB_PASS": "n8n-pass",
+                    }
+                },
+            }
+        )
+
+        services_step.run(state)
+
+        composed = {Path(call.args[0]).name for call in mock_compose.call_args_list}
+        assert composed == {"dockge", "homepage", "immich", "jellyfin", "n8n", "nocodb", "transfer", "uptime-kuma"}
+        mock_reload.assert_called_once()
+        assert any(call.args[3]["id"] == "openclaw" for call in mock_hooks.call_args_list)
+
+        routes = {path.name for path in (data_root / "docker" / "caddy" / "routes").glob("*.caddy")}
+        assert routes == {
+            "dockge.caddy",
+            "homepage.caddy",
+            "immich.caddy",
+            "jellyfin.caddy",
+            "n8n.caddy",
+            "nocodb.caddy",
+            "openclaw.caddy",
+            "transfer.caddy",
+            "uptime-kuma.caddy",
+        }
+
+        generated_files = [path for path in data_root.rglob("*") if path.is_file()]
+        unresolved = [
+            str(path.relative_to(data_root))
+            for path in generated_files
+            if "{{" in path.read_text(errors="ignore") or "}}" in path.read_text(errors="ignore")
+        ]
+        assert unresolved == []
+
 
 class TestRunSingleService:
     @patch("rakkib.steps.services._repo_dir")

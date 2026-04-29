@@ -385,11 +385,20 @@ class TestDoctor:
 class TestAdd:
     def _make_registry(self, extra_services=None):
         services = [
-            {"id": "postgres", "state_bucket": "always", "depends_on": [], "default_subdomain": None, "subdomain_placeholder": None, "notes": "Shared database backend."},
+            {
+                "id": "postgres",
+                "state_bucket": "always",
+                "depends_on": [],
+                "default_subdomain": None,
+                "subdomain_placeholder": None,
+                "notes": "Shared database backend.",
+                "secrets": {"POSTGRES_PASSWORD": {"factory": "password"}},
+            },
             {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN", "notes": "Service dashboard."},
             {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN", "notes": "No-code database UI.", "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"}},
             {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}},
             {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["homepage"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
+            {"id": "openclaw", "state_bucket": "selected_services", "host_service": True, "depends_on": [], "default_subdomain": "claw", "subdomain_placeholder": "OPENCLAW_SUBDOMAIN", "notes": "AI assistant gateway."},
         ]
         if extra_services:
             services.extend(extra_services)
@@ -413,22 +422,107 @@ class TestAdd:
         assert "Invalid service selection" in result.output
         assert "hermes requires homepage" in result.output
 
-    def test_add_no_changes(self, tmp_path: Path):
+    def test_add_no_changes_refreshes_selected_services(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("foundation_services:\n  - homepage\nselected_services: []\n")
+        state_file.write_text(
+            "foundation_services:\n  - homepage\n"
+            "selected_services: []\n"
+            "domain: example.com\n"
+            "subdomains:\n"
+            "  homepage: home\n"
+            "HOMEPAGE_SUBDOMAIN: home\n"
+        )
+        call_order: list[str] = []
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
             patch("rakkib.cli.prompt_checkbox", return_value=["homepage"]),
+            patch("rakkib.cli.prompt_confirm") as mock_confirm,
+            patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
+            patch("rakkib.steps.postgres.run") as mock_postgres_run,
+            patch("rakkib.steps.services.run") as mock_services_run,
+        ):
+            mock_reg.return_value = self._make_registry()
+            mock_secrets.side_effect = lambda state: call_order.append("secrets")
+            mock_postgres_run.side_effect = lambda state: call_order.append("postgres")
+            mock_services_run.side_effect = lambda state: call_order.append("services")
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        assert "No selection changes; refreshing selected services" in result.output
+        assert "synced successfully" in result.output
+        mock_confirm.assert_not_called()
+        mock_secrets.assert_called_once()
+        mock_postgres_run.assert_called_once()
+        mock_services_run.assert_called_once()
+        assert call_order == ["secrets", "postgres", "services"]
+
+        saved_state = State.load(state_file)
+        assert saved_state.get("foundation_services") == ["homepage"]
+        assert saved_state.get("selected_services") == []
+        assert saved_state.get("subdomains") == {"homepage": "home"}
+        assert saved_state.get("HOMEPAGE_SUBDOMAIN") == "home"
+
+    def test_add_preserves_always_service_secrets(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "foundation_services:\n  - homepage\n"
+            "selected_services: []\n"
+            "POSTGRES_PASSWORD: keep-postgres\n"
+            "secrets:\n"
+            "  values:\n"
+            "    POSTGRES_PASSWORD: keep-postgres\n"
+        )
+
+        with (
+            patch("rakkib.steps.services._load_registry") as mock_reg,
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage"]),
+            patch("rakkib.steps.services._generate_missing_secrets"),
+            patch("rakkib.steps.postgres.run"),
+            patch("rakkib.steps.services.run"),
         ):
             mock_reg.return_value = self._make_registry()
             result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "No service changes selected" in result.output
+        saved_state = State.load(state_file)
+        assert saved_state.get("POSTGRES_PASSWORD") == "keep-postgres"
+        assert saved_state.get("secrets.values.POSTGRES_PASSWORD") == "keep-postgres"
+
+    def test_add_backfills_host_gateway_for_host_services(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "platform: linux\n"
+            "foundation_services: []\n"
+            "selected_services: []\n"
+        )
+
+        with (
+            patch("rakkib.steps.services._load_registry") as mock_reg,
+            patch("rakkib.cli.prompt_checkbox", return_value=["openclaw"]),
+            patch("rakkib.cli.prompt_confirm", return_value=True),
+            patch("rakkib.steps.services._generate_missing_secrets"),
+            patch("rakkib.steps.postgres.run"),
+            patch("rakkib.steps.services.run"),
+        ):
+            mock_reg.return_value = self._make_registry()
+            result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        saved_state = State.load(state_file)
+        assert saved_state.get("selected_services") == ["openclaw"]
+        assert saved_state.get("subdomains.openclaw") == "claw"
+        assert saved_state.get("OPENCLAW_SUBDOMAIN") == "claw"
+        assert saved_state.get("host_gateway") == "172.18.0.1"
 
     def test_add_aborts_when_not_confirmed(self, tmp_path: Path):
         runner = CliRunner()

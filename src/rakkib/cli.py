@@ -127,16 +127,30 @@ def _validate_service_dependencies(selected_ids: set[str], registry: dict[str, A
     return errors
 
 
+def _default_host_gateway(state: State) -> str:
+    platform = str(state.get("platform", "linux")).lower()
+    if platform == "mac":
+        return "host.docker.internal"
+    return "172.18.0.1"
+
+
 def _apply_service_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
+    active_ids = set(selected_ids)
+    active_ids.update(
+        svc["id"]
+        for svc in registry["services"]
+        if svc.get("state_bucket") == "always"
+    )
+
     foundation_ids = [
         svc["id"]
         for svc in registry["services"]
-        if svc.get("state_bucket") == "foundation_services" and svc["id"] in selected_ids
+        if svc.get("state_bucket") == "foundation_services" and svc["id"] in active_ids
     ]
     optional_ids = [
         svc["id"]
         for svc in registry["services"]
-        if svc.get("state_bucket") == "selected_services" and svc["id"] in selected_ids
+        if svc.get("state_bucket") == "selected_services" and svc["id"] in active_ids
     ]
 
     state.set("foundation_services", foundation_ids)
@@ -148,7 +162,7 @@ def _apply_service_selection(state: State, registry: dict[str, Any], selected_id
     for svc in registry["services"]:
         svc_id = svc["id"]
         placeholder = svc.get("subdomain_placeholder")
-        if svc_id not in selected_ids:
+        if svc_id not in active_ids:
             if placeholder:
                 state.delete(placeholder)
             for key in (svc.get("secrets") or {}).keys():
@@ -168,6 +182,9 @@ def _apply_service_selection(state: State, registry: dict[str, Any], selected_id
         subdomains[svc_id] = subdomain
         if placeholder:
             state.set(placeholder, subdomain)
+
+        if svc.get("host_service") and not state.get("host_gateway"):
+            state.set("host_gateway", _default_host_gateway(state))
 
     state.set("subdomains", subdomains)
     state.set("secrets.values", secrets_values)
@@ -495,14 +512,13 @@ def add(ctx: click.Context) -> None:
     added = sorted(selected_ids - old_selected)
     removed = sorted(old_selected - selected_ids)
 
-    if not added and not removed:
-        console.print("[yellow]No service changes selected.[/yellow]")
-        return
-
-    _summarize_service_diff(added, removed)
-    if not prompt_confirm("Apply these service changes?", default=False):
-        console.print("[yellow]Aborted.[/yellow]")
-        return
+    if added or removed:
+        _summarize_service_diff(added, removed)
+        if not prompt_confirm("Apply these service changes?", default=False):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+    else:
+        console.print("[yellow]No selection changes; refreshing selected services.[/yellow]")
 
     removal_order = [
         svc["id"]

@@ -44,6 +44,7 @@ TZ: Asia/Riyadh
 cloudflare:
   ssh_subdomain: ssh
 lan_ip: 192.168.0.10
+host_gateway: 172.18.0.1
 secrets:
   mode: manual
   n8n_mode: fresh
