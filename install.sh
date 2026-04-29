@@ -100,7 +100,10 @@ wait_for_apt_locks() {
   while true; do
     local busy=0
     for f in "${lock_files[@]}"; do
-      [[ -e "$f" ]] && sudo flock -n "$f" true 2>/dev/null || { busy=1; break; }
+      if [[ -e "$f" ]] && ! sudo flock -n "$f" true 2>/dev/null; then
+        busy=1
+        break
+      fi
     done
     [[ $busy -eq 0 ]] && return 0
     if [[ $waited -eq 0 ]]; then
@@ -110,6 +113,11 @@ wait_for_apt_locks() {
     waited=$((waited + 5))
     [[ $waited -ge 300 ]] && die "Timed out after 5 min waiting for apt locks. Fix: sudo killall unattended-upgrades"
   done
+}
+
+apt_get() {
+  local timeout="${RAKKIB_APT_LOCK_TIMEOUT:-600}"
+  sudo apt-get -o "DPkg::Lock::Timeout=${timeout}" "$@"
 }
 
 # Install python3 + python3-venv via the system package manager.
@@ -134,10 +142,11 @@ ensure_python3_and_venv() {
     fi
     wait_for_apt_locks
     log "Refreshing apt index..."
-    sudo apt-get update -qq -o Acquire::Retries=3 \
+    apt_get update -qq -o Acquire::Retries=3 \
       || warn "apt-get update failed; continuing with existing index."
     log "Installing ${pkgs[*]} via apt-get..."
-    sudo apt-get install -y -qq --no-install-recommends "${pkgs[@]}" \
+    wait_for_apt_locks
+    apt_get install -y -qq --no-install-recommends "${pkgs[@]}" \
       || die "Failed to install ${pkgs[*]}. Run 'sudo apt-get update && sudo apt-get install --no-install-recommends ${pkgs[*]}' and rerun install.sh."
   elif command_exists dnf; then
     local pkgs=()
