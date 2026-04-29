@@ -18,6 +18,7 @@ from rakkib.steps import selected_service_defs
 _KUMA_MANAGED_PREFIX = "Managed by Rakkib (service: "
 _OPENCLAW_INSTALL_URL = "https://openclaw.ai/install.sh"
 _OPENCLAW_GATEWAY_TIMEOUT = 180
+_OPENCLAW_GATEWAY_BIND = "lan"
 
 
 def _write_text_if_changed(path: Path, content: str) -> bool:
@@ -51,30 +52,36 @@ def _service_admin_user(state) -> tuple[str, Path, int]:
     return str(admin_user), Path(record.pw_dir), int(record.pw_uid)
 
 
-def _run_as_service_user(state, command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    admin_user, home_dir, user_uid = _service_admin_user(state)
+def _run_as_user(
+    username: str,
+    home_dir: Path,
+    user_uid: int,
+    command: list[str],
+    *,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(
         {
             "HOME": str(home_dir),
-            "USER": admin_user,
-            "LOGNAME": admin_user,
+            "USER": username,
+            "LOGNAME": username,
             "XDG_RUNTIME_DIR": f"/run/user/{user_uid}",
             "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{user_uid}/bus",
         }
     )
 
     run_cmd = command
-    if os.geteuid() == 0 and os.environ.get("USER") != admin_user:
+    if os.geteuid() == 0 and os.environ.get("USER") != username:
         run_cmd = [
             "sudo",
             "-u",
-            admin_user,
+            username,
             "-H",
             "env",
             f"HOME={home_dir}",
-            f"USER={admin_user}",
-            f"LOGNAME={admin_user}",
+            f"USER={username}",
+            f"LOGNAME={username}",
             f"XDG_RUNTIME_DIR=/run/user/{user_uid}",
             f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{user_uid}/bus",
         ] + command
@@ -82,17 +89,36 @@ def _run_as_service_user(state, command: list[str], *, check: bool = True) -> su
     return subprocess.run(run_cmd, capture_output=True, text=True, check=check, env=env)
 
 
-def _resolve_openclaw_bin(state) -> Path | None:
-    direct = shutil.which("openclaw")
+def _run_as_service_user(state, command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    admin_user, home_dir, user_uid = _service_admin_user(state)
+    return _run_as_user(admin_user, home_dir, user_uid, command, check=check)
+
+
+def _root_user() -> tuple[str, Path, int]:
+    record = pwd.getpwnam("root")
+    return "root", Path(record.pw_dir), int(record.pw_uid)
+
+
+def _resolve_openclaw_bin_for_user(state, username: str) -> Path | None:
+    direct = shutil.which("openclaw") if os.environ.get("USER") == username else None
     if direct:
         return Path(direct).resolve()
 
-    result = _run_as_service_user(state, ["bash", "-lc", "command -v openclaw"], check=False)
+    if username == "root":
+        _, home_dir, user_uid = _root_user()
+        result = _run_as_user("root", home_dir, user_uid, ["bash", "-lc", "command -v openclaw"], check=False)
+    else:
+        result = _run_as_service_user(state, ["bash", "-lc", "command -v openclaw"], check=False)
     if result.returncode != 0:
         return None
 
     resolved = result.stdout.strip()
     return Path(resolved).resolve() if resolved else None
+
+
+def _resolve_openclaw_bin(state) -> Path | None:
+    admin_user, _, _ = _service_admin_user(state)
+    return _resolve_openclaw_bin_for_user(state, admin_user)
 
 
 def _run_openclaw(state, openclaw_bin: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -111,6 +137,43 @@ def _openclaw_gateway_healthcheck(timeout: int = _OPENCLAW_GATEWAY_TIMEOUT) -> b
             return True
         time.sleep(2)
     return False
+
+
+def _migrate_root_openclaw_service(state) -> None:
+    admin_user, _, _ = _service_admin_user(state)
+    if admin_user == "root":
+        return
+
+    root_service = Path("/root/.config/systemd/user/openclaw-gateway.service")
+    root_config = Path("/root/.openclaw/openclaw.json")
+    if not root_service.exists() and not root_config.exists():
+        return
+
+    root_bin = _resolve_openclaw_bin_for_user(state, "root")
+    if root_bin is None:
+        return
+
+    root_stop = _run_as_user("root", Path("/root"), 0, [str(root_bin), "gateway", "stop"], check=False)
+    root_uninstall = _run_as_user("root", Path("/root"), 0, [str(root_bin), "gateway", "uninstall"], check=False)
+    if root_uninstall.returncode == 0:
+        return
+
+    output = f"{root_stop.stdout}\n{root_stop.stderr}\n{root_uninstall.stdout}\n{root_uninstall.stderr}".lower()
+    if "not installed" in output or "not found" in output:
+        return
+    raise RuntimeError(
+        "Root-owned OpenClaw gateway cleanup failed before migrating to the admin user. "
+        f"Command output: {root_uninstall.stdout.strip() or root_uninstall.stderr.strip() or root_stop.stdout.strip() or root_stop.stderr.strip()}"
+    )
+
+
+def _ensure_openclaw_gateway_bind(state, openclaw_bin: Path) -> None:
+    bind = _run_openclaw(state, openclaw_bin, ["config", "set", "gateway.bind", _OPENCLAW_GATEWAY_BIND], check=False)
+    if bind.returncode != 0:
+        raise RuntimeError(
+            "OpenClaw gateway bind update failed. "
+            f"Command output: {bind.stdout.strip() or bind.stderr.strip()}"
+        )
 
 
 def _homepage_services_content(state, registry: dict) -> str:
@@ -411,6 +474,7 @@ def openclaw_install(
     if os.geteuid() == 0:
         admin_user, _, _ = _service_admin_user(state)
         subprocess.run(["loginctl", "enable-linger", admin_user], capture_output=True, text=True, check=True)
+        _migrate_root_openclaw_service(state)
 
     openclaw_bin = _resolve_openclaw_bin(state)
     if openclaw_bin is None:
@@ -441,6 +505,7 @@ def openclaw_install(
     _, home_dir, _ = _service_admin_user(state)
     config_path = home_dir / ".openclaw" / "openclaw.json"
     if config_path.exists():
+        _ensure_openclaw_gateway_bind(state, openclaw_bin)
         return
 
     onboard = _run_openclaw(
@@ -456,7 +521,7 @@ def openclaw_install(
             "--gateway-port",
             "18789",
             "--gateway-bind",
-            "loopback",
+            _OPENCLAW_GATEWAY_BIND,
             "--install-daemon",
             "--skip-bootstrap",
             "--skip-skills",
@@ -469,6 +534,8 @@ def openclaw_install(
             "OpenClaw onboarding failed. "
             f"Command output: {onboard.stdout.strip() or onboard.stderr.strip()}"
         )
+
+    _ensure_openclaw_gateway_bind(state, openclaw_bin)
 
 
 def openclaw_gateway_restart(

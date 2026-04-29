@@ -322,6 +322,34 @@ class TestSpecialHandlers:
         assert second_call[1] == Path("/home/admin/.local/bin/openclaw")
         assert second_call[2][0] == "onboard"
 
+    @patch("rakkib.hooks.services._run_openclaw")
+    def test_openclaw_install_updates_bind_when_config_exists(self, mock_run_openclaw):
+        mock_run_openclaw.side_effect = [
+            MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+        state = State({"admin_user": "admin"})
+
+        with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")), patch(
+            "pathlib.Path.exists", return_value=True
+        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000):
+            service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
+
+        assert mock_run_openclaw.call_args_list[1].args[2] == ["config", "set", "gateway.bind", "lan"]
+
+    @patch("rakkib.hooks.services._run_as_user")
+    @patch("rakkib.hooks.services._resolve_openclaw_bin_for_user")
+    def test_migrate_root_openclaw_service_stops_and_uninstalls_root_service(self, mock_resolve_bin, mock_run_as_user):
+        mock_resolve_bin.return_value = Path("/root/.local/bin/openclaw")
+        mock_run_as_user.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        state = State({"admin_user": "ubuntu"})
+
+        with patch("pathlib.Path.exists", side_effect=lambda _self: True):
+            service_hooks._migrate_root_openclaw_service(state)
+
+        assert mock_run_as_user.call_args_list[0].args[3] == ["/root/.local/bin/openclaw", "gateway", "stop"]
+        assert mock_run_as_user.call_args_list[1].args[3] == ["/root/.local/bin/openclaw", "gateway", "uninstall"]
+
     def test_homepage_hook_writes_services_yaml(self, tmp_path):
         state = State(
             {
