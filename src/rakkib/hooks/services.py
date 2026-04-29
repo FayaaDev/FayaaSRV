@@ -201,6 +201,53 @@ def _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin: Path) -> No
         )
 
 
+def _resolve_caddy_proxy_ip() -> str:
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", "caddy"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Could not resolve the Caddy container IP for OpenClaw trusted-proxy auth. "
+            f"docker inspect output: {result.stderr.strip() or result.stdout.strip()}"
+        )
+
+    ip = result.stdout.strip()
+    if not ip:
+        raise RuntimeError("Could not resolve the Caddy container IP for OpenClaw trusted-proxy auth.")
+    return ip
+
+
+def _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin: Path) -> None:
+    foundation = set(state.get("foundation_services", []) or [])
+    if "authentik" not in foundation:
+        return
+
+    caddy_ip = _resolve_caddy_proxy_ip()
+
+    clear_token = _run_openclaw(state, openclaw_bin, ["config", "unset", "gateway.auth.token"], check=False)
+    clear_output = f"{clear_token.stdout}\n{clear_token.stderr}".lower()
+    if clear_token.returncode != 0 and "not found" not in clear_output and "missing" not in clear_output:
+        raise RuntimeError(
+            "OpenClaw gateway token cleanup failed before enabling trusted-proxy auth. "
+            f"Command output: {clear_token.stdout.strip() or clear_token.stderr.strip()}"
+        )
+
+    updates = [
+        ["config", "set", "gateway.auth.mode", "trusted-proxy"],
+        ["config", "set", "gateway.auth.trustedProxy.userHeader", "x-authentik-email"],
+        ["config", "set", "gateway.trustedProxies", json.dumps([caddy_ip])],
+    ]
+    for command in updates:
+        result = _run_openclaw(state, openclaw_bin, command, check=False)
+        if result.returncode != 0:
+            raise RuntimeError(
+                "OpenClaw trusted-proxy auth update failed. "
+                f"Command output: {result.stdout.strip() or result.stderr.strip()}"
+            )
+
+
 def _homepage_services_content(state, registry: dict) -> str:
     groups: dict[str, list[str]] = {}
     for selected_svc in selected_service_defs(state, registry):
@@ -532,6 +579,7 @@ def openclaw_install(
     if config_path.exists():
         _ensure_openclaw_gateway_bind(state, openclaw_bin)
         _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
+        _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin)
         return
 
     onboard = _run_openclaw(
@@ -563,6 +611,7 @@ def openclaw_install(
 
     _ensure_openclaw_gateway_bind(state, openclaw_bin)
     _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
+    _ensure_openclaw_trusted_proxy_auth(state, openclaw_bin)
 
 
 def openclaw_gateway_restart(

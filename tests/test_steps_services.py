@@ -328,12 +328,25 @@ class TestSpecialHandlers:
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
         ]
-        state = State({"admin_user": "admin", "domain": "rakkib.app", "subdomains": {"openclaw": "claw"}})
+        state = State(
+            {
+                "admin_user": "admin",
+                "domain": "rakkib.app",
+                "subdomains": {"openclaw": "claw"},
+                "foundation_services": ["authentik"],
+            }
+        )
 
         with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")), patch(
             "pathlib.Path.exists", return_value=True
-        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000):
+        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000), patch(
+            "rakkib.hooks.services._resolve_caddy_proxy_ip", return_value="172.18.0.2"
+        ):
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         assert mock_run_openclaw.call_args_list[1].args[2] == ["config", "set", "gateway.bind", "lan"]
@@ -342,6 +355,20 @@ class TestSpecialHandlers:
             "set",
             "gateway.controlUi.allowedOrigins",
             json.dumps(service_hooks._openclaw_allowed_origins(state)),
+        ]
+        assert mock_run_openclaw.call_args_list[3].args[2] == ["config", "unset", "gateway.auth.token"]
+        assert mock_run_openclaw.call_args_list[4].args[2] == ["config", "set", "gateway.auth.mode", "trusted-proxy"]
+        assert mock_run_openclaw.call_args_list[5].args[2] == [
+            "config",
+            "set",
+            "gateway.auth.trustedProxy.userHeader",
+            "x-authentik-email",
+        ]
+        assert mock_run_openclaw.call_args_list[6].args[2] == [
+            "config",
+            "set",
+            "gateway.trustedProxies",
+            json.dumps(["172.18.0.2"]),
         ]
 
     def test_openclaw_allowed_origins_include_public_and_local(self):
@@ -352,6 +379,13 @@ class TestSpecialHandlers:
             "http://127.0.0.1:18789",
             "http://localhost:18789",
         ]
+
+    @patch("rakkib.hooks.services._run_openclaw")
+    @patch("rakkib.hooks.services._resolve_caddy_proxy_ip", return_value="172.18.0.2")
+    def test_openclaw_trusted_proxy_auth_is_skipped_without_authentik(self, _mock_ip, mock_run_openclaw):
+        state = State({"foundation_services": []})
+        service_hooks._ensure_openclaw_trusted_proxy_auth(state, Path("/home/admin/.local/bin/openclaw"))
+        mock_run_openclaw.assert_not_called()
 
     @patch("rakkib.hooks.services._run_as_user")
     @patch("rakkib.hooks.services._resolve_openclaw_bin_for_user")
