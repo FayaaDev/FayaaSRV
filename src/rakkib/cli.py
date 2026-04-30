@@ -263,6 +263,23 @@ def _ensure_prereqs() -> bool:
     return True
 
 
+def _print_deployed_urls(state: State, svc_ids: list[str] | None = None) -> None:
+    domain = state.get("domain", "") or ""
+    subdomains: dict[str, str] = state.get("subdomains", {}) or {}
+    if not domain or not subdomains:
+        return
+    rows = [
+        (svc_id, f"https://{subdomain}.{domain}")
+        for svc_id, subdomain in subdomains.items()
+        if subdomain and (svc_ids is None or svc_id in svc_ids)
+    ]
+    if not rows:
+        return
+    console.print("\n[bold]Deployed services:[/bold]")
+    for svc_id, url in rows:
+        console.print(f"  [cyan]{svc_id}[/cyan]  {url}")
+
+
 def _run_steps(state: State, repo_dir: Path) -> bool:
     """Execute setup steps in order. Return True if all pass."""
     all_steps = STEP_MODULES + [("verify", "rakkib.steps.verify")]
@@ -307,6 +324,7 @@ def _run_steps(state: State, repo_dir: Path) -> bool:
             return False
 
     console.print("[bold green]All steps completed successfully.[/bold green]")
+    _print_deployed_urls(state)
     return True
 
 
@@ -558,6 +576,13 @@ def add(ctx: click.Context, service: str | None) -> None:
     state.save(state_path)
 
     console.print("[bold green]Service selection synced successfully.[/bold green]")
+    deployed_ids: list[str] | None = None
+    if service:
+        deployed_ids = [service]
+    elif added:
+        deployed_ids = list(added)
+    if deployed_ids:
+        _print_deployed_urls(state, deployed_ids)
 
 
 @cli.command()
