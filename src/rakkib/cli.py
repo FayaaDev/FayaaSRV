@@ -20,6 +20,8 @@ from rakkib.doctor import (
     attempt_fix_cloudflared,
     attempt_fix_compose,
     attempt_fix_docker,
+    check_disk,
+    check_ram,
     process_owners_for_ports,
     run_checks,
     summary_text,
@@ -469,35 +471,52 @@ def status(ctx: click.Context) -> None:
         )
         return
 
-    from rich.table import Table
+    domain = state.get("domain", "") or ""
+    data_root = state.get("data_root", "/srv") or "/srv"
 
-    table = Table(title="Rakkib Deployment Status", show_header=False)
-    table.add_column("Key", style="bold cyan", width=20)
-    table.add_column("Value")
+    console.print(f"\n[bold]Domain:[/bold] [cyan]{domain or '—'}[/cyan]")
 
-    table.add_row("Confirmed", "yes")
-    table.add_row("Resume Phase", str(state.resume_phase()))
-    table.add_row("Domain", state.get("domain", "—") or "—")
-    table.add_row("Data Root", state.get("data_root", "/srv") or "/srv")
-    table.add_row("Platform", state.get("platform", "—") or "—")
+    # System checks
+    console.rule("[bold]System[/bold]")
+    _icons = {"ok": "[green]✓[/green]", "warn": "[yellow]⚠[/yellow]", "fail": "[red]✗[/red]"}
+    _colors = {"ok": "green", "warn": "yellow", "fail": "red"}
+    for chk in (check_ram(), check_disk(data_root)):
+        icon = _icons.get(chk.status, "?")
+        color = _colors.get(chk.status, "white")
+        console.print(f"  {icon}  [{color}]{chk.name.upper()}[/{color}]  {chk.message}")
 
-    foundation = state.get("foundation_services") or []
-    table.add_row("Foundation Services", ", ".join(foundation) if isinstance(foundation, list) else str(foundation))
+    # Installed services
+    console.rule("[bold]Installed Services[/bold]")
+    registry = services_step._load_registry()
+    subdomains: dict[str, str] = state.get("subdomains", {}) or {}
+    foundation_ids = set(state.get("foundation_services", []) or [])
+    selected_ids = set(state.get("selected_services", []) or [])
+    installed_ids = foundation_ids | selected_ids
 
-    selected = state.get("selected_services") or []
-    table.add_row("Selected Services", ", ".join(selected) if isinstance(selected, list) else str(selected))
+    for svc in registry["services"]:
+        svc_id = svc["id"]
+        bucket = svc.get("state_bucket", "")
+        if bucket != "always" and svc_id not in installed_ids:
+            continue
+        subdomain = subdomains.get(svc_id)
+        if subdomain and domain:
+            console.print(f"  [cyan]{svc_id}[/cyan]  https://{subdomain}.{domain}")
+        else:
+            console.print(f"  [cyan]{svc_id}[/cyan]")
 
-    addons = state.get("host_addons") or []
-    table.add_row("Host Addons", ", ".join(addons) if isinstance(addons, list) else str(addons))
-
-    subdomains = state.get("subdomains") or {}
-    if isinstance(subdomains, dict) and subdomains:
-        subdomain_lines = "\n".join(f"  {svc}: {sub}" for svc, sub in subdomains.items())
-        table.add_row("Subdomains", subdomain_lines)
+    # Available services
+    console.rule("[bold]Available Services[/bold]")
+    available = [
+        svc for svc in registry["services"]
+        if svc.get("state_bucket") in ("foundation_services", "selected_services")
+        and svc["id"] not in installed_ids
+    ]
+    if available:
+        for svc in available:
+            console.print(f"  [dim]{svc['id']}[/dim]")
     else:
-        table.add_row("Subdomains", "—")
-
-    console.print(table)
+        console.print("  [dim]All available services are installed.[/dim]")
+    console.print()
 
 
 @cli.command()
