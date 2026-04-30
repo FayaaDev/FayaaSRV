@@ -86,6 +86,7 @@ def _run_as_user(
     if os.geteuid() == 0 and os.environ.get("USER") != username:
         run_cmd = [
             "sudo",
+            "-n",
             "-u",
             username,
             "-H",
