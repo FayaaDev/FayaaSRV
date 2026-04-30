@@ -15,6 +15,7 @@ from rakkib.interview import (
     _handle_derived,
     _handle_repeat,
     _handle_secret_group,
+    _handle_service_catalog,
     _handle_summary,
     _prompt_confirm,
     _prompt_multi_select,
@@ -520,6 +521,35 @@ class TestPromptMultiSelect:
         )
         with patch("rakkib.interview.prompt_checkbox", return_value=[]):
             assert _prompt_multi_select(field, State({})) == ["a", "b"]
+
+
+class TestHandleServiceCatalog:
+    def test_groups_optional_services_by_category(self, sample_schema, empty_state):
+        registry = {
+            "services": [
+                {"id": "n8n", "homepage": {"category": "Automation"}},
+                {"id": "immich", "homepage": {"category": "Media"}},
+            ]
+        }
+        sample_schema.service_catalog["optional_services"].append(
+            {"slug": "immich", "label": "Immich", "default_subdomain": "immich"}
+        )
+
+        with (
+            patch("rakkib.interview.load_service_registry", return_value=registry),
+            patch(
+                "rakkib.interview.prompt_checkbox",
+                return_value=["nocodb", "n8n"],
+            ) as mock_checkbox,
+        ):
+            _handle_service_catalog(sample_schema, empty_state)
+
+        titles = [choice.title for choice in mock_checkbox.call_args.kwargs["choices"]]
+        assert "━━ Optional Services ━━" not in titles
+        assert "━━ Automation ━━" in titles
+        assert "━━ Media ━━" in titles
+        assert empty_state.get("foundation_services") == ["nocodb"]
+        assert empty_state.get("selected_services") == ["n8n"]
 
 
 # ---------------------------------------------------------------------------

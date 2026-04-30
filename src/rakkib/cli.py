@@ -79,6 +79,12 @@ def _service_label(svc: dict[str, Any]) -> str:
     return f"{svc['id']} - {summary}" if summary else svc["id"]
 
 
+def _service_selection_category(svc: dict[str, Any]) -> str:
+    homepage = svc.get("homepage") or {}
+    category = str(homepage.get("category") or "").strip()
+    return category or "Other"
+
+
 def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
     current = set(state.get("foundation_services", []) or [])
     current.update(state.get("selected_services", []) or [])
@@ -86,15 +92,18 @@ def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
     choices: list[Choice] = []
     sections = [
         ("Always Installed", "always"),
-        ("Foundation Services", "foundation_services"),
-        ("Optional Services", "selected_services"),
+        ("Foundation Bundle", "foundation_services"),
     ]
 
     for title, bucket in sections:
-        bucket_services = [svc for svc in registry["services"] if svc.get("state_bucket") == bucket]
+        bucket_services = [
+            svc for svc in registry["services"] if svc.get("state_bucket") == bucket
+        ]
         if not bucket_services:
             continue
-        choices.append(Choice(title=f"━━ {title} ━━", value=f"__header_{bucket}__", disabled=True))
+        choices.append(
+            Choice(title=f"━━ {title} ━━", value=f"__header_{bucket}__", disabled=True)
+        )
         for svc in bucket_services:
             checked = bucket == "always" or svc["id"] in current
             disabled = bucket == "always"
@@ -104,6 +113,30 @@ def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
                     value=svc["id"],
                     checked=checked,
                     disabled=disabled,
+                )
+            )
+
+    optional_services = [
+        svc for svc in registry["services"] if svc.get("state_bucket") == "selected_services"
+    ]
+    optional_groups: dict[str, list[dict[str, Any]]] = {}
+    for svc in optional_services:
+        optional_groups.setdefault(_service_selection_category(svc), []).append(svc)
+
+    for category, services in optional_groups.items():
+        choices.append(
+            Choice(
+                title=f"━━ {category} ━━",
+                value=f"__header_{category}__",
+                disabled=True,
+            )
+        )
+        for svc in services:
+            choices.append(
+                Choice(
+                    title=f"  {_service_label(svc)}",
+                    value=svc["id"],
+                    checked=svc["id"] in current,
                 )
             )
 

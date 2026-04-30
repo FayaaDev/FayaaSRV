@@ -82,7 +82,7 @@ fields:
   - id: optional_services
     type: multi_select
     selection_mode: add_to_empty
-    prompt: "Optional Services: type service slugs to add (e.g. `n8n immich`); numeric aliases like `6 8` are also accepted, or press Enter to skip all:"
+    prompt: "Service categories: type service slugs to add (e.g. `n8n immich`); numeric aliases like `6 8` are also accepted, or press Enter to skip all:"
     canonical_values: [n8n, immich, transfer, jellyfin, openclaw]
     numeric_aliases:
       "6": n8n
@@ -95,7 +95,7 @@ fields:
   - id: host_addons
     type: multi_select
     selection_mode: add_to_empty
-    prompt: "Optional Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `11` are also accepted, or press Enter to skip all:"
+    prompt: "Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `11` are also accepted, or press Enter to skip all:"
     canonical_values: [vergo_terminal]
     numeric_aliases:
       "11": vergo_terminal
@@ -118,8 +118,8 @@ rules:
 
 Present the full service menu below as a TUI-style checklist. Collect selections in three rounds:
 1. **Foundation Bundle** — all pre-selected; user types service slugs to deselect.
-2. **Optional Services** — none pre-selected; user types service slugs to select.
-3. **Optional Host Addons** — none pre-selected; user types addon slugs to select.
+2. **Service categories** — none pre-selected; user types service slugs to select.
+3. **Host Addons** — none pre-selected; user types addon slugs to select.
 
 Numeric checklist positions may still be accepted as convenience aliases, but canonical recorded inputs are always slugs.
 
@@ -147,14 +147,20 @@ Foundation Bundle (recommended):
   [✓] 3  Uptime Kuma   — uptime monitoring      →  status.<domain>
   [✓] 4  Dockge        — Compose manager        →  dockge.<domain>
 
-Optional Services:
+Automation:
   [ ] 6  n8n           — workflow automation    →  n8n.<domain>
+
+Media:
   [ ] 7  Immich        — photo library          →  immich.<domain>
-  [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
   [ ] 9  Jellyfin      — media server           →  jellyfin.<domain>
+
+File Sharing:
+  [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
+
+AI:
   [ ] 10 OpenClaw      — AI assistant gateway   →  claw.<domain>
 
-Optional Host Addons:
+Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
 
@@ -174,11 +180,11 @@ Ask:
 
 ---
 
-## Round 2 — Optional Services
+## Round 2 — Service Categories
 
 Ask:
 
-> "Optional Services: type service slugs to add (e.g. `n8n immich`); numeric aliases like `6 8` are also accepted, or press Enter to skip all:"
+> "Service categories: type service slugs to add (e.g. `n8n immich`); numeric aliases like `6 8` are also accepted, or press Enter to skip all:"
 
 - Parse the response as a space-separated list of canonical service slugs.
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical service slugs before recording state.
@@ -188,11 +194,11 @@ Ask:
 
 ---
 
-## Round 3 — Optional Host Addons
+## Round 3 — Host Addons
 
 Ask:
 
-> "Optional Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `11` are also accepted, or press Enter to skip all:"
+> "Host Addons: type addon slugs to add (e.g. `vergo_terminal`); numeric aliases like `11` are also accepted, or press Enter to skip all:"
 
 - Parse the response as a space-separated list of canonical addon slugs.
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical addon slugs before recording state.

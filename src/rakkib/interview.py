@@ -14,6 +14,7 @@ from rich.console import Console
 from rakkib.normalize import apply_normalize, eval_when, resolve_numeric_aliases
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.state import State, subdomain_placeholder_key
+from rakkib.steps import load_service_registry
 from rakkib.tui import prompt_checkbox, prompt_confirm, prompt_password, prompt_select, prompt_text
 
 console = Console()
@@ -110,12 +111,19 @@ def _run_field(
 # ---------------------------------------------------------------------------
 
 
+def _service_catalog_category(slug: str, registry: dict[str, Any]) -> str:
+    by_id = {svc["id"]: svc for svc in registry.get("services", [])}
+    homepage = (by_id.get(slug) or {}).get("homepage") or {}
+    category = str(homepage.get("category") or "").strip()
+    return category or "Other"
+
+
 def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
     """Present the service catalog as a single grouped checkbox, then
     record foundation_services, selected_services, host_addons, and subdomains.
 
     Uses questionary.checkbox with sectioned Choices so the user sees
-    Foundation (pre-checked), Optional (unchecked), and Host Addons (unchecked)
+    Foundation (pre-checked), categorized services (unchecked), and Host Addons (unchecked)
     in one prompt.
     """
     catalog = schema.service_catalog or {}
@@ -123,19 +131,38 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
     foundation_items = catalog.get("foundation_bundle", [])
     optional_items = catalog.get("optional_services", [])
     host_items = catalog.get("host_addons", [])
+    registry = load_service_registry()
 
     choices: list[Choice] = []
 
     if foundation_items:
-        choices.append(Choice(title="━━ Foundation Bundle ━━", value="__header_foundation__", disabled=True))
+        choices.append(
+            Choice(
+                title="━━ Foundation Bundle ━━",
+                value="__header_foundation__",
+                disabled=True,
+            )
+        )
         for item in foundation_items:
             slug = item["slug"]
             label = item.get("label", slug)
             choices.append(Choice(title=f"  {label}", value=slug, checked=True))
 
-    if optional_items:
-        choices.append(Choice(title="━━ Optional Services ━━", value="__header_optional__", disabled=True))
-        for item in optional_items:
+    optional_groups: dict[str, list[dict[str, Any]]] = {}
+    for item in optional_items:
+        optional_groups.setdefault(_service_catalog_category(item["slug"], registry), []).append(
+            item
+        )
+
+    for category, items in optional_groups.items():
+        choices.append(
+            Choice(
+                title=f"━━ {category} ━━",
+                value=f"__header_{category}__",
+                disabled=True,
+            )
+        )
+        for item in items:
             slug = item["slug"]
             label = item.get("label", slug)
             choices.append(Choice(title=f"  {label}", value=slug, checked=False))

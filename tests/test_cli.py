@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from rakkib.cli import cli
+from rakkib.cli import _build_add_choices, cli
 from rakkib.state import State
 
 
@@ -396,13 +396,27 @@ class TestAdd:
             },
             {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN", "notes": "Service dashboard."},
             {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN", "notes": "No-code database UI.", "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"}},
-            {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}},
+            {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}, "homepage": {"category": "Automation"}},
             {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["homepage"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
-            {"id": "openclaw", "state_bucket": "selected_services", "host_service": True, "depends_on": [], "default_subdomain": "claw", "subdomain_placeholder": "OPENCLAW_SUBDOMAIN", "notes": "AI assistant gateway."},
+            {"id": "openclaw", "state_bucket": "selected_services", "host_service": True, "depends_on": [], "default_subdomain": "claw", "subdomain_placeholder": "OPENCLAW_SUBDOMAIN", "notes": "AI assistant gateway.", "homepage": {"category": "AI"}},
         ]
         if extra_services:
             services.extend(extra_services)
         return {"services": services}
+
+    def test_add_choices_group_selected_services_by_category(self):
+        choices = _build_add_choices(
+            State({"selected_services": ["n8n"]}), self._make_registry()
+        )
+
+        titles = [choice.title for choice in choices]
+        assert "━━ Optional Services ━━" not in titles
+        assert "━━ Automation ━━" in titles
+        assert "━━ AI ━━" in titles
+        assert "━━ Other ━━" in titles
+        assert titles.index("━━ Automation ━━") < titles.index(
+            "  n8n - Workflow automation"
+        )
 
     def test_add_rejects_invalid_dependency_selection(self, tmp_path: Path):
         runner = CliRunner()
