@@ -29,7 +29,7 @@ services:
       - hermes-agent
     networks:
       - {{DOCKER_NET}}
-    command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
+    command: ["dashboard", "--host", "0.0.0.0", "--no-open", "--insecure"]
 
 networks:
   {{DOCKER_NET}}:
