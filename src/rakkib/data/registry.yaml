@@ -494,7 +494,7 @@ services:
       retries: 3
     smoke:
       path: /
-      expected_text: Hostname:
+      expected_text: "Hostname:"
     notes: "Tiny debug service that prints request details. Optional."
 
   - id: pairdrop
