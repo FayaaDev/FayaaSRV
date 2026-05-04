@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - {{DATA_ROOT}}/data/glance/glance.yml:/app/glance.yml:ro
+      # Glance v0.7.0+ expects glance.yml at /app/config/glance.yml
+      - {{DATA_ROOT}}/data/glance/glance.yml:/app/config/glance.yml:ro
     networks:
       - {{DOCKER_NET}}
 
