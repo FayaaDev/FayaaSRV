@@ -10,12 +10,6 @@ services:
       - rsshub-browserless
     networks:
       - {{DOCKER_NET}}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:1200/healthz | grep -q ok"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
 
   rsshub-redis:
     image: redis:7-alpine

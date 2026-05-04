@@ -9,12 +9,6 @@ services:
       - {{DATA_ROOT}}/data/actual-budget:/data
     networks:
       - {{DOCKER_NET}}
-    healthcheck:
-      test: ["CMD-SHELL", "node src/scripts/health-check.js"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
 
 networks:
   {{DOCKER_NET}}:

@@ -10,12 +10,6 @@ services:
       - {{DATA_ROOT}}/data/n8n/n8nworkflows:/home/node/workflows
     networks:
       - {{DOCKER_NET}}
-    healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:5678/healthz']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 networks:
   {{DOCKER_NET}}:
