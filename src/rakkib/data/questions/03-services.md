@@ -92,6 +92,11 @@ service_catalog:
       numeric_alias: 17
       subdomain_key: homer
       default_subdomain: homer
+    - slug: dozzle
+      label: Dozzle
+      numeric_alias: 18
+      subdomain_key: dozzle
+      default_subdomain: dozzle
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -113,7 +118,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -126,6 +131,7 @@ fields:
       "15": drawio
       "16": excalidraw
       "17": homer
+      "18": dozzle
     records:
       - selected_services
   - id: host_addons
@@ -208,6 +214,9 @@ Diagram And Design:
 Dashboards:
   [ ] 17 Homer         — static server homepage →  homer.<domain>
 
+Monitoring:
+  [ ] 18 Dozzle        — container log viewer   →  dozzle.<domain>
+
 Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
@@ -284,6 +293,7 @@ subdomains:
   drawio: drawio
   excalidraw: excalidraw
   homer: homer
+  dozzle: dozzle
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -306,3 +316,4 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.drawio` -> `{{DRAWIO_SUBDOMAIN}}`
 - `subdomains.excalidraw` -> `{{EXCALIDRAW_SUBDOMAIN}}`
 - `subdomains.homer` -> `{{HOMER_SUBDOMAIN}}`
+- `subdomains.dozzle` -> `{{DOZZLE_SUBDOMAIN}}`

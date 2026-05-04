@@ -605,3 +605,36 @@ services:
       path: /
       expected_text: Homer
     notes: "Static dashboard. Optional. config.yml is seeded by the image on first run via INIT_ASSETS and is user-editable thereafter."
+
+  - id: dozzle
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: amir20/dozzle:latest
+    default_port: 8080
+    default_subdomain: dozzle
+    subdomain_key: dozzle
+    subdomain_placeholder: DOZZLE_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: dozzle-public.caddy.tmpl
+    homepage:
+      category: Monitoring
+      name: Dozzle
+      description: Container log viewer
+      icon: docker.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Dozzle
+    notes: "Container log viewer. Mounts Docker socket read-only. Optional. Exposes all container logs — restrict access at the Caddy or network layer if needed."
