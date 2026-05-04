@@ -128,7 +128,17 @@ def _wait_for_healthy(container: str = "postgres", timeout: int = 60) -> None:
             ["inspect", "--format", "{{.State.Health.Status}}", container],
             check=False,
         )
-        return result.stdout.strip() == "healthy"
+        status = result.stdout.strip()
+        if status == "healthy":
+            return True
+
+        # Some templates intentionally omit a Docker healthcheck.
+        # In that case, fall back to pg_isready so Step 4 still works.
+        if status in {"", "<no value>"} or result.returncode != 0:
+            ready = docker_run(["exec", container, "pg_isready", "-U", "postgres"], check=False)
+            return ready.returncode == 0
+
+        return False
 
     if progress_wait(f"Waiting for {container} health...", timeout, poll):
         return
