@@ -107,6 +107,36 @@ service_catalog:
       numeric_alias: 20
       subdomain_key: dashy
       default_subdomain: dashy
+    - slug: beszel
+      label: Beszel
+      numeric_alias: 21
+      subdomain_key: beszel
+      default_subdomain: beszel
+    - slug: freshrss
+      label: FreshRSS
+      numeric_alias: 22
+      subdomain_key: freshrss
+      default_subdomain: freshrss
+    - slug: actual-budget
+      label: Actual Budget
+      numeric_alias: 23
+      subdomain_key: actual-budget
+      default_subdomain: actual
+    - slug: rsshub
+      label: RSSHub
+      numeric_alias: 24
+      subdomain_key: rsshub
+      default_subdomain: rsshub
+    - slug: vaultwarden
+      label: Vaultwarden
+      numeric_alias: 25
+      subdomain_key: vaultwarden
+      default_subdomain: vault
+    - slug: whoogle
+      label: Whoogle
+      numeric_alias: 26
+      subdomain_key: whoogle
+      default_subdomain: whoogle
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -128,7 +158,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, whoogle]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -144,6 +174,12 @@ fields:
       "18": dozzle
       "19": glance
       "20": dashy
+      "21": beszel
+      "22": freshrss
+      "23": actual-budget
+      "24": rsshub
+      "25": vaultwarden
+      "26": whoogle
     records:
       - selected_services
   - id: host_addons
@@ -218,6 +254,7 @@ AI:
 Developer Tools:
   [ ] 13 IT-Tools      — browser utilities      →  tools.<domain>
   [ ] 14 CyberChef     — data transformation    →  cyberchef.<domain>
+  [ ] 24 RSSHub        — RSS generator          →  rsshub.<domain>
 
 Diagram And Design:
   [ ] 15 Draw.io       — diagramming app        →  drawio.<domain>
@@ -230,6 +267,19 @@ Dashboards:
 
 Monitoring:
   [ ] 18 Dozzle        — container log viewer   →  dozzle.<domain>
+  [ ] 21 Beszel        — server monitoring hub  →  beszel.<domain>
+
+News:
+  [ ] 22 FreshRSS      — RSS feed reader        →  freshrss.<domain>
+
+Finance:
+  [ ] 23 Actual Budget — personal finance       →  actual.<domain>
+
+Security:
+  [ ] 25 Vaultwarden   — password manager       →  vault.<domain>
+
+Search:
+  [ ] 26 Whoogle       — privacy search         →  whoogle.<domain>
 
 Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
@@ -310,6 +360,12 @@ subdomains:
   dozzle: dozzle
   glance: glance
   dashy: dashy
+  beszel: beszel
+  freshrss: freshrss
+  actual-budget: actual
+  rsshub: rsshub
+  vaultwarden: vault
+  whoogle: whoogle
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -335,3 +391,9 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.dozzle` -> `{{DOZZLE_SUBDOMAIN}}`
 - `subdomains.glance` -> `{{GLANCE_SUBDOMAIN}}`
 - `subdomains.dashy` -> `{{DASHY_SUBDOMAIN}}`
+- `subdomains.beszel` -> `{{BESZEL_SUBDOMAIN}}`
+- `subdomains.freshrss` -> `{{FRESHRSS_SUBDOMAIN}}`
+- `subdomains.actual-budget` -> `{{ACTUAL_BUDGET_SUBDOMAIN}}`
+- `subdomains.rsshub` -> `{{RSSHUB_SUBDOMAIN}}`
+- `subdomains.vaultwarden` -> `{{VAULTWARDEN_SUBDOMAIN}}`
+- `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
