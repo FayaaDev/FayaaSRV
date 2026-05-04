@@ -830,6 +830,59 @@ def smoke(ctx: click.Context, service: str) -> None:
 
 
 @cli.command()
+@click.argument("service")
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def remove(ctx: click.Context, service: str, yes: bool) -> None:
+    """Remove a single service (containers, rendered files, data dirs).
+
+    This is a non-interactive alternative to deselecting a service via `rakkib add`.
+    """
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    registry = load_service_registry()
+    by_id = {svc["id"]: svc for svc in registry["services"]}
+    if service not in by_id:
+        console.print(f"[bold red]Error:[/bold red] Unknown service '{service}'.")
+        ctx.exit(1)
+    if by_id[service].get("state_bucket") == "always":
+        console.print(
+            f"[bold red]Error:[/bold red] '{service}' is an always-installed service and cannot be removed."
+        )
+        ctx.exit(1)
+
+    selected = set(state.get("selected_services", []) or [])
+    foundation = set(state.get("foundation_services", []) or [])
+    if service not in selected and service not in foundation:
+        console.print(f"[yellow]{service} is not selected; attempting cleanup anyway.[/yellow]")
+
+    if not yes and not prompt_confirm(f"Remove '{service}' and delete its data?", default=False):
+        console.print("[yellow]Aborted.[/yellow]")
+        return
+    if yes:
+        console.print("[dim]Confirmation skipped because --yes was provided.[/dim]")
+
+    services_step.remove_single_service(state, service)
+
+    # Update state selection so a later `rakkib pull` won't re-add it.
+    if service in selected:
+        selected.remove(service)
+        state.set("selected_services", sorted(selected))
+    if service in foundation:
+        foundation.remove(service)
+        state.set("foundation_services", sorted(foundation))
+    state.save(state_path)
+
+    data_root = Path(state.get("data_root", "/srv"))
+    services_step._reload_caddy(data_root)
+    services_step.sync_shared_artifacts(state, services_step._repo_dir(), data_root, registry)
+
+    console.print(f"[bold green]Removed {service}.[/bold green]")
+
+
+@cli.command()
 @click.argument("service", required=False)
 @click.option("--all", "restart_all", is_flag=True, help="Restart all services in dependency order")
 @click.pass_context
