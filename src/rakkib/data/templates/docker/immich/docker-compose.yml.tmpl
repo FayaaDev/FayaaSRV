@@ -29,8 +29,6 @@ services:
     restart: always
     networks:
       - {{DOCKER_NET}}
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
 
   immich-database:
     container_name: immich_postgres
@@ -46,8 +44,6 @@ services:
     shm_size: 128mb
     networks:
       - {{DOCKER_NET}}
-    healthcheck:
-      disable: false
 
 volumes:
   model-cache:
