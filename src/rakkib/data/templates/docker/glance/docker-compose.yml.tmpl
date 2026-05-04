@@ -1,0 +1,14 @@
+services:
+  glance:
+    image: glanceapp/glance:latest
+    container_name: glance
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - {{DATA_ROOT}}/data/glance/glance.yml:/app/glance.yml:ro
+    networks:
+      - {{DOCKER_NET}}
+
+networks:
+  {{DOCKER_NET}}:
+    external: true
