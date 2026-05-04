@@ -45,39 +45,21 @@ def _show_qr(url: str) -> None:
         import qrcode.constants
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_L,
-            # A larger quiet zone improves scanner reliability.
-            border=4,
+            border=2,
         )
         qr.add_data(url)
         qr.make(fit=True)
         matrix = qr.get_matrix()
         rows = len(matrix)
         cols = len(matrix[0]) if rows else 0
-        # Terminal characters are not square; using 2 columns per module is
-        # usually enough to keep the QR scannable (and avoids ANSI colors).
-        black = "██"
-        white = "  "
+        # Single space per module with ANSI background color — no unicode,
+        # works on any terminal. Half the width of the 2-space version.
+        black = "\033[40m \033[0m"
+        white = "\033[107m \033[0m"
         for y in range(rows):
             print("".join(black if matrix[y][x] else white for x in range(cols)))
     except ImportError:
         pass
-
-
-def _looks_like_cloudflared_ascii_qr(line: str) -> bool:
-    """Heuristic filter for cloudflared's ASCII QR block.
-
-    cloudflared prints a QR made largely of '#' characters; it's frequently
-    unscannable in terminals and in photos due to aspect ratio distortion.
-    """
-    s = line.rstrip("\n")
-    if not s:
-        return False
-    stripped = s.strip()
-    if len(stripped) < 10:
-        return False
-    # If the line is mostly '#', treat it as part of the QR block.
-    hash_count = stripped.count("#")
-    return hash_count / max(1, len(stripped)) >= 0.6
 
 
 def _candidate_cloudflared_paths(name: str, admin_user: str | None = None) -> list[Path]:
@@ -306,27 +288,18 @@ def run(state: State) -> None:
                     )
 
                     login_url: str | None = None
-                    showed_qr = False
                     assert proc.stdout is not None
                     for line in proc.stdout:
+                        print(line, end="", flush=True)
                         if not login_url and "https://" in line:
                             login_url = line.strip().split()[-1]
                             if login_url.startswith("https://"):
                                 print("\nScan this QR code on your phone to approve the domain:\n")
                                 _show_qr(login_url)
-                                showed_qr = True
                                 print(
                                     f"\nOr open manually:\n  {login_url}\n\n"
                                     "Waiting for approval — keep this terminal open...\n"
                                 )
-                                continue
-
-                        # Avoid printing cloudflared's ASCII QR block; it is
-                        # commonly unscannable due to terminal aspect ratios.
-                        if showed_qr and _looks_like_cloudflared_ascii_qr(line):
-                            continue
-
-                        print(line, end="", flush=True)
 
                     proc.wait()
                     if proc.returncode != 0:
