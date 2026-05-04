@@ -567,3 +567,41 @@ services:
       remove:
         - openclaw_gateway_uninstall
     notes: "Personal AI assistant gateway. Runs as a systemd user service on the host (not in Docker). Proxy via Caddy to host port 18789."
+
+  - id: homer
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: b4bz/homer:latest
+    default_port: 8080
+    default_subdomain: homer
+    subdomain_key: homer
+    subdomain_placeholder: HOMER_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: homer-public.caddy.tmpl
+    data_dirs:
+      - data/homer/assets
+    chown:
+      uid: 1000
+      gid: 1000
+    homepage:
+      category: Dashboards
+      name: Homer
+      description: Static server homepage
+      icon: homer.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Homer
+    notes: "Static dashboard. Optional. config.yml is seeded by the image on first run via INIT_ASSETS and is user-editable thereafter."

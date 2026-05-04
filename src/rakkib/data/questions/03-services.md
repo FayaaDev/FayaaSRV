@@ -87,6 +87,11 @@ service_catalog:
       numeric_alias: 16
       subdomain_key: excalidraw
       default_subdomain: excalidraw
+    - slug: homer
+      label: Homer
+      numeric_alias: 17
+      subdomain_key: homer
+      default_subdomain: homer
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -108,7 +113,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -120,6 +125,7 @@ fields:
       "14": cyberchef
       "15": drawio
       "16": excalidraw
+      "17": homer
     records:
       - selected_services
   - id: host_addons
@@ -199,6 +205,9 @@ Diagram And Design:
   [ ] 15 Draw.io       — diagramming app        →  drawio.<domain>
   [ ] 16 Excalidraw    — sketch whiteboard      →  excalidraw.<domain>
 
+Dashboards:
+  [ ] 17 Homer         — static server homepage →  homer.<domain>
+
 Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
 ```
@@ -274,6 +283,7 @@ subdomains:
   cyberchef: cyberchef
   drawio: drawio
   excalidraw: excalidraw
+  homer: homer
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -295,3 +305,4 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.cyberchef` -> `{{CYBERCHEF_SUBDOMAIN}}`
 - `subdomains.drawio` -> `{{DRAWIO_SUBDOMAIN}}`
 - `subdomains.excalidraw` -> `{{EXCALIDRAW_SUBDOMAIN}}`
+- `subdomains.homer` -> `{{HOMER_SUBDOMAIN}}`
