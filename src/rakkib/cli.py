@@ -31,7 +31,7 @@ from rakkib.doctor import (
 )
 from rakkib.interview import run_interview
 from rakkib.state import State
-from rakkib.steps import STEP_MODULES, VerificationResult, selected_service_defs
+from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry, selected_service_defs
 from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
 from rakkib.steps.cloudflare import _cloudflared_bin
