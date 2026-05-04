@@ -970,6 +970,7 @@ services:
     optional: true
     image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
     default_port: 8080
+    health_timeout: 300
     default_subdomain: pdf
     subdomain_key: stirling-pdf
     subdomain_placeholder: STIRLING_PDF_SUBDOMAIN
