@@ -97,6 +97,16 @@ service_catalog:
       numeric_alias: 18
       subdomain_key: dozzle
       default_subdomain: dozzle
+    - slug: glance
+      label: Glance
+      numeric_alias: 19
+      subdomain_key: glance
+      default_subdomain: glance
+    - slug: dashy
+      label: Dashy
+      numeric_alias: 20
+      subdomain_key: dashy
+      default_subdomain: dashy
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -118,7 +128,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -132,6 +142,8 @@ fields:
       "16": excalidraw
       "17": homer
       "18": dozzle
+      "19": glance
+      "20": dashy
     records:
       - selected_services
   - id: host_addons
@@ -213,6 +225,8 @@ Diagram And Design:
 
 Dashboards:
   [ ] 17 Homer         — static server homepage →  homer.<domain>
+  [ ] 19 Glance        — glanceable dashboard    →  glance.<domain>
+  [ ] 20 Dashy         — customisable dashboard  →  dashy.<domain>
 
 Monitoring:
   [ ] 18 Dozzle        — container log viewer   →  dozzle.<domain>
@@ -294,6 +308,8 @@ subdomains:
   excalidraw: excalidraw
   homer: homer
   dozzle: dozzle
+  glance: glance
+  dashy: dashy
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -317,3 +333,5 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.excalidraw` -> `{{EXCALIDRAW_SUBDOMAIN}}`
 - `subdomains.homer` -> `{{HOMER_SUBDOMAIN}}`
 - `subdomains.dozzle` -> `{{DOZZLE_SUBDOMAIN}}`
+- `subdomains.glance` -> `{{GLANCE_SUBDOMAIN}}`
+- `subdomains.dashy` -> `{{DASHY_SUBDOMAIN}}`

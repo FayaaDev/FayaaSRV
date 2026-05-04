@@ -638,3 +638,79 @@ services:
       path: /
       expected_text: Dozzle
     notes: "Container log viewer. Mounts Docker socket read-only. Optional. Exposes all container logs — restrict access at the Caddy or network layer if needed."
+
+  - id: glance
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: glanceapp/glance:latest
+    default_port: 8080
+    default_subdomain: glance
+    subdomain_key: glance
+    subdomain_placeholder: GLANCE_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: glance-public.caddy.tmpl
+    data_dirs:
+      - data/glance
+    extra_templates:
+      - src: templates/docker/glance/glance.yml.tmpl
+        dst: data/glance/glance.yml
+    homepage:
+      category: Dashboards
+      name: Glance
+      description: Glanceable self-hosted dashboard
+      icon: glance.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Glance
+    notes: "Glanceable dashboard. Optional. glance.yml is seeded via extra_templates on every deploy — back up manual edits before running rakkib pull."
+
+  - id: dashy
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: lissy93/dashy:latest
+    default_port: 80
+    default_subdomain: dashy
+    subdomain_key: dashy
+    subdomain_placeholder: DASHY_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: dashy-public.caddy.tmpl
+    data_dirs:
+      - data/dashy
+    chown:
+      uid: 1000
+      gid: 1000
+    homepage:
+      category: Dashboards
+      name: Dashy
+      description: Highly customisable dashboard
+      icon: dashy.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Dashy
+    notes: "Highly customisable dashboard. Optional. Boots with a built-in demo config; drop a custom conf.yml into data/dashy/ to override."
