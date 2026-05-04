@@ -67,7 +67,7 @@ Duplicates already listed in **Batch 1** are removed here.
 - [ ] Dash. / Dashdot (E)
 
 ### Developer Tools
-- [ ] Planning Poker (A)
+- [x] Planning Poker (A)
 - [ ] Code Server (B)
 - [ ] Atuin Server (C)
 
@@ -87,7 +87,7 @@ Duplicates already listed in **Batch 1** are removed here.
 - [ ] Netdata (E)
 
 ### Personal And Lifestyle
-- [ ] Moodist (A)
+- [x] Moodist (A)
 - [ ] DailyTxT (B)
 - [ ] Flightlog (B)
 - [ ] Grocy (B)
@@ -99,7 +99,7 @@ Duplicates already listed in **Batch 1** are removed here.
 - [ ] Movary (B)
 
 ### File Sync And Sharing
-- [ ] PairDrop (A)
+- [x] PairDrop (A)
 - [ ] Pingvin Share (B)
 - [ ] Send (B)
 - [ ] Syncthing (B)
@@ -144,7 +144,7 @@ Duplicates already listed in **Batch 1** are removed here.
 
 ### Remote Access
 - [ ] Hello World (A)
-- [ ] Whoami (A)
+- [x] Whoami (A)
 - [ ] Sshwifty (B)
 
 ### Secrets And Auth

@@ -464,6 +464,146 @@ services:
       expected_text: CyberChef
     notes: "Static data transformation toolkit. Optional."
 
+  - id: whoami
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: traefik/whoami:v1.11.0
+    default_port: 80
+    default_subdomain: whoami
+    subdomain_key: whoami
+    subdomain_placeholder: WHOAMI_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: whoami-public.caddy.tmpl
+    homepage:
+      category: Utility
+      name: Whoami
+      description: Minimal request debug page
+      icon: traefik.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Hostname:
+    notes: "Tiny debug service that prints request details. Optional."
+
+  - id: pairdrop
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: lscr.io/linuxserver/pairdrop:latest
+    default_port: 3000
+    default_subdomain: pairdrop
+    subdomain_key: pairdrop
+    subdomain_placeholder: PAIRDROP_SUBDOMAIN
+    env_keys:
+      - ADMIN_UID
+      - ADMIN_GID
+      - TZ
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: pairdrop-public.caddy.tmpl
+    data_dirs:
+      - data/pairdrop/config
+    homepage:
+      category: File Sharing
+      name: PairDrop
+      description: AirDrop-like file sharing
+      icon: pairdrop.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: PairDrop
+    notes: "AirDrop-like file sharing in the browser. Optional."
+
+  - id: moodist
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/remvze/moodist:v2.6.0
+    default_port: 8080
+    default_subdomain: moodist
+    subdomain_key: moodist
+    subdomain_placeholder: MOODIST_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: moodist-public.caddy.tmpl
+    homepage:
+      category: Personal
+      name: Moodist
+      description: Ambient sounds for focus
+      icon: moodist.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Moodist
+    notes: "Ambient sounds web app. Optional."
+
+  - id: planning-poker
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/andrewbusbee/planning-poker:latest
+    default_port: 3001
+    default_subdomain: planning-poker
+    subdomain_key: planning-poker
+    subdomain_placeholder: PLANNING_POKER_SUBDOMAIN
+    env_keys:
+      - PLANNING_POKER_PORT
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: planning-poker-public.caddy.tmpl
+    data_dirs:
+      - data/planning-poker
+    homepage:
+      category: Developer Tools
+      name: Planning Poker
+      description: Sprint estimation rooms
+      icon: planning-poker.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Planning Poker
+    notes: "Planning poker rooms for agile estimation. Optional."
+
   - id: forgejo
     state_bucket: selected_services
     required: false

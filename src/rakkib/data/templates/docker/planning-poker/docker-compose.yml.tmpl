@@ -1,0 +1,15 @@
+services:
+  planning-poker:
+    image: ${PLANNING_POKER_IMAGE:-ghcr.io/andrewbusbee/planning-poker:latest}
+    container_name: planning-poker
+    restart: unless-stopped
+    environment:
+      - PORT=${PLANNING_POKER_PORT:-3001}
+    volumes:
+      - {{DATA_ROOT}}/data/planning-poker:/app/data
+    networks:
+      - {{DOCKER_NET}}
+
+networks:
+  {{DOCKER_NET}}:
+    external: true

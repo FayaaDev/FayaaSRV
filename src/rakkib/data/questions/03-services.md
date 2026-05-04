@@ -162,6 +162,26 @@ service_catalog:
       numeric_alias: 31
       subdomain_key: gitea
       default_subdomain: gitea
+    - slug: whoami
+      label: Whoami
+      numeric_alias: 32
+      subdomain_key: whoami
+      default_subdomain: whoami
+    - slug: pairdrop
+      label: PairDrop
+      numeric_alias: 33
+      subdomain_key: pairdrop
+      default_subdomain: pairdrop
+    - slug: moodist
+      label: Moodist
+      numeric_alias: 34
+      subdomain_key: moodist
+      default_subdomain: moodist
+    - slug: planning-poker
+      label: Planning Poker
+      numeric_alias: 35
+      subdomain_key: planning-poker
+      default_subdomain: planning-poker
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -183,7 +203,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, planning-poker]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -210,6 +230,10 @@ fields:
       "29": stirling-pdf
       "30": mealie
       "31": gitea
+      "32": whoami
+      "33": pairdrop
+      "34": moodist
+      "35": planning-poker
     records:
       - selected_services
   - id: host_addons

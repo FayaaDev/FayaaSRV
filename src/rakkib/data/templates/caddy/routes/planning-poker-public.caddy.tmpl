@@ -1,0 +1,5 @@
+	# Planning Poker estimation rooms
+	@planning_poker host {{PLANNING_POKER_SUBDOMAIN}}.{{DOMAIN}}
+	handle @planning_poker {
+		reverse_proxy planning-poker:3001
+	}
