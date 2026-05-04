@@ -17,3 +17,18 @@
 - Fixed the gap by adding a Draw.io container healthcheck and making Docker service deployment wait for `health_check` before reporting success.
 - Patched runtime files were copied to `/opt/rakkib` on the test server and validation was repeated.
 - Final cleanup, re-add, container health, public URL, and `rakkib smoke drawio` all passed; Draw.io is eligible for bead closure.
+
+# Rakkib Wave 2-3 Services
+
+- [ ] Implement Beszel service (registry, templates, catalog, tests)
+- [ ] Implement FreshRSS service (registry, templates, catalog, tests)
+- [ ] Implement Actual Budget service (registry, templates, catalog, tests)
+- [ ] Implement RSSHub service (registry, templates, catalog, tests)
+- [ ] Implement Vaultwarden service (registry, templates, catalog, tests)
+- [ ] Implement Whoogle service (registry, templates, catalog, tests)
+- [ ] Validate each service on bare-metal test server with installer-first flow and `rakkib add <id> --yes`, then `rakkib smoke <id>`
+- [ ] Mirror `install.sh`, `pyproject.toml`, and `src/rakkib/**` to `runtime` branch after all merges
+
+## Review
+
+- Pending.

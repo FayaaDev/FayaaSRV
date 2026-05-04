@@ -717,3 +717,198 @@ services:
       path: /
       expected_text: Dashy
     notes: "Highly customisable dashboard. Optional. conf.yml is seeded via extra_templates on every deploy; edit data/dashy/conf.yml to customise."
+
+  - id: beszel
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: henrygd/beszel:latest
+    default_port: 8090
+    default_subdomain: beszel
+    subdomain_key: beszel
+    subdomain_placeholder: BESZEL_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: beszel-public.caddy.tmpl
+    data_dirs:
+      - data/beszel/beszel_data
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Beszel
+    notes: "Lightweight server monitoring hub. Optional. Agents connect separately; hub listens on 8090."
+
+  - id: freshrss
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: freshrss/freshrss:latest
+    default_port: 80
+    default_subdomain: freshrss
+    subdomain_key: freshrss
+    subdomain_placeholder: FRESHRSS_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: freshrss-public.caddy.tmpl
+    data_dirs:
+      - data/freshrss/data
+      - data/freshrss/extensions
+    chown:
+      uid: 33
+      gid: 33
+    homepage:
+      category: News
+      name: FreshRSS
+      description: RSS feed aggregator
+      icon: freshrss.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: FreshRSS
+    notes: "Self-hosted RSS feed aggregator. Optional. Uses built-in SQLite by default; Postgres/MySQL are optional."
+
+  - id: actual-budget
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: actualbudget/actual-server:latest
+    default_port: 5006
+    default_subdomain: actual
+    subdomain_key: actual-budget
+    subdomain_placeholder: ACTUAL_BUDGET_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: actual-budget-public.caddy.tmpl
+    data_dirs:
+      - data/actual-budget
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Actual
+    notes: "Self-hosted Actual Budget sync server. Optional. Data stored under /data inside the container."
+
+  - id: rsshub
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: diygod/rsshub:latest
+    default_port: 1200
+    default_subdomain: rsshub
+    subdomain_key: rsshub
+    subdomain_placeholder: RSSHUB_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: rsshub-public.caddy.tmpl
+    data_dirs:
+      - data/rsshub/redis
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /healthz
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /healthz
+      expected_text: ok
+    notes: "RSS generator (RSSHub). Optional. Deployed with Redis cache + browserless/chrome for broader route support."
+
+  - id: vaultwarden
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: vaultwarden/server:latest
+    default_port: 80
+    default_subdomain: vault
+    subdomain_key: vaultwarden
+    subdomain_placeholder: VAULTWARDEN_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: vaultwarden-public.caddy.tmpl
+    data_dirs:
+      - data/vaultwarden
+    secrets:
+      VAULTWARDEN_ADMIN_TOKEN:
+        factory: password
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Vaultwarden
+    notes: "Bitwarden-compatible password manager (Vaultwarden). Optional. DOMAIN should match the public https URL when behind a reverse proxy."
+
+  - id: whoogle
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: benbusby/whoogle-search:latest
+    default_port: 5000
+    default_subdomain: whoogle
+    subdomain_key: whoogle
+    subdomain_placeholder: WHOOGLE_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: whoogle-public.caddy.tmpl
+    data_dirs:
+      - data/whoogle/config
+    chown:
+      uid: 927
+      gid: 927
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Whoogle Search
+    notes: "Privacy-respecting metasearch engine. Optional. Stores container /config under the Rakkib data root."
