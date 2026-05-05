@@ -50,11 +50,12 @@ export function SetupShell({ title, description, currentPhase, children }: Setup
 
   if (state.status === 'loading') {
     return (
-      <main className="shell setup-shell-frame">
-        <section className="placeholder-card bridge-card" aria-labelledby="setup-shell-loading-title">
-          <p className="section-label">Setup Session</p>
-          <h1 id="setup-shell-loading-title">Loading installer state...</h1>
-          <p className="hero-text">Checking the current setup session and phase progress.</p>
+      <main className="shell setup-shell-frame setup-onboarding">
+        <section className="placeholder-card bridge-card onboarding-loader" aria-labelledby="setup-shell-loading-title">
+          <img className="setup-loader-logo" src="/logo.png" alt="" width="56" height="56" />
+          <p className="section-label">Rakkib Setup</p>
+          <h1 id="setup-shell-loading-title">Opening your setup flow</h1>
+          <p className="hero-text">Restoring your saved progress and preparing the next step.</p>
           <div className="bridge-spinner" aria-hidden="true" />
         </section>
       </main>
@@ -63,11 +64,11 @@ export function SetupShell({ title, description, currentPhase, children }: Setup
 
   if (state.status === 'error') {
     return (
-      <main className="shell setup-shell-frame">
+      <main className="shell setup-shell-frame setup-onboarding">
         <section className="placeholder-card bridge-card" aria-labelledby="setup-shell-error-title">
           <p className="section-label">Setup Access</p>
           <h1 id="setup-shell-error-title">Setup session required</h1>
-          <p className="hero-text">{state.message}</p>
+          <p className="hero-text">Open Rakkib from the setup link shown by the local web server.</p>
           <div className="bridge-command" aria-label="Recovery command">
             <code>{recoveryCommand}</code>
           </div>
@@ -82,26 +83,27 @@ export function SetupShell({ title, description, currentPhase, children }: Setup
   }
 
   return (
-    <div className="shell setup-shell-frame">
+    <div className="shell setup-shell-frame setup-onboarding">
       <header className="setup-shell-header">
-        <div>
-          <p className="section-label">Rakkib Setup</p>
+        <div className="setup-title-lockup">
+          <Link className="brand setup-brand" to="/" aria-label="Rakkib landing page">
+            <img className="brand-logo" src="/logo.png" alt="Rakkib logo" width="28" height="28" />
+            [rakkib]
+          </Link>
           <h1>{title}</h1>
           <p className="hero-text">{description}</p>
         </div>
 
         <div className="setup-shell-status">
-          <span className="badge">Session active</span>
+          <span className="badge">Saved session</span>
           <Link className="github-link" to="/">
-            Return to landing page
+            Landing page
           </Link>
         </div>
       </header>
 
-      <div className="setup-shell-layout">
-        <StepTimeline phases={state.resume.phases} currentPhase={currentPhase} />
-        <section className="setup-shell-content">{children}</section>
-      </div>
+      <StepTimeline phases={state.resume.phases} currentPhase={currentPhase} />
+      <section className="setup-shell-content">{children}</section>
     </div>
   )
 }

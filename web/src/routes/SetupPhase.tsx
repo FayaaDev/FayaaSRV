@@ -5,33 +5,32 @@ import { ApiError, fetchSetupPhase, submitSetupPhase } from '../api/client'
 import type { SetupPhasePayload, SetupQuestionField, SetupServiceCatalogItem } from '../api/types'
 import { FieldEditor } from '../components/FieldEditor'
 import { fieldLabel, renderFieldValue } from '../components/FieldRenderer'
-import { SetupLinkQr } from '../components/SetupLinkQr'
 import { SetupShell } from '../components/SetupShell'
 
 const phaseLabels: Record<number, { title: string; description: string }> = {
   1: {
-    title: 'Platform',
-    description: 'Review the detected platform context and Docker prerequisites before proceeding.',
+    title: 'Choose Your Host',
+    description: 'Tell Rakkib what kind of machine this server is running on.',
   },
   2: {
-    title: 'Identity',
-    description: 'Review the server name, domain, admin identity, and host-derived defaults.',
+    title: 'Name Your Server',
+    description: 'Set the public identity Rakkib will use for your services.',
   },
   3: {
-    title: 'Services',
-    description: 'Review the service catalog and currently selected foundation, optional, and host services.',
+    title: 'Pick Your Services',
+    description: 'Build your self-hosted stack from friendly service cards.',
   },
   4: {
-    title: 'Cloudflare',
-    description: 'Review the automatic Cloudflare tunnel defaults that will be used during setup.',
+    title: 'Connect The Internet',
+    description: 'Rakkib will prepare a Cloudflare tunnel handoff during launch.',
   },
   5: {
-    title: 'Secrets',
-    description: 'Review the selected secret-handling strategy and any redacted manual secret entries.',
+    title: 'Handle Secrets',
+    description: 'Choose whether Rakkib should create passwords and keys for you.',
   },
   6: {
-    title: 'Confirm',
-    description: 'Review the deployment summary and confirmation state before the run phase is added.',
+    title: 'Final Review',
+    description: 'Review the friendly summary, then approve the launch.',
   },
 }
 
@@ -43,11 +42,119 @@ type PhaseState =
 type CatalogFieldKey = 'foundation_services' | 'optional_services' | 'host_addons'
 
 function formatServiceSubdomain(item: SetupServiceCatalogItem) {
-  return item.default_subdomain ? `Subdomain: ${item.default_subdomain}` : null
+  return item.default_subdomain ? `${item.default_subdomain}.your domain` : 'Local or host tool'
+}
+
+function friendlyLabel(value: string) {
+  const labels: Record<string, string> = {
+    platform: 'Platform',
+    arch: 'Architecture',
+    privilege_mode: 'System access',
+    privilege_strategy: 'Privilege handling',
+    data_root: 'Data location',
+    server_name: 'Server name',
+    domain: 'Domain',
+    admin_user: 'Admin user',
+    admin_email: 'Admin email',
+    lan_ip: 'LAN address',
+    tz: 'Timezone',
+    foundation_services: 'Foundation services',
+    selected_services: 'Extra services',
+    host_addons: 'Host add-ons',
+    subdomains: 'Service addresses',
+    'cloudflare.zone_in_cloudflare': 'Cloudflare zone',
+    'cloudflare.auth_method': 'Cloudflare sign-in',
+    'cloudflare.headless': 'Remote approval',
+    'cloudflare.tunnel_strategy': 'Tunnel plan',
+    'cloudflare.tunnel_name': 'Tunnel name',
+    'cloudflare.ssh_subdomain': 'SSH address',
+    'secrets.mode': 'Secret strategy',
+  }
+
+  return labels[value] ?? value.replace(/[._-]+/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase())
+}
+
+function friendlyScalar(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value ? 'Ready' : 'Needs attention'
+  }
+
+  const text = String(value)
+  const labels: Record<string, string> = {
+    linux: 'Linux server',
+    mac: 'Mac machine',
+    amd64: 'AMD64',
+    arm64: 'ARM64',
+    sudo: 'Normal admin user',
+    root: 'Root shell',
+    on_demand: 'Ask only when needed',
+    root_process: 'Direct admin setup',
+    browser_login: 'Browser approval',
+    new: 'Create a new tunnel',
+    generate: 'Generate locally',
+    manual: 'Use my values',
+  }
+
+  return labels[text] ?? text
+}
+
+function serviceInitials(item: SetupServiceCatalogItem) {
+  const label = item.label ?? item.slug
+  const words = label.replace(/\.[a-z]+$/i, '').split(/\s+|-/).filter(Boolean)
+  const initials = words.length > 1 ? `${words[0][0]}${words[1][0]}` : label.slice(0, 2)
+  return initials.toUpperCase()
+}
+
+function serviceTone(slug: string) {
+  const tones = ['blue', 'green', 'amber', 'rose', 'violet', 'cyan']
+  const index = Array.from(slug).reduce((total, char) => total + char.charCodeAt(0), 0) % tones.length
+  return tones[index]
+}
+
+function serviceDescription(fieldId: CatalogFieldKey, item: SetupServiceCatalogItem) {
+  const known: Record<string, string> = {
+    nocodb: 'No-code database workspace',
+    homepage: 'Your home dashboard',
+    'uptime-kuma': 'Service health monitoring',
+    dockge: 'Compose stack manager',
+    n8n: 'Automation workflows',
+    immich: 'Photo and video library',
+    transfer: 'Simple file handoff',
+    jellyfin: 'Personal media streaming',
+    openclaw: 'AI control surface',
+    adguard: 'Network ad blocking',
+    vaultwarden: 'Password vault',
+    forgejo: 'Git hosting',
+    gitea: 'Git hosting',
+    'open-webui': 'Local AI chat UI',
+    'ollama-cpu': 'Local AI models',
+    'ollama-amd': 'Local AI models',
+    'ollama-nvidia': 'Local AI models',
+  }
+
+  if (known[item.slug]) {
+    return known[item.slug]
+  }
+  if (fieldId === 'foundation_services') {
+    return 'Recommended core service'
+  }
+  if (fieldId === 'host_addons') {
+    return 'Runs directly on the host'
+  }
+  return 'Optional self-hosted app'
+}
+
+function ServiceMark({ item }: { item: SetupServiceCatalogItem }) {
+  return (
+    <span className={`setup-service-mark tone-${serviceTone(item.slug)}`} aria-hidden="true">
+      <span>{serviceInitials(item)}</span>
+    </span>
+  )
 }
 
 function renderCatalogSection(
   title: string,
+  eyebrow: string,
   fieldId: CatalogFieldKey,
   items: SetupServiceCatalogItem[] | undefined,
   selected: Set<string>,
@@ -59,31 +166,35 @@ function renderCatalogSection(
   }
 
   return (
-    <article className="setup-field-card">
+    <article className="setup-service-section">
       <div className="setup-field-header">
         <div>
-          <p className="section-label">Service Catalog</p>
+          <p className="section-label">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
       </div>
 
-      <ul className="setup-service-list">
+      <div className="setup-service-list" role="list">
         {items.map((item) => (
-          <li key={item.slug}>
-            <button
-              type="button"
-              className={`setup-service-item${selected.has(item.slug) ? ' is-selected' : ''}`}
-              onClick={() => onToggle(fieldId, item.slug)}
-            >
+          <button
+            key={item.slug}
+            type="button"
+            className={`setup-service-item${selected.has(item.slug) ? ' is-selected' : ''}`}
+            onClick={() => onToggle(fieldId, item.slug)}
+            role="listitem"
+          >
+            <ServiceMark item={item} />
+            <span className="setup-service-copy">
               <strong>{item.label ?? item.slug}</strong>
-              <div className="setup-service-tags">
-                <span className="badge">{selected.has(item.slug) ? 'Selected' : 'Available'}</span>
-                {formatServiceSubdomain(item) ? <span className="setup-service-tag">{formatServiceSubdomain(item)}</span> : null}
-              </div>
-            </button>
-          </li>
+              <span>{serviceDescription(fieldId, item)}</span>
+            </span>
+            <span className="setup-service-tags">
+              <span className="setup-service-tag">{formatServiceSubdomain(item)}</span>
+              <span className="setup-service-status">{selected.has(item.slug) ? 'Added' : 'Add'}</span>
+            </span>
+          </button>
         ))}
-      </ul>
+      </div>
 
       {error ? <p className="setup-field-error">{error}</p> : null}
     </article>
@@ -112,10 +223,28 @@ function sanitizeBackendValue(phase: number, fieldId: string, value: unknown) {
 }
 
 function renderBackendField(phase: number, field: SetupQuestionField, answer: unknown) {
+  const value = sanitizeBackendValue(phase, field.id, answer)
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return (
+      <div key={field.id} className="setup-summary-card setup-summary-card-wide">
+        <strong>{fieldLabel(field).replace(/\s*\[[^\]]*\]\s*$/, '')}</strong>
+        <div className="setup-summary-grid">
+          {Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => (
+            <div key={key} className="setup-summary-item">
+              <span>{friendlyLabel(key)}</span>
+              <strong>{renderFieldValue(entryValue)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div key={field.id} className="setup-backend-state-row">
-      <strong>{fieldLabel(field)}</strong>
-      <div className="setup-field-value">{renderFieldValue(sanitizeBackendValue(phase, field.id, answer))}</div>
+    <div key={field.id} className="setup-auto-chip">
+      <span>{friendlyLabel(field.id)}</span>
+      <strong>{friendlyScalar(value)}</strong>
     </div>
   )
 }
@@ -175,9 +304,9 @@ export function SetupPhase() {
     return (
       <SetupShell title={page.title} description={page.description} currentPhase={phaseNumber}>
         <section className="placeholder-card bridge-card" aria-labelledby="setup-phase-loading-title">
-          <p className="section-label">Phase Data</p>
-          <h2 id="setup-phase-loading-title">Loading phase details...</h2>
-          <p className="hero-text">Fetching the live schema and current answers from the Python backend.</p>
+          <p className="section-label">Setup Step</p>
+          <h2 id="setup-phase-loading-title">Preparing this step</h2>
+          <p className="hero-text">Loading your saved answers and the choices available for this server.</p>
           <div className="bridge-spinner" aria-hidden="true" />
         </section>
       </SetupShell>
@@ -188,8 +317,8 @@ export function SetupPhase() {
     return (
       <SetupShell title={page.title} description={page.description} currentPhase={phaseNumber}>
         <section className="placeholder-card bridge-card" aria-labelledby="setup-phase-error-title">
-          <p className="section-label">Phase Data</p>
-          <h2 id="setup-phase-error-title">Unable to load phase</h2>
+          <p className="section-label">Setup Step</p>
+          <h2 id="setup-phase-error-title">Unable to open this step</h2>
           <p className="hero-text">{state.message}</p>
         </section>
       </SetupShell>
@@ -282,25 +411,41 @@ export function SetupPhase() {
 
   return (
     <SetupShell title={page.title} description={page.description} currentPhase={payload.phase}>
-      <div className="setup-phase-stack">
-        <SetupLinkQr />
-
-        <article className="setup-field-card setup-phase-meta">
-          <div className="setup-field-header">
-            <div>
-              <p className="section-label">Backend State</p>
-              <h2>Phase {payload.phase}</h2>
-            </div>
-            <span className="badge">{payload.complete ? 'Complete' : 'In progress'}</span>
+      <div className="setup-stage">
+        <aside className="setup-stage-brief">
+          <div className="setup-orbit" aria-hidden="true">
+            <img src="/logo.png" alt="" width="72" height="72" />
+            <span />
+            <span />
+            <span />
           </div>
+          <p className="section-label">Step {payload.phase} of 6</p>
+          <h2>{page.title}</h2>
+          <p>{page.description}</p>
+          <span className="badge">{payload.complete ? 'Saved' : 'In progress'}</span>
+        </aside>
 
-          {readOnlyFields.length > 0 ? <div className="setup-backend-state-list">{readOnlyFields.map((field) => renderBackendField(payload.phase, field, payload.answers[field.id]))}</div> : null}
-        </article>
+        <div className="setup-stage-work">
+          {readOnlyFields.length > 0 ? (
+            <article className="setup-field-card setup-phase-meta">
+              <div className="setup-field-header">
+                <div>
+                  <p className="section-label">Prepared For You</p>
+                  <h2>{payload.phase === 6 ? 'Deployment summary' : 'Automatic setup details'}</h2>
+                </div>
+              </div>
 
-        {payload.service_catalog.foundation_bundle || payload.service_catalog.optional_services || payload.service_catalog.host_addons ? (
-          <div className="setup-phase-stack">
+              <div className="setup-backend-state-list">
+                {readOnlyFields.map((field) => renderBackendField(payload.phase, field, payload.answers[field.id]))}
+              </div>
+            </article>
+          ) : null}
+
+          {payload.service_catalog.foundation_bundle || payload.service_catalog.optional_services || payload.service_catalog.host_addons ? (
+            <div className="setup-phase-stack setup-service-catalog">
             {renderCatalogSection(
               'Foundation Bundle',
+              'Recommended Core',
               'foundation_services',
               payload.service_catalog.foundation_bundle,
               selectedServices,
@@ -309,6 +454,7 @@ export function SetupPhase() {
             )}
             {renderCatalogSection(
               'Optional Services',
+              'Add What You Need',
               'optional_services',
               payload.service_catalog.optional_services,
               selectedServices,
@@ -317,56 +463,58 @@ export function SetupPhase() {
             )}
             {renderCatalogSection(
               'Host Addons',
+              'Machine Tools',
               'host_addons',
               payload.service_catalog.host_addons,
               selectedServices,
               fieldErrors.host_addons,
               toggleCatalogSelection,
             )}
-          </div>
-        ) : null}
-
-        <form className="setup-phase-form" onSubmit={handleSubmit}>
-          {submitError ? <p className="setup-submit-error">{submitError}</p> : null}
-
-          {editableFields.map((field) => (
-            <FieldEditor
-              key={field.id}
-              field={field}
-              value={draft[field.id]}
-              persistedAnswer={payload.answers[field.id]}
-              error={fieldErrors[field.id]}
-              onChange={(value) => setDraft((current) => ({ ...current, [field.id]: value }))}
-            />
-          ))}
-
-          {transferSelected ? (
-            <article className="setup-field-card">
-              <div className="setup-field-header">
-                <div>
-                  <p className="section-label">Risk Acknowledgement</p>
-                  <h2>transfer.sh is public</h2>
-                </div>
-              </div>
-              <p className="hero-text">
-                transfer.sh will be deployed as a public unauthenticated upload endpoint. Anyone who can reach the URL can upload files.
-              </p>
-              <label className="setup-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={transferRiskAccepted}
-                  onChange={(event) => setTransferRiskAccepted(event.target.checked)}
-                />
-                <span>I understand and accept this risk.</span>
-              </label>
-            </article>
+            </div>
           ) : null}
-          <div className="setup-phase-actions">
-            <button type="submit" className="bridge-button" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : payload.phase === 6 ? 'Save confirmation' : 'Save and continue'}
-            </button>
-          </div>
-        </form>
+
+          <form className="setup-phase-form" onSubmit={handleSubmit}>
+            {submitError ? <p className="setup-submit-error">{submitError}</p> : null}
+
+            {editableFields.map((field) => (
+              <FieldEditor
+                key={field.id}
+                field={field}
+                value={draft[field.id]}
+                persistedAnswer={payload.answers[field.id]}
+                error={fieldErrors[field.id]}
+                onChange={(value) => setDraft((current) => ({ ...current, [field.id]: value }))}
+              />
+            ))}
+
+            {transferSelected ? (
+              <article className="setup-field-card setup-warning-card">
+                <div className="setup-field-header">
+                  <div>
+                    <p className="section-label">Public Uploads</p>
+                    <h2>transfer.sh is open to anyone with the link</h2>
+                  </div>
+                </div>
+                <p className="hero-text">
+                  This service is intentionally public and unauthenticated. Keep it selected only if you want an open upload endpoint.
+                </p>
+                <label className="setup-checkbox-row setup-native-check">
+                  <input
+                    type="checkbox"
+                    checked={transferRiskAccepted}
+                    onChange={(event) => setTransferRiskAccepted(event.target.checked)}
+                  />
+                  <span>I understand and want to include transfer.sh.</span>
+                </label>
+              </article>
+            ) : null}
+            <div className="setup-phase-actions">
+              <button type="submit" className="bridge-button bridge-button-primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : payload.phase === 6 ? 'Approve launch' : 'Save and continue'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </SetupShell>
   )

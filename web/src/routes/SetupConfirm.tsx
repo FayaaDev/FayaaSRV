@@ -59,10 +59,12 @@ export function SetupConfirm() {
   function renderContent() {
     if (state.status === 'loading') {
       return (
-        <section className="placeholder-card" aria-labelledby="setup-confirm-title">
-          <p className="section-label">Run Preparation</p>
-          <h2 id="setup-confirm-title">Loading confirmation state...</h2>
-          <p className="hero-text">Checking whether setup is ready to start and whether a run is already active.</p>
+        <section className="placeholder-card bridge-card onboarding-loader" aria-labelledby="setup-confirm-title">
+          <img className="setup-loader-logo" src="/logo.png" alt="" width="56" height="56" />
+          <p className="section-label">Launch</p>
+          <h2 id="setup-confirm-title">Preparing your launch</h2>
+          <p className="hero-text">Checking whether your saved choices are ready.</p>
+          <div className="bridge-spinner" aria-hidden="true" />
         </section>
       )
     }
@@ -70,8 +72,8 @@ export function SetupConfirm() {
     if (state.status === 'error') {
       return (
         <section className="placeholder-card" aria-labelledby="setup-confirm-title">
-          <p className="section-label">Run Preparation</p>
-          <h2 id="setup-confirm-title">Unable to load run state</h2>
+          <p className="section-label">Launch</p>
+          <h2 id="setup-confirm-title">Unable to prepare launch</h2>
           <p className="hero-text">{state.message}</p>
         </section>
       )
@@ -81,15 +83,15 @@ export function SetupConfirm() {
 
     if (!run.confirmed) {
       return (
-        <section className="placeholder-card" aria-labelledby="setup-confirm-title">
-          <p className="section-label">Run Confirmation</p>
-          <h2 id="setup-confirm-title">Deployment still needs final confirmation</h2>
+        <section className="placeholder-card setup-launch-card" aria-labelledby="setup-confirm-title">
+          <p className="section-label">Launch</p>
+          <h2 id="setup-confirm-title">One last approval is needed</h2>
           <p className="hero-text">
-            Phase 6 was saved without approving the deployment. Revisit the final phase or any earlier phase, then return here once you are ready to run.
+            Revisit the final review, approve the configuration, then return here to start setup.
           </p>
           <div className="setup-run-actions">
-            <button type="button" className="bridge-button" onClick={() => navigate('/setup/phase/6')}>
-              Revisit phase 6
+            <button type="button" className="bridge-button bridge-button-primary" onClick={() => navigate('/setup/phase/6')}>
+              Open final review
             </button>
           </div>
         </section>
@@ -99,78 +101,55 @@ export function SetupConfirm() {
     const isRunning = run.status === 'running'
     const isFinished = run.status === 'succeeded' || run.status === 'failed'
     const title = isRunning
-      ? 'Setup is already running'
+      ? 'Your server is being prepared'
       : run.status === 'succeeded'
-        ? 'Setup completed successfully'
+        ? 'Your server is ready'
         : run.status === 'failed'
-          ? 'Setup finished with errors'
-          : 'Ready to run setup'
+          ? 'Setup needs attention'
+          : 'Ready to launch'
 
     const description = isRunning
-      ? 'The installer is currently executing in the background. Open the live run screen to follow progress.'
+      ? 'Rakkib is installing the selected services in the background.'
       : run.status === 'succeeded'
-        ? 'The last installer run completed successfully. You can reopen the log or run it again if you changed the saved state.'
+        ? 'The last setup finished successfully. You can reopen the progress screen or run again after changing your choices.'
         : run.status === 'failed'
-          ? 'The last installer run stopped with errors. Review the live log, fix the saved state if needed, and run again.'
-          : 'Your answers are saved and confirmed. Starting now will launch `rakkib pull` in the background from this checkout.'
+          ? 'The last setup stopped before completion. You can retry after reviewing your saved choices.'
+          : 'Your answers are saved and confirmed. Rakkib can now prepare the machine and bring your services online.'
 
     return (
-      <div className="setup-phase-stack">
-        <section className="placeholder-card" aria-labelledby="setup-confirm-title">
-          <p className="section-label">Run Confirmation</p>
+      <section className="setup-launch-card" aria-labelledby="setup-confirm-title">
+        <div className="setup-launch-visual" aria-hidden="true">
+          <div className={`setup-launch-ring is-${run.status}`}>
+            <img src="/logo-hero.png" alt="" width="132" height="132" />
+          </div>
+        </div>
+        <div className="setup-launch-copy">
+          <p className="section-label">Launch</p>
           <h2 id="setup-confirm-title">{title}</h2>
           <p className="hero-text">{description}</p>
           {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
           <div className="setup-run-actions">
             {run.can_start ? (
-              <button type="button" className="bridge-button" onClick={handleStart} disabled={isStarting}>
-                {isStarting ? 'Starting...' : isFinished ? 'Run again' : 'Run setup'}
+              <button type="button" className="bridge-button bridge-button-primary" onClick={handleStart} disabled={isStarting}>
+                {isStarting ? 'Starting...' : isFinished ? 'Launch again' : 'Launch setup'}
               </button>
             ) : null}
             {(isRunning || isFinished) ? (
               <button type="button" className="bridge-button" onClick={() => navigate('/setup/run')}>
-                Open live run
+                View progress
               </button>
             ) : null}
           </div>
-        </section>
-
-        <article className="setup-field-card">
-          <div className="setup-field-header">
-            <div>
-              <p className="section-label">Run Snapshot</p>
-              <h2>Current execution state</h2>
-            </div>
-            <span className={`setup-status-pill is-${run.status}`}>{run.status}</span>
-          </div>
-
-          <div className="setup-meta-grid">
-            <div>
-              <strong>Resume phase</strong>
-              <span>{run.resume_phase}</span>
-            </div>
-            <div>
-              <strong>Confirmed</strong>
-              <span>{run.confirmed ? 'Yes' : 'No'}</span>
-            </div>
-            <div>
-              <strong>Started</strong>
-              <span>{run.started_at ?? 'Not started yet'}</span>
-            </div>
-            <div>
-              <strong>Finished</strong>
-              <span>{run.finished_at ?? 'Still running or not started'}</span>
-            </div>
-          </div>
-        </article>
-      </div>
+        </div>
+      </section>
     )
   }
 
   return (
     <SetupShell
-      title="Run Confirmation"
-      description="Review the saved confirmation state, then launch the background installer run when you are ready."
+      title="Launch Setup"
+      description="Start the browser-guided install and follow progress without terminal output."
+      currentPhase={7}
     >
       {renderContent()}
     </SetupShell>
