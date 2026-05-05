@@ -6,7 +6,7 @@ services:
     env_file: .env
     network_mode: "none"
     healthcheck:
-      test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q autoheal"]
+      test: ["CMD", "autoheal", "--help"]
       interval: 5s
       timeout: 5s
       retries: 12
