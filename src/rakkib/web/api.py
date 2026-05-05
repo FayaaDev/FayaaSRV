@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.state import DEFAULT_STATE_FILE, State
+from rakkib.steps import load_service_registry
 
 from .answers import PhaseValidationError, apply_phase_answers
 from .auth import AuthManager
@@ -137,6 +138,55 @@ def _serialize_phase_summary(schema: QuestionSchema, state: State) -> dict[str, 
     }
 
 
+def _service_catalog_category(slug: str, registry: dict[str, object], fallback: str) -> str:
+    """Return the registry category used to group services in the web picker."""
+    services = registry.get("services", [])
+    if not isinstance(services, list):
+        return fallback
+
+    by_id = {svc.get("id"): svc for svc in services if isinstance(svc, dict)}
+    service = by_id.get(slug) or {}
+    homepage = service.get("homepage") if isinstance(service, dict) else {}
+    if isinstance(homepage, dict):
+        category = str(homepage.get("category") or "").strip()
+        if category:
+            return category
+
+    return fallback
+
+
+def _serialize_service_catalog(catalog: dict[str, object]) -> dict[str, object]:
+    """Add display metadata to schema service catalog entries."""
+    if not catalog:
+        return {}
+
+    registry = load_service_registry()
+    fallbacks = {
+        "foundation_bundle": "Infrastructure",
+        "optional_services": "Other",
+        "host_addons": "Host Add-ons",
+    }
+    enriched: dict[str, object] = {}
+
+    for key, value in catalog.items():
+        if not isinstance(value, list):
+            enriched[key] = value
+            continue
+
+        fallback = fallbacks.get(key, "Other")
+        enriched[key] = [
+            {
+                **item,
+                "category": _service_catalog_category(str(item.get("slug", "")), registry, fallback),
+            }
+            if isinstance(item, dict)
+            else item
+            for item in value
+        ]
+
+    return enriched
+
+
 def _serialize_phase(schema: QuestionSchema, state: State) -> dict[str, object]:
     """Build the API payload for a single setup phase."""
     active_fields = _active_fields(schema, state)
@@ -147,7 +197,7 @@ def _serialize_phase(schema: QuestionSchema, state: State) -> dict[str, object]:
         "reads_state": schema.reads_state,
         "writes_state": schema.writes_state,
         "fields": [_serialize_field(field, state) for field in active_fields],
-        "service_catalog": schema.service_catalog,
+        "service_catalog": _serialize_service_catalog(schema.service_catalog),
         "rules": schema.rules,
         "execution_generated_only": schema.execution_generated_only,
         "answers": {
