@@ -5,6 +5,12 @@ services:
     restart: unless-stopped
     env_file: .env
     network_mode: "none"
+    healthcheck:
+      test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q watchtower"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
