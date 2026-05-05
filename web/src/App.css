@@ -278,13 +278,11 @@
   gap: 20px;
 }
 
-.bridge-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--color-border-strong);
-  border-top-color: var(--color-text-primary);
-  border-radius: 999px;
-  animation: bridge-spin 900ms linear infinite;
+.simple-loading {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .bridge-command {
@@ -765,16 +763,6 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-@keyframes bridge-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 900px) {
@@ -1539,15 +1527,6 @@
   box-shadow: 0 0 0 8px rgba(0, 122, 255, 0.12);
 }
 
-.onboarding-loader {
-  justify-items: start;
-}
-
-.setup-loader-logo {
-  object-fit: contain;
-  animation: setup-float 2.4s ease-in-out infinite;
-}
-
 .setup-warning-card {
   border-color: rgba(255, 184, 91, 0.4);
 }
@@ -1576,16 +1555,10 @@
   to { transform: rotate(360deg); }
 }
 
-@keyframes setup-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .setup-orbit span,
   .setup-launch-ring::before,
-  .setup-launch-ring::after,
-  .setup-loader-logo {
+  .setup-launch-ring::after {
     animation: none;
   }
 

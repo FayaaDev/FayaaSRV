@@ -82,32 +82,30 @@ export function SetupBridge() {
     }
   }, [location.hash, location.pathname, location.search, navigate])
 
+  if (state.status === 'loading') {
+    return (
+      <main className="shell route-placeholder">
+        <p className="simple-loading" role="status">Loading...</p>
+      </main>
+    )
+  }
+
   return (
     <main className="shell route-placeholder">
       <section className="placeholder-card bridge-card" aria-labelledby="setup-bridge-title">
         <p className="section-label">Setup Access</p>
-        <h1 id="setup-bridge-title">
-          {state.status === 'loading' ? 'Connecting to setup...' : state.title}
-        </h1>
-        <p className="hero-text">
-          {state.status === 'loading'
-            ? 'Validating your setup link and establishing a local session.'
-            : state.message}
-        </p>
-
-        {state.status === 'loading' ? <div className="bridge-spinner" aria-hidden="true" /> : null}
+        <h1 id="setup-bridge-title">{state.title}</h1>
+        <p className="hero-text">{state.message}</p>
 
         <div className="bridge-command" aria-label="Recovery command">
           <code>{recoveryCommand}</code>
         </div>
 
-        {state.status === 'error' ? (
-          <div className="bridge-actions">
-            <button type="button" className="bridge-button" onClick={() => window.location.assign('/')}>
-              Back to landing page
-            </button>
-          </div>
-        ) : null}
+        <div className="bridge-actions">
+          <button type="button" className="bridge-button" onClick={() => window.location.assign('/')}>
+            Back to landing page
+          </button>
+        </div>
       </section>
     </main>
   )

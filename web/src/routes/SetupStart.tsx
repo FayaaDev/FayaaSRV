@@ -49,19 +49,20 @@ export function SetupStart() {
     }
   }, [navigate])
 
+  if (state.status === 'loading') {
+    return (
+      <main className="shell route-placeholder">
+        <p className="simple-loading" role="status">Loading...</p>
+      </main>
+    )
+  }
+
   return (
     <main className="shell route-placeholder">
       <section className="placeholder-card bridge-card" aria-labelledby="setup-start-title">
         <p className="section-label">Setup Session</p>
-        <h1 id="setup-start-title">
-          {state.status === 'loading' ? 'Resuming setup...' : 'Unable to resume setup'}
-        </h1>
-        <p className="hero-text">
-          {state.status === 'loading'
-            ? 'Loading your saved setup progress and redirecting to the current phase.'
-            : state.message}
-        </p>
-        {state.status === 'loading' ? <div className="bridge-spinner" aria-hidden="true" /> : null}
+        <h1 id="setup-start-title">Unable to resume setup</h1>
+        <p className="hero-text">{state.message}</p>
       </section>
     </main>
   )

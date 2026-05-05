@@ -143,13 +143,7 @@ export function SetupConfirm() {
   function renderContent() {
     if (state.status === 'loading') {
       return (
-        <section className="placeholder-card bridge-card onboarding-loader" aria-labelledby="setup-confirm-title">
-          <img className="setup-loader-logo" src="/logo.png" alt="" width="56" height="56" />
-          <p className="section-label">Deployment Summary</p>
-          <h2 id="setup-confirm-title">Preparing your summary</h2>
-          <p className="hero-text">Loading your saved configuration and deployment state.</p>
-          <div className="bridge-spinner" aria-hidden="true" />
-        </section>
+        <p className="simple-loading" role="status">Loading...</p>
       )
     }
 

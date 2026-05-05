@@ -51,13 +51,7 @@ export function SetupShell({ title, description, currentPhase, children }: Setup
   if (state.status === 'loading') {
     return (
       <main className="shell setup-shell-frame setup-onboarding">
-        <section className="placeholder-card bridge-card onboarding-loader" aria-labelledby="setup-shell-loading-title">
-          <img className="setup-loader-logo" src="/logo.png" alt="" width="56" height="56" />
-          <p className="section-label">Rakkib Setup</p>
-          <h1 id="setup-shell-loading-title">Opening your setup flow</h1>
-          <p className="hero-text">Restoring your saved progress and preparing the next step.</p>
-          <div className="bridge-spinner" aria-hidden="true" />
-        </section>
+        <p className="simple-loading" role="status">Loading...</p>
       </main>
     )
   }

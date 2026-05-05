@@ -322,12 +322,7 @@ export function SetupPhase() {
   if (state.status === 'loading') {
     return (
       <SetupShell title={page.title} description={page.description} currentPhase={phaseNumber}>
-        <section className="placeholder-card bridge-card" aria-labelledby="setup-phase-loading-title">
-          <p className="section-label">Setup Step</p>
-          <h2 id="setup-phase-loading-title">Preparing this step</h2>
-          <p className="hero-text">Loading your saved answers and the choices available for this server.</p>
-          <div className="bridge-spinner" aria-hidden="true" />
-        </section>
+        <p className="simple-loading" role="status">Loading...</p>
       </SetupShell>
     )
   }

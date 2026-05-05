@@ -184,13 +184,7 @@ export function SetupRun() {
   function renderContent() {
     if (state.status === 'loading') {
       return (
-        <section className="placeholder-card bridge-card onboarding-loader" aria-labelledby="setup-run-title">
-          <img className="setup-loader-logo" src="/logo.png" alt="" width="56" height="56" />
-          <p className="section-label">Progress</p>
-          <h2 id="setup-run-title">Opening progress view</h2>
-          <p className="hero-text">Checking the current setup state.</p>
-          <div className="bridge-spinner" aria-hidden="true" />
-        </section>
+        <p className="simple-loading" role="status">Loading...</p>
       )
     }
 
