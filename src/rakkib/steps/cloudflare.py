@@ -203,6 +203,13 @@ def _run(
     return result
 
 
+def _set_owner_mode(path: Path, uid: int, gid: int, mode: int) -> None:
+    """Set ownership when privileged and always apply the requested mode."""
+    if os.geteuid() == 0:
+        os.chown(path, uid, gid)
+    os.chmod(path, mode)
+
+
 def _merged_env(env: dict[str, str] | None = None) -> dict[str, str]:
     """Merge subprocess overrides with the current environment."""
     merged = {**os.environ}
@@ -565,7 +572,6 @@ def run(state: State) -> None:
 
     # 12. Set file permissions on credentials JSON
     # The container runs as the admin user (via docker-compose user:), so ownership must match.
-    os.chmod(creds_host_path, 0o600)
     admin_uid = os.getuid()
     admin_gid = os.getgid()
     if admin_user:
@@ -573,9 +579,11 @@ def run(state: State) -> None:
             pw = pwd.getpwnam(admin_user)
             admin_uid = pw.pw_uid
             admin_gid = pw.pw_gid
-            os.chown(creds_host_path, admin_uid, admin_gid)
         except KeyError:
             pass
+
+    _set_owner_mode(cloudflared_dir, admin_uid, admin_gid, 0o700)
+    _set_owner_mode(creds_host_path, admin_uid, admin_gid, 0o600)
 
     state.set("admin_uid", str(admin_uid))
     state.set("admin_gid", str(admin_gid))
@@ -598,11 +606,13 @@ def run(state: State) -> None:
 
     # 14-15. Render templates
     repo = _repo_dir()
+    config_path = cloudflared_dir / "config.yml"
     render_file(
         repo / "templates" / "cloudflared" / "config.yml.tmpl",
-        cloudflared_dir / "config.yml",
+        config_path,
         state,
     )
+    _set_owner_mode(config_path, admin_uid, admin_gid, 0o644)
     render_file(
         repo / "templates" / "docker" / "cloudflared" / ".env.example",
         docker_dir / ".env",

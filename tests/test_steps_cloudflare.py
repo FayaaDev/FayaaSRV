@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import stat
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -247,7 +248,12 @@ class TestRun:
 
         cloudflared_dir = tmp_path / "data" / "cloudflared"
         docker_dir = tmp_path / "docker" / "cloudflared"
-        assert (cloudflared_dir / "config.yml").exists()
+        config_path = cloudflared_dir / "config.yml"
+        creds_path = cloudflared_dir / "test-uuid.json"
+        assert config_path.exists()
+        assert stat.S_IMODE(cloudflared_dir.stat().st_mode) == 0o700
+        assert stat.S_IMODE(config_path.stat().st_mode) == 0o644
+        assert stat.S_IMODE(creds_path.stat().st_mode) == 0o600
         env_path = docker_dir / ".env"
         assert env_path.exists()
         env_text = env_path.read_text()
