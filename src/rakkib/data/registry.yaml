@@ -451,7 +451,7 @@ services:
       retries: 3
     smoke:
       path: /
-      expected_text: "Index of /"
+      expected_text: "WebDAV endpoint"
     notes: "Apache WebDAV server (bytemark/webdav). Optional. Data stored under data/webdav/dav."
 
   - id: it-tools

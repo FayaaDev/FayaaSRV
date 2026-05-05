@@ -1,5 +1,9 @@
 	# WebDAV (Apache)
 	@webdav host {{WEBDAV_SUBDOMAIN}}.{{DOMAIN}}
 	handle @webdav {
+		@root path /
+		handle @root {
+			respond "WebDAV endpoint. Mount /dav" 200
+		}
 		reverse_proxy webdav:80
 	}
