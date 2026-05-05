@@ -6,7 +6,7 @@ services:
     env_file: .env
     network_mode: "none"
     healthcheck:
-      test: ["CMD", "/watchtower", "--version"]
+      test: ["CMD", "/watchtower", "--help"]
       interval: 5s
       timeout: 5s
       retries: 12
