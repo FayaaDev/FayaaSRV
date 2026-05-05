@@ -1,0 +1,5 @@
+	# WebDAV (Apache)
+	@webdav host {{WEBDAV_SUBDOMAIN}}.{{DOMAIN}}
+	handle @webdav {
+		reverse_proxy webdav:80
+	}

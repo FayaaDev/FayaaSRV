@@ -398,6 +398,59 @@ services:
       expected_text: File Browser
     notes: "Browser-based file manager. Optional. Stores managed files under Rakkib's data root."
 
+  - id: webdav
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: bytemark/webdav:latest
+    default_port: 80
+    default_subdomain: webdav
+    subdomain_key: webdav
+    subdomain_placeholder: WEBDAV_SUBDOMAIN
+    env_keys:
+      - WEBDAV_USERNAME
+      - WEBDAV_PASSWORD
+      - WEBDAV_AUTH_TYPE
+      - WEBDAV_LOCATION
+      - WEBDAV_ANONYMOUS_METHODS
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: webdav-public.caddy.tmpl
+    data_dirs:
+      - data/webdav/dav
+    secrets:
+      WEBDAV_USERNAME:
+        value: admin
+      WEBDAV_PASSWORD:
+        factory: password
+      WEBDAV_AUTH_TYPE:
+        value: Basic
+      WEBDAV_LOCATION:
+        value: /
+      # Allow unauthenticated GET so `rakkib smoke webdav` (curl -fsSL) can succeed.
+      # Write methods remain authenticated by default.
+      WEBDAV_ANONYMOUS_METHODS:
+        value: GET,OPTIONS
+    homepage:
+      category: File Sharing
+      name: WebDAV
+      description: Simple WebDAV server (Apache)
+      icon: folder.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: "Index of /"
+    notes: "Apache WebDAV server (bytemark/webdav). Optional. Data stored under data/webdav/dav."
+
   - id: it-tools
     state_bucket: selected_services
     required: false
@@ -1300,6 +1353,46 @@ services:
       expected_text: Beszel
     notes: "Lightweight server monitoring hub. Optional. Agents connect separately; hub listens on 8090."
 
+  - id: autoheal
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: willfarrell/autoheal:latest
+    default_port: null
+    default_subdomain: null
+    subdomain_key: null
+    subdomain_placeholder: null
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    homepage:
+      category: Infrastructure
+      name: Autoheal
+      description: Restart unhealthy containers
+      icon: docker.png
+    notes: "Auto-restart unhealthy containers. Optional. Requires mounting the Docker socket (privileged). Only containers with a HEALTHCHECK and label com.rakkib.autoheal=true will be restarted by default."
+
+  - id: watchtower
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: containrrr/watchtower:1.7.1
+    default_port: null
+    default_subdomain: null
+    subdomain_key: null
+    subdomain_placeholder: null
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    homepage:
+      category: Infrastructure
+      name: Watchtower
+      description: Auto-update containers
+      icon: docker.png
+    notes: "Auto-update container images and restart containers. Optional. Requires mounting the Docker socket (privileged). Uses label-enable + scope by default; the upstream project is archived, so treat this as best-effort."
+
   - id: freshrss
     state_bucket: selected_services
     required: false
@@ -1431,6 +1524,37 @@ services:
       path: /
       expected_text: Vaultwarden
     notes: "Bitwarden-compatible password manager (Vaultwarden). Optional. DOMAIN should match the public https URL when behind a reverse proxy."
+
+  - id: adguard
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: adguard/adguardhome:latest
+    default_port: 3000
+    default_subdomain: adguard
+    subdomain_key: adguard
+    subdomain_placeholder: ADGUARD_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: adguard-public.caddy.tmpl
+    data_dirs:
+      - data/adguard/work
+      - data/adguard/conf
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: AdGuard Home
+    notes: "Network-wide ad blocker (AdGuard Home). Optional. Binds DNS port 53 (TCP/UDP) on the host. Web UI is reverse proxied via Caddy."
 
   - id: whoogle
     state_bucket: selected_services

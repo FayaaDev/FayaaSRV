@@ -1,12 +1,11 @@
 .fss-state.yaml
 .worktrees/
-
+.claude/worktrees/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
 
 # Beads tracking files
-.beads/
 .beads-credential-key
 
 # Python

@@ -82,6 +82,11 @@ service_catalog:
       numeric_alias: 12
       subdomain_key: filebrowser
       default_subdomain: files
+    - slug: webdav
+      label: WebDAV
+      numeric_alias: 50
+      subdomain_key: webdav
+      default_subdomain: webdav
     - slug: it-tools
       label: IT-Tools
       numeric_alias: 13
@@ -147,6 +152,11 @@ service_catalog:
       numeric_alias: 25
       subdomain_key: vaultwarden
       default_subdomain: vault
+    - slug: adguard
+      label: AdGuard Home
+      numeric_alias: 49
+      subdomain_key: adguard
+      default_subdomain: adguard
     - slug: whoogle
       label: Whoogle
       numeric_alias: 26
@@ -247,6 +257,16 @@ service_catalog:
       numeric_alias: 43
       subdomain_key: ollama-nvidia
       default_subdomain: ollama-nvidia
+    - slug: autoheal
+      label: Autoheal
+      numeric_alias: 51
+      subdomain_key: null
+      default_subdomain: null
+    - slug: watchtower
+      label: Watchtower
+      numeric_alias: 52
+      subdomain_key: null
+      default_subdomain: null
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -268,7 +288,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, planning-poker, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, planning-poker, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -279,6 +299,7 @@ fields:
       "48": codex
       "37": anse
       "12": filebrowser
+      "50": webdav
       "13": it-tools
       "14": cyberchef
       "15": drawio
@@ -292,6 +313,7 @@ fields:
       "23": actual-budget
       "24": rsshub
       "25": vaultwarden
+      "49": adguard
       "26": whoogle
       "27": forgejo
       "28": privatebin
@@ -312,6 +334,8 @@ fields:
       "44": chatpad
       "45": lobe-chat
       "46": open-webui
+      "51": autoheal
+      "52": watchtower
     records:
       - selected_services
   - id: host_addons
@@ -422,6 +446,7 @@ Finance:
 
 Security:
   [ ] 25 Vaultwarden   — password manager       →  vault.<domain>
+  [ ] 49 AdGuard Home   — network ad blocking    →  adguard.<domain>
 
 Search:
   [ ] 26 Whoogle       — privacy search         →  whoogle.<domain>
@@ -524,6 +549,7 @@ subdomains:
   actual-budget: actual
   rsshub: rsshub
   vaultwarden: vault
+  adguard: adguard
   whoogle: whoogle
   mealie: mealie
 ```
@@ -553,6 +579,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.lobe-chat` -> `{{LOBE_CHAT_SUBDOMAIN}}`
 - `subdomains.open-webui` -> `{{OPEN_WEBUI_SUBDOMAIN}}`
 - `subdomains.filebrowser` -> `{{FILEBROWSER_SUBDOMAIN}}`
+- `subdomains.webdav` -> `{{WEBDAV_SUBDOMAIN}}`
 - `subdomains.it-tools` -> `{{IT_TOOLS_SUBDOMAIN}}`
 - `subdomains.cyberchef` -> `{{CYBERCHEF_SUBDOMAIN}}`
 - `subdomains.forgejo` -> `{{FORGEJO_SUBDOMAIN}}`
@@ -567,5 +594,6 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.actual-budget` -> `{{ACTUAL_BUDGET_SUBDOMAIN}}`
 - `subdomains.rsshub` -> `{{RSSHUB_SUBDOMAIN}}`
 - `subdomains.vaultwarden` -> `{{VAULTWARDEN_SUBDOMAIN}}`
+- `subdomains.adguard` -> `{{ADGUARD_SUBDOMAIN}}`
 - `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
 - `subdomains.mealie` -> `{{MEALIE_SUBDOMAIN}}`
