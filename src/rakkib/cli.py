@@ -37,7 +37,7 @@ from rakkib.state import State
 from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry, selected_service_defs
 from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
-from rakkib.steps.cloudflare import _cloudflared_bin
+from rakkib.steps.cloudflare import _cloudflared_bin, _show_qr
 from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm
 
 console = Console()
@@ -1102,6 +1102,10 @@ def web(ctx: click.Context, lan: bool, host: str, port: int, startup_token: str,
         console.print("[dim]Token auth:[/dim] required")
     else:
         console.print("[yellow]Token auth is disabled because --no-token was provided explicitly.[/yellow]")
+
+    qr_url = lan_url or local_url
+    console.print(f"\n[dim]Scan to open:[/dim] {qr_url}\n")
+    _show_qr(qr_url)
 
     if not no_open:
         try:
