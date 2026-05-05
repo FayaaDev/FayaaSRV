@@ -33,6 +33,24 @@ class TestComposeUp:
         assert "-d" in cmd
 
     @patch("rakkib.docker._run")
+    def test_emits_explicit_compose_file_and_env_file(self, mock_run: MagicMock, tmp_path: Path):
+        (tmp_path / "docker-compose.yml").write_text("services: {}\n")
+        (tmp_path / ".env").write_text("FOO=bar\n")
+        compose_up(tmp_path)
+        cmd = mock_run.call_args[0][0]
+        assert "-f" in cmd
+        assert str(tmp_path / "docker-compose.yml") in cmd
+        assert "--env-file" in cmd
+        assert str(tmp_path / ".env") in cmd
+
+    @patch("rakkib.docker._run")
+    def test_omits_env_file_when_missing(self, mock_run: MagicMock, tmp_path: Path):
+        (tmp_path / "docker-compose.yml").write_text("services: {}\n")
+        compose_up(tmp_path)
+        cmd = mock_run.call_args[0][0]
+        assert "--env-file" not in cmd
+
+    @patch("rakkib.docker._run")
     def test_with_services(self, mock_run: MagicMock):
         compose_up("/tmp/proj", services=["web", "db"])
         cmd = mock_run.call_args[0][0]

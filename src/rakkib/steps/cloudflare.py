@@ -203,11 +203,78 @@ def _run(
     return result
 
 
-def _set_owner_mode(path: Path, uid: int, gid: int, mode: int) -> None:
-    """Set ownership when privileged and always apply the requested mode."""
+def _repair_dir_ownership(directory: Path, uid: int, gid: int) -> None:
+    """Recursively rewrite ownership under *directory* to uid:gid.
+
+    Skips silently if the directory is missing. When non-root, escalates via
+    sudo. This makes the cloudflare step self-healing for machines where a
+    prior container run wrote files as the image's default `nonroot` user.
+    """
+    if not directory.exists():
+        return
     if os.geteuid() == 0:
-        os.chown(path, uid, gid)
-    os.chmod(path, mode)
+        for entry in [directory, *directory.rglob("*")]:
+            try:
+                os.chown(entry, uid, gid)
+            except OSError:
+                pass
+        return
+    needs_repair = False
+    try:
+        for entry in [directory, *directory.rglob("*")]:
+            try:
+                st = entry.stat()
+            except OSError:
+                continue
+            if st.st_uid != uid or st.st_gid != gid:
+                needs_repair = True
+                break
+    except OSError:
+        needs_repair = True
+    if needs_repair:
+        _sudo_run(["chown", "-R", f"{uid}:{gid}", str(directory)])
+
+
+def _sudo_run(cmd: list[str]) -> bool:
+    """Run a sudo command non-interactively. Return True on success."""
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", *cmd],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0
+
+
+def _set_owner_mode(path: Path, uid: int, gid: int, mode: int) -> None:
+    """Set ownership and mode on *path*, escalating via sudo when needed.
+
+    When running as root, use os.chown directly. Otherwise, only chown via
+    sudo when the current ownership doesn't already match the desired uid/gid
+    — this avoids gratuitous sudo calls on fresh installs where the file is
+    already owned by the admin user. If chmod fails because the file is
+    owned by another UID (e.g. stale 65532-owned tree from a prior broken
+    container run), retry via sudo.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        st = None
+
+    if os.geteuid() == 0:
+        try:
+            os.chown(path, uid, gid)
+        except OSError:
+            pass
+    elif st is not None and (st.st_uid != uid or st.st_gid != gid):
+        _sudo_run(["chown", f"{uid}:{gid}", str(path)])
+
+    try:
+        os.chmod(path, mode)
+    except PermissionError:
+        _sudo_run(["chmod", oct(mode)[2:], str(path)])
 
 
 def _merged_env(env: dict[str, str] | None = None) -> dict[str, str]:
@@ -582,7 +649,12 @@ def run(state: State) -> None:
         except KeyError:
             pass
 
-    _set_owner_mode(cloudflared_dir, admin_uid, admin_gid, 0o700)
+    # Repair ownership of any stale files left by prior runs (e.g. a previous
+    # container start that fell back to UID 65532 because ${ADMIN_UID} did
+    # not expand). Walk the dir, then apply explicit modes for the dir,
+    # config and credentials.
+    _repair_dir_ownership(cloudflared_dir, admin_uid, admin_gid)
+    _set_owner_mode(cloudflared_dir, admin_uid, admin_gid, 0o755)
     _set_owner_mode(creds_host_path, admin_uid, admin_gid, 0o600)
 
     state.set("admin_uid", str(admin_uid))

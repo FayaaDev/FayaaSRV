@@ -251,7 +251,7 @@ class TestRun:
         config_path = cloudflared_dir / "config.yml"
         creds_path = cloudflared_dir / "test-uuid.json"
         assert config_path.exists()
-        assert stat.S_IMODE(cloudflared_dir.stat().st_mode) == 0o700
+        assert stat.S_IMODE(cloudflared_dir.stat().st_mode) == 0o755
         assert stat.S_IMODE(config_path.stat().st_mode) == 0o644
         assert stat.S_IMODE(creds_path.stat().st_mode) == 0o600
         env_path = docker_dir / ".env"
@@ -465,6 +465,74 @@ class TestRun:
             mock_run.side_effect = _subprocess_side_effect()
             with pytest.raises(RuntimeError, match="Tunnel credentials file not found"):
                 cloudflare.run(state)
+
+
+class TestSetOwnerMode:
+    def test_skips_sudo_when_ownership_already_matches(self, tmp_path, monkeypatch):
+        target = tmp_path / "file"
+        target.write_text("x")
+        st = target.stat()
+
+        calls: list[list[str]] = []
+
+        def fake_sudo(cmd):
+            calls.append(cmd)
+            return True
+
+        monkeypatch.setattr(cloudflare, "_sudo_run", fake_sudo)
+        monkeypatch.setattr(cloudflare.os, "geteuid", lambda: 1000)
+
+        cloudflare._set_owner_mode(target, st.st_uid, st.st_gid, 0o644)
+
+        assert calls == []
+        assert stat.S_IMODE(target.stat().st_mode) == 0o644
+
+    def test_uses_sudo_when_ownership_mismatches(self, tmp_path, monkeypatch):
+        target = tmp_path / "file"
+        target.write_text("x")
+
+        calls: list[list[str]] = []
+
+        def fake_sudo(cmd):
+            calls.append(cmd)
+            return True
+
+        monkeypatch.setattr(cloudflare, "_sudo_run", fake_sudo)
+        monkeypatch.setattr(cloudflare.os, "geteuid", lambda: 1000)
+
+        # Force a mismatch by claiming the desired uid is not the current owner.
+        cloudflare._set_owner_mode(target, 65532, 65532, 0o644)
+
+        assert any(c[:1] == ["chown"] for c in calls)
+
+
+class TestRepairDirOwnership:
+    def test_runs_sudo_chown_recursive_when_mismatch(self, tmp_path, monkeypatch):
+        target = tmp_path / "stale"
+        target.mkdir()
+        (target / "creds.json").write_text("{}")
+
+        calls: list[list[str]] = []
+        monkeypatch.setattr(cloudflare, "_sudo_run", lambda cmd: calls.append(cmd) or True)
+        monkeypatch.setattr(cloudflare.os, "geteuid", lambda: 1000)
+
+        cloudflare._repair_dir_ownership(target, 65532, 65532)
+
+        assert calls and calls[0][:2] == ["chown", "-R"]
+
+    def test_skips_when_ownership_matches(self, tmp_path, monkeypatch):
+        target = tmp_path / "ok"
+        target.mkdir()
+        (target / "creds.json").write_text("{}")
+        st = target.stat()
+
+        calls: list[list[str]] = []
+        monkeypatch.setattr(cloudflare, "_sudo_run", lambda cmd: calls.append(cmd) or True)
+        monkeypatch.setattr(cloudflare.os, "geteuid", lambda: 1000)
+
+        cloudflare._repair_dir_ownership(target, st.st_uid, st.st_gid)
+
+        assert calls == []
 
 
 class TestVerify:
