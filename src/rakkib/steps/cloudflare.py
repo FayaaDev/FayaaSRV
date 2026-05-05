@@ -95,7 +95,13 @@ def _candidate_cloudflared_paths(name: str, admin_user: str | None = None) -> li
 
 def _is_readable_artifact(path: Path) -> bool:
     """Return True when the current process can read the artifact file."""
-    return path.is_file() and os.access(path, os.R_OK)
+    try:
+        if not path.is_file():
+            return False
+        with path.open("rb"):
+            return True
+    except OSError:
+        return False
 
 
 def _find_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path | None:
@@ -109,7 +115,11 @@ def _find_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path
 def _find_unreadable_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path | None:
     """Return the first existing but unreadable auth artifact from common locations."""
     for candidate in _candidate_cloudflared_paths(name, admin_user=admin_user):
-        if candidate.exists() and not _is_readable_artifact(candidate):
+        try:
+            exists = candidate.exists()
+        except OSError:
+            return candidate
+        if exists and not _is_readable_artifact(candidate):
             return candidate
     return None
 

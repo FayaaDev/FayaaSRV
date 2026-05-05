@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import pwd
 import shlex
 import subprocess
 import sys
@@ -16,6 +17,22 @@ import threading
 def _now_iso() -> str:
     """Return the current UTC timestamp in ISO-8601 form."""
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _setup_child_env() -> dict[str, str]:
+    """Return a clean environment for browser-triggered setup runs."""
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+
+    if os.getuid() != 0:
+        try:
+            home_dir = pwd.getpwuid(os.getuid()).pw_dir
+        except KeyError:
+            home_dir = ""
+        if home_dir:
+            env["HOME"] = home_dir
+
+    return env
 
 
 @dataclass
@@ -57,8 +74,7 @@ class WebRunManager:
             log_handle.write(f"$ {' '.join(shlex.quote(part) for part in command)}\n\n")
             log_handle.flush()
 
-            env = os.environ.copy()
-            env["PYTHONUNBUFFERED"] = "1"
+            env = _setup_child_env()
 
             try:
                 process = subprocess.Popen(
