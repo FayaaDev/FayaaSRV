@@ -1,4 +1,4 @@
-import type { SessionStatus, SetupPhasePayload, SetupPhaseSubmitResult, SetupResume, SetupState } from './types'
+import type { SessionStatus, SetupPhasePayload, SetupPhaseSubmitResult, SetupResume, SetupRunStatus, SetupState } from './types'
 
 const sessionBootstrapPath = '/api/session/bootstrap'
 const sessionBootstrapTokenPath = '/api/session/bootstrap-token'
@@ -133,4 +133,25 @@ export async function submitSetupPhase(
   }
 
   return (await response.json()) as SetupPhaseSubmitResult
+}
+
+export async function fetchSetupRunStatus(): Promise<SetupRunStatus> {
+  return fetchApi<SetupRunStatus>('/api/run')
+}
+
+export async function startSetupRun(): Promise<SetupRunStatus> {
+  const response = await fetch('/api/run/start', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  })
+
+  if (!response.ok) {
+    const details = await readErrorMessage(response)
+    throw new ApiError(details.message, response.status, details.fieldErrors)
+  }
+
+  return (await response.json()) as SetupRunStatus
 }

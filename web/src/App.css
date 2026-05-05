@@ -654,6 +654,69 @@
   cursor: wait;
 }
 
+.setup-run-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.setup-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.setup-status-pill.is-running {
+  border-color: rgba(124, 216, 150, 0.6);
+  color: #7cd896;
+}
+
+.setup-status-pill.is-succeeded {
+  border-color: rgba(93, 176, 255, 0.6);
+  color: #8cc8ff;
+}
+
+.setup-status-pill.is-failed {
+  border-color: rgba(255, 133, 133, 0.6);
+  color: #ff8585;
+}
+
+.setup-status-pill.is-idle {
+  color: var(--color-text-secondary);
+}
+
+.setup-command-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.setup-command-block code,
+.setup-run-log {
+  display: block;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow-x: auto;
+}
+
+.setup-run-log {
+  margin: 20px 0 0;
+  min-height: 280px;
+  max-height: 60vh;
+  color: #d7e5ff;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @keyframes bridge-spin {
   from {
     transform: rotate(0deg);
@@ -715,8 +778,13 @@
     justify-content: stretch;
   }
 
-  .setup-phase-actions .bridge-button {
+  .setup-phase-actions .bridge-button,
+  .setup-run-actions .bridge-button {
     width: 100%;
+  }
+
+  .setup-run-actions {
+    display: grid;
   }
 
   .setup-shell-status {

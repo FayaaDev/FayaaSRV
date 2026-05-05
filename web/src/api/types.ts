@@ -76,3 +76,19 @@ export type SetupPhaseSubmitResult = {
   resume_phase: number
   confirmed: boolean
 }
+
+export type SetupRunStatus = {
+  status: 'idle' | 'running' | 'succeeded' | 'failed'
+  message: string
+  started_at: string | null
+  finished_at: string | null
+  exit_code: number | null
+  command: string[]
+  log_path: string | null
+  pid: number | null
+  running: boolean
+  can_start: boolean
+  confirmed: boolean
+  resume_phase: number
+  log_tail: string[]
+}

@@ -4,16 +4,19 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
-from rakkib.state import State
+from rakkib.state import DEFAULT_STATE_FILE, State
 
 from .answers import PhaseValidationError, apply_phase_answers
 from .auth import AuthManager
+from .models import WebRuntimeConfig
+from .run import WebRunManager
 
 REDACTED_SECRET = "[redacted]"
 
@@ -37,9 +40,9 @@ class PhaseAnswersRequest(BaseModel):
     confirmations: dict[str, bool] = {}
 
 
-def _load_state() -> State:
+def _load_state(state_path: Path) -> State:
     """Load the persisted setup state from disk."""
-    return State.load()
+    return State.load(state_path)
 
 
 def _schemas() -> list[QuestionSchema]:
@@ -169,9 +172,19 @@ def _serialize_field(field: FieldDef, state: State) -> dict[str, object]:
     return payload
 
 
-def build_api_router(auth: AuthManager) -> APIRouter:
+def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: WebRunManager) -> APIRouter:
     """Create the minimal API router for the current web phase."""
     router = APIRouter()
+    state_path = config.repo_dir / DEFAULT_STATE_FILE
+
+    def serialize_run_state() -> dict[str, object]:
+        state = _load_state(state_path)
+        snapshot = run_manager.snapshot()
+        ready_to_start = state.resume_phase() >= 7 and state.is_confirmed()
+        snapshot["resume_phase"] = state.resume_phase()
+        snapshot["confirmed"] = state.is_confirmed()
+        snapshot["can_start"] = bool(snapshot["can_start"]) and ready_to_start
+        return snapshot
 
     @router.get("/health")
     def health() -> dict[str, bool | str]:
@@ -226,7 +239,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        state = _load_state()
+        state = _load_state(state_path)
         return {
             "state": _redact_state_payload(state),
             "confirmed": state.is_confirmed(),
@@ -238,9 +251,9 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        state = _load_state()
+        state = _load_state(state_path)
         state.merge(payload.state)
-        state.save()
+        state.save(state_path)
 
         return {
             "state": _redact_state_payload(state),
@@ -253,7 +266,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        state = _load_state()
+        state = _load_state(state_path)
         schemas = _schemas()
 
         return {
@@ -267,7 +280,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        state = _load_state()
+        state = _load_state(state_path)
         schemas = _schemas()
 
         return {
@@ -279,7 +292,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        state = _load_state()
+        state = _load_state(state_path)
         schema = next((item for item in _schemas() if item.phase == phase), None)
         if schema is None:
             raise HTTPException(status_code=404, detail=f"Unknown phase: {phase}")
@@ -296,7 +309,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
-        current_state = _load_state()
+        current_state = _load_state(state_path)
         schema = next((item for item in _schemas() if item.phase == phase), None)
         if schema is None:
             raise HTTPException(status_code=404, detail=f"Unknown phase: {phase}")
@@ -317,7 +330,7 @@ def build_api_router(auth: AuthManager) -> APIRouter:
                 },
             ) from error
 
-        updated_state.save()
+        updated_state.save(state_path)
 
         return {
             "ok": True,
@@ -325,5 +338,29 @@ def build_api_router(auth: AuthManager) -> APIRouter:
             "resume_phase": updated_state.resume_phase(),
             "confirmed": updated_state.is_confirmed(),
         }
+
+    @router.get("/run")
+    def run_status(request: Request, response: Response) -> dict[str, object]:
+        auth.require_api_auth(request)
+        response.headers["Cache-Control"] = "no-store"
+        return serialize_run_state()
+
+    @router.post("/run/start")
+    def start_run(request: Request, response: Response) -> dict[str, object]:
+        auth.require_api_auth(request)
+        response.headers["Cache-Control"] = "no-store"
+
+        state = _load_state(state_path)
+        if state.resume_phase() < 7:
+            raise HTTPException(status_code=409, detail="Complete all setup phases before starting the installer run.")
+        if not state.is_confirmed():
+            raise HTTPException(status_code=409, detail="Phase 6 must be confirmed before starting the installer run.")
+
+        try:
+            run_manager.start()
+        except RuntimeError as error:
+            raise HTTPException(status_code=500, detail=str(error)) from error
+
+        return serialize_run_state()
 
     return router
