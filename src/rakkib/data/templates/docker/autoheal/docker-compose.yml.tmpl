@@ -7,10 +7,10 @@ services:
     network_mode: "none"
     healthcheck:
       test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q autoheal"]
-      interval: 30s
+      interval: 5s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 12
+      start_period: 1s
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
