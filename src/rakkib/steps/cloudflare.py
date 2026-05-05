@@ -12,6 +12,7 @@ import pwd
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -70,7 +71,7 @@ def _show_qr(url: str) -> None:
         )
         qr.add_data(url)
         qr.make(fit=True)
-        qr.print_ascii(tty=True, invert=True)
+        qr.print_ascii(tty=sys.stdout.isatty(), invert=True)
     except ImportError:
         pass
 
