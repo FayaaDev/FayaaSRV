@@ -62,6 +62,7 @@ def _show_qr(url: str) -> None:
     try:
         import qrcode
         import qrcode.constants
+
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             # A larger quiet zone improves scanner reliability.
@@ -69,15 +70,7 @@ def _show_qr(url: str) -> None:
         )
         qr.add_data(url)
         qr.make(fit=True)
-        matrix = qr.get_matrix()
-        rows = len(matrix)
-        cols = len(matrix[0]) if rows else 0
-        # Terminal characters are not square; using 2 columns per module is
-        # usually enough to keep the QR scannable (and avoids ANSI colors).
-        black = "##"
-        white = "  "
-        for y in range(rows):
-            print("".join(black if matrix[y][x] else white for x in range(cols)))
+        qr.print_ascii(tty=True, invert=True)
     except ImportError:
         pass
 
