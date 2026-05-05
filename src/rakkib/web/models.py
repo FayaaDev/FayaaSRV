@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -11,5 +12,6 @@ class WebRuntimeConfig:
 
     host: str
     port: int
+    repo_dir: Path
     token_auth_enabled: bool
     startup_token: str | None

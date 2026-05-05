@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from .api import build_api_router
 from .auth import AuthManager
 from .models import WebRuntimeConfig
+from .run import WebRunManager
 from .static import packaged_index_path, resolve_packaged_file
 
 
@@ -18,10 +19,12 @@ def create_app(config: WebRuntimeConfig) -> FastAPI:
         startup_token=config.startup_token,
         token_auth_enabled=config.token_auth_enabled,
     )
+    run_manager = WebRunManager(config.repo_dir)
 
     app.state.web_config = config
     app.state.auth = auth
-    app.include_router(build_api_router(auth), prefix="/api")
+    app.state.run_manager = run_manager
+    app.include_router(build_api_router(auth, config, run_manager), prefix="/api")
 
     @app.get("/{requested_path:path}", include_in_schema=False)
     def static_entry(request: Request, requested_path: str = ""):

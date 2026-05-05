@@ -1079,6 +1079,7 @@ def web(lan: bool, host: str, port: int, startup_token: str, no_token: bool, no_
     config = WebRuntimeConfig(
         host=bind_host,
         port=port,
+        repo_dir=ctx.obj["repo_dir"],
         token_auth_enabled=token_auth_enabled,
         startup_token=startup_token or None,
     )
