@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import pwd
+import re
 import shlex
 import subprocess
 import sys
@@ -33,6 +34,21 @@ def _setup_child_env() -> dict[str, str]:
             env["HOME"] = home_dir
 
     return env
+
+
+CLOUDFLARE_AUTH_URL_RE = re.compile(r"https://[^\s]+cloudflare[^\s]*", re.IGNORECASE)
+
+
+def _cloudflare_attention_from_lines(lines: list[str]) -> dict[str, str] | None:
+    """Return a browser action prompt when setup is waiting for Cloudflare auth."""
+    for line in reversed(lines):
+        match = CLOUDFLARE_AUTH_URL_RE.search(line)
+        if match:
+            return {
+                "type": "cloudflare_auth",
+                "url": match.group(0).rstrip(".,;)]}"),
+            }
+    return None
 
 
 @dataclass
@@ -177,6 +193,7 @@ class WebRunManager:
 
     def _snapshot_locked(self) -> dict[str, object]:
         """Build the API payload for the current run."""
+        log_tail = self._read_log_tail()
         return {
             "status": self._record.status,
             "message": self._record.message,
@@ -188,7 +205,10 @@ class WebRunManager:
             "pid": self._record.pid,
             "running": self._record.status == "running",
             "can_start": self._record.status != "running",
-            "log_tail": self._read_log_tail(),
+            "log_tail": log_tail,
+            "attention": _cloudflare_attention_from_lines(log_tail)
+            if self._record.status == "running"
+            else None,
         }
 
     def _read_log_tail(self, limit: int = 200) -> list[str]:
