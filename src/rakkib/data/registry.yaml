@@ -1554,7 +1554,7 @@ services:
     smoke:
       path: /
       expected_text: AdGuard Home
-    notes: "Network-wide ad blocker (AdGuard Home). Optional. Binds DNS port 53 (TCP/UDP) on the host. Web UI is reverse proxied via Caddy."
+    notes: "Network-wide ad blocker (AdGuard Home). Optional. Web UI is reverse proxied via Caddy. DNS ports are not bound by default to avoid conflicts with the host resolver; bind 53/tcp+udp manually if you want LAN clients to use AdGuard for DNS."
 
   - id: whoogle
     state_bucket: selected_services
