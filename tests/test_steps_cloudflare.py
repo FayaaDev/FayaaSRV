@@ -173,6 +173,28 @@ class TestRun:
 
         assert cloudflare._find_unreadable_cloudflared_artifact("cert.pem") == denied_cert
 
+    def test_candidate_artifact_paths_avoid_root_for_non_root_admin(self, monkeypatch):
+        monkeypatch.setattr(cloudflare.os, "geteuid", lambda: 1000)
+        monkeypatch.setattr(cloudflare.Path, "home", lambda: Path("/root"))
+        monkeypatch.setattr(
+            cloudflare.pwd,
+            "getpwnam",
+            lambda user: MagicMock(pw_dir=f"/home/{user}"),
+        )
+
+        candidates = cloudflare._candidate_cloudflared_paths("cert.pem", admin_user="ubuntu")
+
+        assert candidates == [Path("/home/ubuntu/.cloudflared/cert.pem")]
+
+    def test_cloudflared_env_uses_admin_home(self, monkeypatch):
+        monkeypatch.setattr(
+            cloudflare.pwd,
+            "getpwnam",
+            lambda user: MagicMock(pw_dir=f"/home/{user}"),
+        )
+
+        assert cloudflare._cloudflared_env("ubuntu") == {"HOME": "/home/ubuntu"}
+
     def test_run_new_tunnel_creates_and_discovers(self, tmp_path):
         state = _make_state(tmp_path)
         cloudflared_dir = tmp_path / "data" / "cloudflared"

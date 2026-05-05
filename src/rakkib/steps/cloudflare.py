@@ -8,6 +8,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import pwd
 import re
 import shutil
 import subprocess
@@ -29,6 +30,24 @@ EDGE_LOGS_TAIL_LINES = 200
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
     return Path(__file__).resolve().parent.parent / "data"
+
+
+def _home_for_user(user: str | None) -> Path | None:
+    """Return a user's real home directory when it can be resolved."""
+    if not user:
+        return None
+    try:
+        return Path(pwd.getpwnam(user).pw_dir)
+    except KeyError:
+        return Path("/home") / user
+
+
+def _cloudflared_env(admin_user: str | None) -> dict[str, str]:
+    """Force cloudflared to use the install user's home, not an inherited root HOME."""
+    home = _home_for_user(admin_user)
+    if home is None or admin_user == "root":
+        return {}
+    return {"HOME": str(home)}
 
 
 def _cloudflared_bin() -> str:
@@ -77,12 +96,17 @@ def _looks_like_cloudflared_ascii_qr(line: str) -> bool:
 
 def _candidate_cloudflared_paths(name: str, admin_user: str | None = None) -> list[Path]:
     """Return likely host paths for cloudflared auth artifacts."""
-    candidates = [
-        Path.home() / ".cloudflared" / name,
-        Path("/root/.cloudflared") / name,
-    ]
-    if admin_user:
-        candidates.append(Path("/home") / admin_user / ".cloudflared" / name)
+    candidates = []
+    admin_home = _home_for_user(admin_user)
+    if admin_home is not None:
+        candidates.append(admin_home / ".cloudflared" / name)
+
+    current_home = Path.home()
+    if current_home != Path("/root") or os.geteuid() == 0 or admin_user == "root":
+        candidates.append(current_home / ".cloudflared" / name)
+
+    if os.geteuid() == 0 or admin_user == "root":
+        candidates.append(Path("/root/.cloudflared") / name)
 
     unique: list[Path] = []
     seen: set[Path] = set()
@@ -185,6 +209,14 @@ def _run(
     return result
 
 
+def _merged_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """Merge subprocess overrides with the current environment."""
+    merged = {**os.environ}
+    if env:
+        merged.update(env)
+    return merged
+
+
 def _get_tunnel_uuid(tunnel_name: str, env: dict[str, str] | None = None) -> str | None:
     """Look up tunnel UUID by name. Returns None if not found."""
     result = _run(
@@ -269,6 +301,7 @@ def run(state: State) -> None:
     lan_ip = state.get("lan_ip", "127.0.0.1")
     metrics_port = state.get("cloudflared_metrics_port", "20241")
     admin_user = state.get("admin_user")
+    cloudflared_env = _cloudflared_env(admin_user)
     zone_in_cloudflare = state.get("cloudflare.zone_in_cloudflare", False)
 
     cloudflared_dir = data_root / "data" / "cloudflared"
@@ -288,7 +321,7 @@ def run(state: State) -> None:
 
     # 1. Confirm cloudflared CLI is installed
     try:
-        _run([_cloudflared_bin(), "--version"])
+        _run([_cloudflared_bin(), "--version"], env=cloudflared_env)
     except RuntimeError:
         print("cloudflared not found — installing automatically...")
         msg = attempt_fix_cloudflared()
@@ -300,7 +333,7 @@ def run(state: State) -> None:
             )
 
     cert_path = cloudflared_dir / "cert.pem"
-    token_env: dict[str, str] | None = None
+    token_env = dict(cloudflared_env)
     previous_tunnel_name = tunnel_name
 
     # 4-5. Handle auth methods
@@ -328,6 +361,7 @@ def run(state: State) -> None:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,
+                        env=_merged_env(token_env),
                     )
 
                     login_url: str | None = None
@@ -368,6 +402,7 @@ def run(state: State) -> None:
                     result = subprocess.run(
                         [_cloudflared_bin(), "tunnel", "login"],
                         text=True,
+                        env=_merged_env(token_env),
                     )
                     if result.returncode != 0:
                         raise RuntimeError(
@@ -382,6 +417,7 @@ def run(state: State) -> None:
         # Verify login succeeded
         list_result = _run(
             [_cloudflared_bin(), "tunnel", "list"],
+            env=token_env,
             check=False,
         )
         if list_result.returncode != 0:
@@ -407,7 +443,7 @@ def run(state: State) -> None:
         if verify_result.returncode != 0:
             raise RuntimeError("Cloudflare API token verification failed.")
 
-        token_env = {"CLOUDFLARE_API_TOKEN": api_token}
+        token_env = {**cloudflared_env, "CLOUDFLARE_API_TOKEN": api_token}
 
         list_result = _run(
             [_cloudflared_bin(), "tunnel", "list"],
@@ -438,6 +474,7 @@ def run(state: State) -> None:
                     result = subprocess.run(
                         [_cloudflared_bin(), "tunnel", "login"],
                         text=True,
+                        env=_merged_env(token_env),
                     )
                     if result.returncode != 0:
                         raise RuntimeError(
@@ -523,9 +560,12 @@ def run(state: State) -> None:
                     "Run cloudflared tunnel login and re-run rakkib pull."
                 )
         else:
+            searched_paths = ", ".join(
+                str(path) for path in _candidate_cloudflared_paths(f"{tunnel_uuid}.json", admin_user=admin_user)
+            )
             raise RuntimeError(
                 f"Tunnel credentials file not found at {creds_host_path}, "
-                f"~/.cloudflared/{tunnel_uuid}.json, or /root/.cloudflared/{tunnel_uuid}.json. "
+                f"or any searched cloudflared path ({searched_paths}). "
                 "Run cloudflared tunnel login and ensure the tunnel was created in the correct account."
             )
 
@@ -535,8 +575,6 @@ def run(state: State) -> None:
     admin_uid = os.getuid()
     admin_gid = os.getgid()
     if admin_user:
-        import pwd
-
         try:
             pw = pwd.getpwnam(admin_user)
             admin_uid = pw.pw_uid
@@ -642,6 +680,7 @@ def run(state: State) -> None:
 def verify(state: State) -> VerificationResult:
     data_root = Path(state.get("data_root", "/srv"))
     auth_method = state.get("cloudflare.auth_method")
+    cloudflared_env = _cloudflared_env(state.get("admin_user"))
     tunnel_uuid = state.get("cloudflare.tunnel_uuid") or state.get("tunnel_uuid")
     tunnel_creds_host_path = (
         state.get("cloudflare.tunnel_creds_host_path")
@@ -654,6 +693,7 @@ def verify(state: State) -> VerificationResult:
         [_cloudflared_bin(), "--version"],
         capture_output=True,
         text=True,
+        env=_merged_env(cloudflared_env),
     )
     if version.returncode != 0:
         return VerificationResult.failure(
@@ -683,6 +723,7 @@ def verify(state: State) -> VerificationResult:
         [_cloudflared_bin(), "tunnel", "list"],
         capture_output=True,
         text=True,
+        env=_merged_env(cloudflared_env),
     )
     if list_result.returncode != 0:
         return VerificationResult.failure(
@@ -696,6 +737,7 @@ def verify(state: State) -> VerificationResult:
             [_cloudflared_bin(), "tunnel", "info", tunnel_uuid],
             capture_output=True,
             text=True,
+            env=_merged_env(cloudflared_env),
         )
         if info_result.returncode != 0:
             return VerificationResult.failure(
