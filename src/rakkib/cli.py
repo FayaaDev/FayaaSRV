@@ -1,15 +1,18 @@
 """Rakkib CLI entrypoint.
 
-Commands: init, pull, doctor, status, add, restart, uninstall, privileged, auth
+Commands: init, pull, doctor, status, add, restart, uninstall, privileged, auth, web
 """
 
 from __future__ import annotations
 
 import getpass
 import os
+import secrets
 import shutil
+import socket
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -174,6 +177,24 @@ def _default_host_gateway(state: State) -> str:
     if platform == "mac":
         return "host.docker.internal"
     return "172.18.0.1"
+
+
+def _detect_lan_ip() -> str | None:
+    """Best-effort detection of the primary LAN IP for URL printing."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return str(sock.getsockname()[0])
+    except OSError:
+        return None
+
+
+def _web_url(host: str, port: int, token: str | None) -> str:
+    """Build the browser URL shown to the user."""
+    base = f"http://{host}:{port}/"
+    if not token:
+        return base
+    return f"{base}?token={token}"
 
 
 def _apply_service_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
@@ -1026,6 +1047,67 @@ def auth(ctx: click.Context) -> None:
         "[green]Docker access is prepared.[/green] "
         "Open a new shell or run `newgrp docker`, then run `docker info` and `rakkib pull`."
     )
+
+
+@cli.command()
+@click.option("--lan", is_flag=True, help="Bind to 0.0.0.0 and print a LAN URL.")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Host interface to bind.")
+@click.option("--port", default=8080, show_default=True, type=int, help="TCP port to bind.")
+@click.option("--token", "startup_token", default="", help="Explicit setup token to require.")
+@click.option("--no-token", is_flag=True, help="Disable token auth for this web session.")
+@click.option("--no-open", is_flag=True, help="Do not attempt to open a browser automatically.")
+def web(lan: bool, host: str, port: int, startup_token: str, no_token: bool, no_open: bool) -> None:
+    """Run the local browser UI and token bootstrap server."""
+    import uvicorn
+
+    from rakkib.web import WebRuntimeConfig, create_app
+
+    bind_host = host
+    if lan and host == "127.0.0.1":
+        bind_host = "0.0.0.0"
+
+    if no_token and startup_token:
+        console.print("[bold red]Error:[/bold red] Use either --token or --no-token, not both.")
+        raise click.Abort()
+
+    token_auth_enabled = not no_token
+    if token_auth_enabled:
+        startup_token = startup_token or secrets.token_urlsafe(24)
+    else:
+        startup_token = ""
+
+    config = WebRuntimeConfig(
+        host=bind_host,
+        port=port,
+        token_auth_enabled=token_auth_enabled,
+        startup_token=startup_token or None,
+    )
+    app = create_app(config)
+
+    local_url = _web_url("127.0.0.1" if bind_host == "0.0.0.0" else bind_host, port, startup_token or None)
+    lan_ip = _detect_lan_ip() if bind_host == "0.0.0.0" else None
+    lan_url = _web_url(lan_ip, port, startup_token or None) if lan_ip else None
+
+    console.print("[bold green]Rakkib web[/bold green]")
+    console.print(f"[dim]Bind:[/dim] {bind_host}:{port}")
+    console.print(f"[dim]Local:[/dim] {local_url}")
+    if lan_url:
+        console.print(f"[dim]LAN:[/dim] {lan_url}")
+    elif lan and not lan_ip:
+        console.print("[yellow]LAN mode is enabled, but the primary LAN IP could not be detected automatically.[/yellow]")
+
+    if token_auth_enabled:
+        console.print("[dim]Token auth:[/dim] required")
+    else:
+        console.print("[yellow]Token auth is disabled because --no-token was provided explicitly.[/yellow]")
+
+    if not no_open:
+        try:
+            webbrowser.open(local_url)
+        except Exception:
+            console.print("[dim]Browser auto-open was skipped because no local browser handler was available.[/dim]")
+
+    uvicorn.run(app, host=bind_host, port=port, log_level="info")
 
 
 @cli.group()
