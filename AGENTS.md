@@ -1,8 +1,22 @@
 # Rakkib — Agent Rules
 
+## bd Task Tracking (Brief)
+
+- Use `bd` for ALL task/issue tracking. Do not keep markdown TODO lists.
+- Start work by checking what is unblocked: `bd ready --json`
+- Create work items as needed:
+  - `bd create "Title" --description "Context" -t task|bug|feature -p 0-4 --json`
+  - Use stdin for descriptions with tricky quoting: `printf '%s' '...' | bd create "Title" --description=- --json`
+- Claim/update non-interactively (do NOT use `bd edit`):
+  - `bd update <id> --claim --json`
+  - `bd update <id> --notes "..." --acceptance "..." --priority 1 --json`
+- Close when done: `bd close <id> --reason "Done" --json`
+
 ## This project boots new servers
 
 Assume the target machine is **bare metal** — only `curl`, `git`, and `python3` may be present. The `install.sh` script is the sole entry point. It must bring up everything else (venv, pip, rakkib CLI) without pre-existing tooling.
+
+sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
 
 Dont debug and run tests on current machine, the app is being tested on a bare metal machine. Not this one
 

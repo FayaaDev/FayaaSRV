@@ -75,8 +75,8 @@ Duplicates already listed in **Batch 1** are removed here.
 ### Monitoring
 - [ ] Grafana (B)
 - [ ] Glances (E)
-- [ ] Watchtower (E)
-- [ ] Autoheal (E)
+- [x] Watchtower (E)
+- [x] Autoheal (E)
 
 ### Personal And Lifestyle
 - [x] Moodist (A)

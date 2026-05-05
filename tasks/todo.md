@@ -32,3 +32,15 @@
 ## Review
 
 - Pending.
+
+# Rakkib AI Services (Chatpad AI, Lobe Chat, Open WebUI)
+
+- [x] Add registry entries for `chatpad`, `lobe-chat`, `open-webui` with caddy routes + smoke checks
+- [x] Add docker templates (+ .env.example) for each service
+- [x] Update Phase 3 interview catalog: `src/rakkib/data/questions/03-services.md`
+- [x] Update any registry/template consistency fixtures or tests if required
+- [x] Sanity check registry references resolve locally (no deploy)
+
+## Review
+
+- Pending.
