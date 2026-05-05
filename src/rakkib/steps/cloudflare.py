@@ -380,6 +380,21 @@ def run(state: State) -> None:
     docker_dir.mkdir(parents=True, exist_ok=True)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Resolve admin uid/gid up front and repair any stale 65532-owned tree
+    # left by an earlier broken container run BEFORE attempting any copy or
+    # template render — otherwise those writes would fail with EACCES on a
+    # dir that's still owned by `nonroot`.
+    admin_uid = os.getuid()
+    admin_gid = os.getgid()
+    if admin_user:
+        try:
+            pw = pwd.getpwnam(admin_user)
+            admin_uid = pw.pw_uid
+            admin_gid = pw.pw_gid
+        except KeyError:
+            pass
+    _repair_dir_ownership(cloudflared_dir, admin_uid, admin_gid)
+
     # 0. Stop if zone is not in Cloudflare
     if not zone_in_cloudflare:
         raise RuntimeError(
@@ -587,7 +602,7 @@ def run(state: State) -> None:
 
     # 11. Ensure credentials JSON is at standardized host path
     creds_host_path = cloudflared_dir / f"{tunnel_uuid}.json"
-    creds_container_path = f"/home/nonroot/.cloudflared/{tunnel_uuid}.json"
+    creds_container_path = f"/etc/cloudflared/{tunnel_uuid}.json"
 
     if not creds_host_path.exists():
         recorded_creds = state.get("cloudflare.tunnel_creds_host_path")
@@ -615,7 +630,7 @@ def run(state: State) -> None:
             tunnel_name = replacement_name
             tunnel_uuid = replacement_uuid
             creds_host_path = cloudflared_dir / f"{tunnel_uuid}.json"
-            creds_container_path = f"/home/nonroot/.cloudflared/{tunnel_uuid}.json"
+            creds_container_path = f"/etc/cloudflared/{tunnel_uuid}.json"
             replacement_creds = _find_cloudflared_artifact(
                 f"{tunnel_uuid}.json",
                 admin_user=admin_user,
@@ -637,22 +652,9 @@ def run(state: State) -> None:
                 "Run cloudflared tunnel login and ensure the tunnel was created in the correct account."
             )
 
-    # 12. Set file permissions on credentials JSON
-    # The container runs as the admin user (via docker-compose user:), so ownership must match.
-    admin_uid = os.getuid()
-    admin_gid = os.getgid()
-    if admin_user:
-        try:
-            pw = pwd.getpwnam(admin_user)
-            admin_uid = pw.pw_uid
-            admin_gid = pw.pw_gid
-        except KeyError:
-            pass
-
-    # Repair ownership of any stale files left by prior runs (e.g. a previous
-    # container start that fell back to UID 65532 because ${ADMIN_UID} did
-    # not expand). Walk the dir, then apply explicit modes for the dir,
-    # config and credentials.
+    # 12. Apply explicit modes for the dir, config, and credentials. Re-run
+    # the ownership repair in case new files were copied in from sources
+    # owned by a different uid (e.g. cert.pem from /root via sudo cp).
     _repair_dir_ownership(cloudflared_dir, admin_uid, admin_gid)
     _set_owner_mode(cloudflared_dir, admin_uid, admin_gid, 0o755)
     _set_owner_mode(creds_host_path, admin_uid, admin_gid, 0o600)

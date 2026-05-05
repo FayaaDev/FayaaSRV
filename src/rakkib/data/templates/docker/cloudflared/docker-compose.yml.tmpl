@@ -3,10 +3,14 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --config /home/nonroot/.cloudflared/config.yml --metrics 0.0.0.0:${CLOUDFLARED_METRICS_PORT} run ${TUNNEL_UUID}
+    command: tunnel --config /etc/cloudflared/config.yml --metrics 0.0.0.0:${CLOUDFLARED_METRICS_PORT} run ${TUNNEL_UUID}
     user: "${ADMIN_UID}:${ADMIN_GID}"
     volumes:
-      - {{DATA_ROOT}}/data/cloudflared:/home/nonroot/.cloudflared
+      # Mount under /etc/cloudflared instead of /home/nonroot/.cloudflared
+      # because the distroless image's /home/nonroot has restrictive perms
+      # (owned by UID 65532) that block traversal by any other UID — even
+      # when the mounted volume itself is world-readable.
+      - {{DATA_ROOT}}/data/cloudflared:/etc/cloudflared
     ports:
       - 127.0.0.1:${CLOUDFLARED_METRICS_PORT}:${CLOUDFLARED_METRICS_PORT}
     networks:
