@@ -40,6 +40,7 @@ type PhaseState =
   | { status: 'ready'; payload: SetupPhasePayload }
 
 type CatalogFieldKey = 'foundation_services' | 'optional_services' | 'host_addons'
+type CatalogServiceItem = SetupServiceCatalogItem & { fieldId: CatalogFieldKey }
 
 function formatServiceSubdomain(item: SetupServiceCatalogItem) {
   return item.default_subdomain ? `${item.default_subdomain}.your domain` : 'Local or host tool'
@@ -152,24 +153,24 @@ function ServiceMark({ item }: { item: SetupServiceCatalogItem }) {
   )
 }
 
-function renderCatalogSection(
+function catalogSearchText(item: CatalogServiceItem) {
+  return [item.label, item.slug, item.category, item.default_subdomain, serviceDescription(item.fieldId, item)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function renderCatalogCategory(
   title: string,
-  eyebrow: string,
-  fieldId: CatalogFieldKey,
-  items: SetupServiceCatalogItem[] | undefined,
+  items: CatalogServiceItem[],
   selected: Set<string>,
-  error: string | undefined,
   onToggle: (fieldId: CatalogFieldKey, slug: string) => void,
 ) {
-  if (!items || items.length === 0) {
-    return null
-  }
-
   return (
-    <article className="setup-service-section">
+    <article className="setup-service-section" key={title}>
       <div className="setup-field-header">
         <div>
-          <p className="section-label">{eyebrow}</p>
+          <p className="section-label">{items.length} {items.length === 1 ? 'Service' : 'Services'}</p>
           <h2>{title}</h2>
         </div>
       </div>
@@ -180,13 +181,13 @@ function renderCatalogSection(
             key={item.slug}
             type="button"
             className={`setup-service-item${selected.has(item.slug) ? ' is-selected' : ''}`}
-            onClick={() => onToggle(fieldId, item.slug)}
+            onClick={() => onToggle(item.fieldId, item.slug)}
             role="listitem"
           >
             <ServiceMark item={item} />
             <span className="setup-service-copy">
               <strong>{item.label ?? item.slug}</strong>
-              <span>{serviceDescription(fieldId, item)}</span>
+              <span>{serviceDescription(item.fieldId, item)}</span>
             </span>
             <span className="setup-service-tags">
               <span className="setup-service-tag">{formatServiceSubdomain(item)}</span>
@@ -195,8 +196,6 @@ function renderCatalogSection(
           </button>
         ))}
       </div>
-
-      {error ? <p className="setup-field-error">{error}</p> : null}
     </article>
   )
 }
@@ -259,6 +258,7 @@ export function SetupPhase() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [transferRiskAccepted, setTransferRiskAccepted] = useState(false)
+  const [serviceSearch, setServiceSearch] = useState('')
 
   useEffect(() => {
     if (!Number.isInteger(phaseNumber) || phaseNumber < 1) {
@@ -280,6 +280,7 @@ export function SetupPhase() {
         setFieldErrors({})
         setSubmitError(null)
         setTransferRiskAccepted(false)
+        setServiceSearch('')
       } catch (error) {
         if (cancelled) {
           return
@@ -356,6 +357,25 @@ export function SetupPhase() {
   const readOnlyFields = payload.fields.filter((field) => field.repeat_for || ['derived', 'summary'].includes(field.type))
   const selectedValue = draft.optional_services
   const transferSelected = Array.isArray(selectedValue) && selectedValue.some((item) => String(item) === 'transfer')
+  const hasServiceCatalog = Boolean(
+    payload.service_catalog.foundation_bundle || payload.service_catalog.optional_services || payload.service_catalog.host_addons,
+  )
+  const serviceCatalogItems: CatalogServiceItem[] = [
+    ...(payload.service_catalog.foundation_bundle ?? []).map((item) => ({ ...item, fieldId: 'foundation_services' as const })),
+    ...(payload.service_catalog.optional_services ?? []).map((item) => ({ ...item, fieldId: 'optional_services' as const })),
+    ...(payload.service_catalog.host_addons ?? []).map((item) => ({ ...item, fieldId: 'host_addons' as const })),
+  ]
+  const serviceSearchQuery = serviceSearch.trim().toLowerCase()
+  const filteredCatalogItems = serviceSearchQuery
+    ? serviceCatalogItems.filter((item) => catalogSearchText(item).includes(serviceSearchQuery))
+    : serviceCatalogItems
+  const serviceCategories = Array.from(
+    filteredCatalogItems.reduce((groups, item) => {
+      const category = item.category?.trim() || 'Other'
+      groups.set(category, [...(groups.get(category) ?? []), item])
+      return groups
+    }, new Map<string, CatalogServiceItem[]>()),
+  )
 
   function toggleCatalogSelection(fieldId: CatalogFieldKey, slug: string) {
     setDraft((current) => {
@@ -413,12 +433,6 @@ export function SetupPhase() {
     <SetupShell title={page.title} description={page.description} currentPhase={payload.phase}>
       <div className="setup-stage">
         <aside className="setup-stage-brief">
-          <div className="setup-orbit" aria-hidden="true">
-            <img src="/logo.png" alt="" width="72" height="72" />
-            <span />
-            <span />
-            <span />
-          </div>
           <p className="section-label">Step {payload.phase} of 6</p>
           <h2>{page.title}</h2>
           <p>{page.description}</p>
@@ -441,35 +455,40 @@ export function SetupPhase() {
             </article>
           ) : null}
 
-          {payload.service_catalog.foundation_bundle || payload.service_catalog.optional_services || payload.service_catalog.host_addons ? (
+          {hasServiceCatalog ? (
             <div className="setup-phase-stack setup-service-catalog">
-            {renderCatalogSection(
-              'Foundation Bundle',
-              'Recommended Core',
-              'foundation_services',
-              payload.service_catalog.foundation_bundle,
-              selectedServices,
-              fieldErrors.foundation_services,
-              toggleCatalogSelection,
-            )}
-            {renderCatalogSection(
-              'Optional Services',
-              'Add What You Need',
-              'optional_services',
-              payload.service_catalog.optional_services,
-              selectedServices,
-              fieldErrors.optional_services,
-              toggleCatalogSelection,
-            )}
-            {renderCatalogSection(
-              'Host Addons',
-              'Machine Tools',
-              'host_addons',
-              payload.service_catalog.host_addons,
-              selectedServices,
-              fieldErrors.host_addons,
-              toggleCatalogSelection,
-            )}
+              <article className="setup-service-search-card">
+                <div>
+                  <p className="section-label">Service Library</p>
+                  <h2>Search by service or category</h2>
+                </div>
+                <input
+                  className="setup-input setup-service-search"
+                  type="search"
+                  value={serviceSearch}
+                  onChange={(event) => setServiceSearch(event.target.value)}
+                  placeholder="Search services, categories, or subdomains"
+                  aria-label="Search services"
+                />
+                <p className="setup-field-help">
+                  Showing {filteredCatalogItems.length} of {serviceCatalogItems.length} services across {serviceCategories.length} categories.
+                </p>
+                {fieldErrors.foundation_services || fieldErrors.optional_services || fieldErrors.host_addons ? (
+                  <p className="setup-field-error">
+                    {fieldErrors.foundation_services ?? fieldErrors.optional_services ?? fieldErrors.host_addons}
+                  </p>
+                ) : null}
+              </article>
+
+              {serviceCategories.length > 0 ? (
+                serviceCategories.map(([category, items]) => renderCatalogCategory(category, items, selectedServices, toggleCatalogSelection))
+              ) : (
+                <article className="setup-service-section setup-service-empty">
+                  <p className="section-label">No Matches</p>
+                  <h2>No services match your search</h2>
+                  <p className="hero-text">Try another service name, category, or subdomain.</p>
+                </article>
+              )}
             </div>
           ) : null}
 

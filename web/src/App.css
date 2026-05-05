@@ -937,15 +937,6 @@
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.22);
 }
 
-.setup-timeline::after {
-  position: absolute;
-  inset-inline: 32px;
-  top: 86px;
-  height: 1px;
-  content: '';
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
-}
-
 .setup-timeline-header {
   display: flex;
   align-items: baseline;
@@ -1186,6 +1177,31 @@
 
 .setup-service-catalog {
   gap: 22px;
+}
+
+.setup-service-search-card {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(48, 44, 44, 0.94), rgba(39, 35, 35, 0.92));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.18);
+}
+
+.setup-service-search-card h2 {
+  margin: 10px 0 0;
+  color: var(--color-text-primary);
+  font-size: 1.28rem;
+  letter-spacing: -0.02em;
+}
+
+.setup-service-search {
+  margin-top: 0;
+}
+
+.setup-service-empty .hero-text {
+  margin-top: 12px;
 }
 
 .setup-service-list {
@@ -1465,6 +1481,19 @@
 
 .setup-warning-card {
   border-color: rgba(255, 184, 91, 0.4);
+}
+
+.setup-log-panel {
+  overflow: hidden;
+}
+
+.setup-log-panel .setup-run-log {
+  min-height: 260px;
+  max-height: 52vh;
+  border-radius: 18px;
+  background: #121010;
+  color: #d7e5ff;
+  font-family: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 }
 
 .setup-native-check input {

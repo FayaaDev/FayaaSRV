@@ -50,6 +50,7 @@ export type SetupServiceCatalogItem = {
   slug: string
   label?: string
   default_subdomain?: string | null
+  category?: string | null
 }
 
 export type SetupServiceCatalog = {

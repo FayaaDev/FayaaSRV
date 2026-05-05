@@ -43,6 +43,7 @@ export function SetupRun() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const [showLog, setShowLog] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -97,6 +98,11 @@ export function SetupRun() {
     }
   }
 
+  function handleCheckProgress() {
+    setShowLog(true)
+    setReloadToken((current) => current + 1)
+  }
+
   function renderContent() {
     if (state.status === 'loading') {
       return (
@@ -125,51 +131,66 @@ export function SetupRun() {
     const activeIndex = run.status === 'succeeded' ? progressSteps.length : run.status === 'running' ? 2 : run.status === 'failed' ? 1 : 0
 
     return (
-      <section className="setup-progress-card" aria-labelledby="setup-run-title">
-        <div className="setup-progress-visual" aria-hidden="true">
-          <div className={`setup-launch-ring is-${run.status}`}>
-            <img src="/logo-hero.png" alt="" width="144" height="144" />
-          </div>
-          <div className="setup-service-orbit">
-            <span>DB</span>
-            <span>AI</span>
-            <span>DNS</span>
-            <span>APP</span>
-          </div>
-        </div>
-
-        <div className="setup-progress-copy">
-          <p className="section-label">Progress</p>
-          <h2 id="setup-run-title">{statusTitle(run)}</h2>
-          <p className="hero-text">{statusCopy(run)}</p>
-          <span className={`setup-status-pill is-${run.status}`}>{run.status}</span>
-
-          <div className="setup-progress-steps" aria-label="Setup progress steps">
-            {progressSteps.map((step, index) => (
-              <div key={step} className={`setup-progress-step${index < activeIndex ? ' is-done' : ''}${index === activeIndex && run.running ? ' is-active' : ''}`}>
-                <span />
-                <strong>{step}</strong>
-              </div>
-            ))}
+      <div className="setup-phase-stack">
+        <section className="setup-progress-card" aria-labelledby="setup-run-title">
+          <div className="setup-progress-visual" aria-hidden="true">
+            <div className={`setup-launch-ring is-${run.status}`}>
+              <img src="/logo-hero.png" alt="" width="144" height="144" />
+            </div>
+            <div className="setup-service-orbit">
+              <span>DB</span>
+              <span>AI</span>
+              <span>DNS</span>
+              <span>APP</span>
+            </div>
           </div>
 
-          {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
+          <div className="setup-progress-copy">
+            <p className="section-label">Progress</p>
+            <h2 id="setup-run-title">{statusTitle(run)}</h2>
+            <p className="hero-text">{statusCopy(run)}</p>
+            <span className={`setup-status-pill is-${run.status}`}>{run.status}</span>
 
-          <div className="setup-run-actions">
-            {run.can_start ? (
-              <button type="button" className="bridge-button bridge-button-primary" onClick={handleStart} disabled={isStarting}>
-                {isStarting ? 'Starting...' : run.status === 'idle' ? 'Launch setup' : 'Try again'}
+            <div className="setup-progress-steps" aria-label="Setup progress steps">
+              {progressSteps.map((step, index) => (
+                <div key={step} className={`setup-progress-step${index < activeIndex ? ' is-done' : ''}${index === activeIndex && run.running ? ' is-active' : ''}`}>
+                  <span />
+                  <strong>{step}</strong>
+                </div>
+              ))}
+            </div>
+
+            {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
+
+            <div className="setup-run-actions">
+              {run.can_start ? (
+                <button type="button" className="bridge-button bridge-button-primary" onClick={handleStart} disabled={isStarting}>
+                  {isStarting ? 'Starting...' : run.status === 'idle' ? 'Launch setup' : 'Try again'}
+                </button>
+              ) : null}
+              <button type="button" className="bridge-button" onClick={handleCheckProgress}>
+                {showLog ? 'Refresh log' : 'Check progress'}
               </button>
-            ) : null}
-            <button type="button" className="bridge-button" onClick={() => setReloadToken((current) => current + 1)}>
-              Check progress
-            </button>
-            <button type="button" className="bridge-button" onClick={() => navigate('/setup/confirm')}>
-              Launch screen
-            </button>
+              <button type="button" className="bridge-button" onClick={() => navigate('/setup/confirm')}>
+                Launch screen
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {showLog ? (
+          <article className="setup-field-card setup-log-panel">
+            <div className="setup-field-header">
+              <div>
+                <p className="section-label">Terminal Log</p>
+                <h2>Latest setup output</h2>
+              </div>
+              <span className="badge">{run.running ? 'Live' : 'Snapshot'}</span>
+            </div>
+            <pre className="setup-run-log">{run.log_tail.length > 0 ? run.log_tail.join('\n') : 'No log output yet.'}</pre>
+          </article>
+        ) : null}
+      </div>
     )
   }
 
