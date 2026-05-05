@@ -35,6 +35,10 @@ def run(state: State) -> None:
         data_root / "backups",
         data_root / "MDs",
         data_root / "logs",
+        # Pre-create cloudflared's data dir so the cloudflare step starts
+        # from a clean admin-owned tree even if a prior broken run left
+        # files owned by the container's default `nonroot` user (UID 65532).
+        data_root / "data" / "cloudflared",
     ]
     for svc in services:
         dirs.append(data_root / "docker" / svc)

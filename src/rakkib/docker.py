@@ -42,6 +42,35 @@ def _docker_timeout() -> int:
         return 3600
 
 
+_COMPOSE_FILE_NAMES = (
+    "compose.yaml",
+    "compose.yml",
+    "docker-compose.yaml",
+    "docker-compose.yml",
+)
+
+
+def _compose_base_cmd(project_dir: Path | str) -> list[str]:
+    """Build the `docker compose` invocation prefix with explicit -f / --env-file.
+
+    Docker Compose v2's automatic .env discovery via --project-directory has
+    been historically inconsistent across versions. Passing -f and --env-file
+    explicitly guarantees the project's .env is loaded so ${VAR} substitutions
+    in the compose file always resolve.
+    """
+    project_path = Path(project_dir)
+    cmd = ["docker", "compose", "--project-directory", str(project_path)]
+    for name in _COMPOSE_FILE_NAMES:
+        compose_file = project_path / name
+        if compose_file.is_file():
+            cmd.extend(["-f", str(compose_file)])
+            break
+    env_file = project_path / ".env"
+    if env_file.is_file():
+        cmd.extend(["--env-file", str(env_file)])
+    return cmd
+
+
 def compose_up(
     project_dir: Path | str,
     profiles: list[str] | None = None,
@@ -51,7 +80,7 @@ def compose_up(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose up for the given project directory."""
-    cmd = ["docker", "compose", "--project-directory", str(project_dir)]
+    cmd = _compose_base_cmd(project_dir)
     if profiles:
         for profile in profiles:
             cmd.extend(["--profile", profile])
@@ -93,7 +122,8 @@ def compose_pull(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose pull for the given project directory."""
-    cmd = ["docker", "compose", "--project-directory", str(project_dir), "pull"]
+    cmd = _compose_base_cmd(project_dir)
+    cmd.append("pull")
     if services:
         cmd.extend(services)
     return _run(cmd, log_path=log_path, timeout=timeout, progress_message="Pulling Docker images...")
@@ -106,7 +136,8 @@ def compose_down(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run docker compose down for the given project directory."""
-    cmd = ["docker", "compose", "--project-directory", str(project_dir), "down"]
+    cmd = _compose_base_cmd(project_dir)
+    cmd.append("down")
     if volumes:
         cmd.append("--volumes")
     return _run(cmd, log_path=log_path, timeout=timeout, progress_message="Removing Docker services...")
