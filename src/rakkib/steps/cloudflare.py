@@ -93,10 +93,23 @@ def _candidate_cloudflared_paths(name: str, admin_user: str | None = None) -> li
     return unique
 
 
+def _is_readable_artifact(path: Path) -> bool:
+    """Return True when the current process can read the artifact file."""
+    return path.is_file() and os.access(path, os.R_OK)
+
+
 def _find_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path | None:
-    """Return the first existing auth artifact from common cloudflared locations."""
+    """Return the first readable auth artifact from common cloudflared locations."""
     for candidate in _candidate_cloudflared_paths(name, admin_user=admin_user):
-        if candidate.exists():
+        if _is_readable_artifact(candidate):
+            return candidate
+    return None
+
+
+def _find_unreadable_cloudflared_artifact(name: str, admin_user: str | None = None) -> Path | None:
+    """Return the first existing but unreadable auth artifact from common locations."""
+    for candidate in _candidate_cloudflared_paths(name, admin_user=admin_user):
+        if candidate.exists() and not _is_readable_artifact(candidate):
             return candidate
     return None
 
@@ -287,6 +300,13 @@ def run(state: State) -> None:
             if default_cert is not None:
                 shutil.copy2(default_cert, cert_path)
             else:
+                unreadable_cert = _find_unreadable_cloudflared_artifact("cert.pem", admin_user=admin_user)
+                if unreadable_cert is not None:
+                    print(
+                        "Found an existing Cloudflare browser-login cert, but the current setup run cannot read it: "
+                        f"{unreadable_cert}\n"
+                        "Continuing with a fresh cloudflared login for the current user instead."
+                    )
                 headless = state.get("cloudflare.headless", False)
                 if headless:
                     print("\nStep 3 — Cloudflare login (headless mode)")
