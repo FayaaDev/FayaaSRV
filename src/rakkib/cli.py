@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import getpass
 import os
-import secrets
 import shutil
 import socket
 import subprocess
@@ -33,6 +32,7 @@ from rakkib.doctor import (
     to_json,
 )
 from rakkib.interview import run_interview
+from rakkib.secrets import token_urlsafe
 from rakkib.state import State
 from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry, selected_service_defs
 from rakkib.steps import postgres as postgres_step
@@ -1073,7 +1073,7 @@ def web(ctx: click.Context, lan: bool, host: str, port: int, startup_token: str,
 
     token_auth_enabled = not no_token
     if token_auth_enabled:
-        startup_token = startup_token or secrets.token_urlsafe(24)
+        startup_token = startup_token or token_urlsafe(24)
     else:
         startup_token = ""
 

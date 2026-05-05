@@ -6,9 +6,11 @@ import pytest
 
 from rakkib.secrets import (
     SECRET_GENERATORS,
+    compare_digest,
     ensure_secrets,
     generate_password,
     generate_secret_key,
+    token_urlsafe,
 )
 from rakkib.state import State
 
@@ -28,6 +30,18 @@ def test_generate_password_alphanumeric():
 
 def test_generate_secret_key_default_length():
     assert len(generate_secret_key()) == 50
+
+
+def test_token_urlsafe_uses_url_safe_characters():
+    token = token_urlsafe(24)
+
+    assert token
+    assert set(token) <= set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+
+
+def test_compare_digest_matches_equal_values():
+    assert compare_digest("same", "same") is True
+    assert compare_digest("same", "different") is False
 
 
 def test_ensure_secrets_creates_values():
