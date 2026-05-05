@@ -420,6 +420,9 @@ services:
       template: webdav-public.caddy.tmpl
     data_dirs:
       - data/webdav/dav
+    extra_templates:
+      - src: templates/docker/webdav/index.html.tmpl
+        dst: data/webdav/dav/index.html
     secrets:
       WEBDAV_USERNAME:
         value: admin
