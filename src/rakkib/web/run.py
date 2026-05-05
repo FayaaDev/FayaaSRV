@@ -64,6 +64,7 @@ class WebRunManager:
                 process = subprocess.Popen(
                     command,
                     cwd=self._repo_dir,
+                    stdin=subprocess.DEVNULL,
                     stdout=log_handle,
                     stderr=subprocess.STDOUT,
                     text=True,
