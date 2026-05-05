@@ -55,6 +55,27 @@ def _ensure_node_and_npm() -> None:
     if shutil.which("npm") and shutil.which("node"):
         return
 
+    # Some hosts block outbound HTTP/80. Ubuntu defaults to http:// URIs in ubuntu.sources.
+    # Rewrite to https:// so apt can fetch over 443.
+    sources = Path("/etc/apt/sources.list.d/ubuntu.sources")
+    if sources.exists():
+        try:
+            text = sources.read_text()
+            if "http://" in text:
+                _run_as_root(
+                    [
+                        "sudo",
+                        "-n",
+                        "bash",
+                        "-lc",
+                        "sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources",
+                    ],
+                    timeout=60,
+                )
+        except Exception:
+            # Best-effort: if we cannot rewrite, apt may still work on some networks.
+            pass
+
     wait_for_apt_locks()
     _run_as_root(["sudo", "-n", "apt-get", "update"], timeout=600)
     _run_as_root(
