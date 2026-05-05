@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import secrets
-
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
+
+from rakkib.secrets import compare_digest, token_urlsafe
 
 SESSION_COOKIE_NAME = "rakkib_session"
 RECOVERY_COMMAND = "rakkib web --lan"
@@ -52,11 +52,11 @@ class AuthManager:
             return True
         if not token:
             return False
-        return secrets.compare_digest(token, self._startup_token)
+        return compare_digest(token, self._startup_token)
 
     def issue_session(self) -> str:
         """Create and remember a new in-memory session id."""
-        session_id = secrets.token_urlsafe(32)
+        session_id = token_urlsafe(32)
         self._sessions.add(session_id)
         return session_id
 

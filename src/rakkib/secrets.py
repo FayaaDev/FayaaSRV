@@ -5,23 +5,37 @@ Generate POSTGRES_PASSWORD, N8N_ENCRYPTION_KEY, etc.
 
 from __future__ import annotations
 
-import secrets
+import base64
+import hmac
+import os
+import random
 import string
 from typing import Callable
 
 from rakkib.state import State
 
 ALPHANUMERIC = string.ascii_letters + string.digits
+_SYSTEM_RANDOM = random.SystemRandom()
 
 
 def generate_password(length: int = 32) -> str:
     """Return a random alphanumeric password."""
-    return "".join(secrets.choice(ALPHANUMERIC) for _ in range(length))
+    return "".join(_SYSTEM_RANDOM.choice(ALPHANUMERIC) for _ in range(length))
 
 
 def generate_secret_key(length: int = 50) -> str:
     """Return a random alphanumeric secret key."""
-    return "".join(secrets.choice(ALPHANUMERIC) for _ in range(length))
+    return "".join(_SYSTEM_RANDOM.choice(ALPHANUMERIC) for _ in range(length))
+
+
+def token_urlsafe(nbytes: int = 32) -> str:
+    """Return a URL-safe random token without importing the stdlib secrets module."""
+    return base64.urlsafe_b64encode(os.urandom(nbytes)).rstrip(b"=").decode("ascii")
+
+
+def compare_digest(a: str | bytes, b: str | bytes) -> bool:
+    """Return a constant-time comparison result."""
+    return hmac.compare_digest(a, b)
 
 
 FACTORIES: dict[str, Callable[..., str]] = {
