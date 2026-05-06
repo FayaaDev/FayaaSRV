@@ -41,6 +41,12 @@ class PhaseAnswersRequest(BaseModel):
     confirmations: dict[str, bool] = {}
 
 
+class RunStartRequest(BaseModel):
+    """Background run start payload."""
+
+    mode: str | None = None
+
+
 def _load_state(state_path: Path) -> State:
     """Load the persisted setup state from disk."""
     return State.load(state_path)
@@ -209,7 +215,7 @@ def _serialize_phase(schema: QuestionSchema, state: State) -> dict[str, object]:
 
 def _deployment_succeeded(state: State) -> bool:
     """Return whether a browser-triggered deployment completed successfully."""
-    return state.get("web_deployment.status") == "succeeded"
+    return bool(state.get("deployed.exists")) or state.get("web_deployment.status") == "succeeded"
 
 
 def _active_service_ids(state: State) -> set[str]:
@@ -446,18 +452,26 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
         return serialize_run_state()
 
     @router.post("/run/start")
-    def start_run(request: Request, response: Response) -> dict[str, object]:
+    def start_run(request: Request, response: Response, payload: RunStartRequest | None = None) -> dict[str, object]:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
 
         state = _load_state(state_path)
-        if state.resume_phase() < 7:
-            raise HTTPException(status_code=409, detail="Complete all setup phases before starting the installer run.")
-        if not state.is_confirmed():
-            raise HTTPException(status_code=409, detail="Phase 6 must be confirmed before starting the installer run.")
+        mode = str((payload.mode if payload else None) or "full_setup")
+
+        if mode == "full_setup":
+            if state.resume_phase() < 7:
+                raise HTTPException(status_code=409, detail="Complete all setup phases before starting the installer run.")
+            if not state.is_confirmed():
+                raise HTTPException(status_code=409, detail="Phase 6 must be confirmed before starting the installer run.")
+        elif mode == "service_sync":
+            if not _deployment_succeeded(state):
+                raise HTTPException(status_code=409, detail="Complete the initial deployment before syncing services from the web dashboard.")
+        else:
+            raise HTTPException(status_code=422, detail=f"Unknown run mode: {mode}")
 
         try:
-            run_manager.start()
+            run_manager.start(mode)
         except RuntimeError as error:
             raise HTTPException(status_code=500, detail=str(error)) from error
 

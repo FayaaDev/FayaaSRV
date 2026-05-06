@@ -16,6 +16,9 @@ import threading
 
 from rakkib.state import DEFAULT_STATE_FILE, State
 
+FULL_SETUP_OPERATION = "full_setup"
+SERVICE_SYNC_OPERATION = "service_sync"
+
 
 def _now_iso() -> str:
     """Return the current UTC timestamp in ISO-8601 form."""
@@ -63,6 +66,7 @@ class RunRecord:
     finished_at: str | None = None
     exit_code: int | None = None
     command: list[str] = field(default_factory=list)
+    operation: str = FULL_SETUP_OPERATION
     log_path: str | None = None
     pid: int | None = None
 
@@ -78,14 +82,14 @@ class WebRunManager:
         self._process: subprocess.Popen[str] | None = None
         self._record = self._initial_record()
 
-    def start(self) -> dict[str, object]:
-        """Start the setup run unless one is already active."""
+    def start(self, operation: str = FULL_SETUP_OPERATION) -> dict[str, object]:
+        """Start a background Rakkib operation unless one is already active."""
         with self._lock:
             self._refresh_locked()
             if self._process is not None:
                 return self._snapshot_locked()
 
-            command = [sys.executable, "-m", "rakkib.cli", "pull"]
+            command = self._command_for_operation(operation)
             started_at = _now_iso()
             self._log_path.parent.mkdir(parents=True, exist_ok=True)
             log_handle = self._log_path.open("w", encoding="utf-8")
@@ -117,6 +121,7 @@ class WebRunManager:
                     finished_at=_now_iso(),
                     exit_code=None,
                     command=command,
+                    operation=operation,
                     log_path=str(self._log_path),
                 )
                 raise RuntimeError(message) from exc
@@ -129,6 +134,7 @@ class WebRunManager:
                 finished_at=None,
                 exit_code=None,
                 command=command,
+                operation=operation,
                 log_path=str(self._log_path),
                 pid=process.pid,
             )
@@ -166,6 +172,7 @@ class WebRunManager:
                     finished_at=finished_at,
                     exit_code=exit_code,
                     command=list(self._record.command),
+                    operation=self._record.operation,
                     log_path=str(self._log_path),
                     pid=None,
                 )
@@ -191,6 +198,7 @@ class WebRunManager:
             finished_at=finished_at,
             exit_code=exit_code,
             command=list(self._record.command),
+            operation=self._record.operation,
             log_path=str(self._log_path),
             pid=None,
         )
@@ -206,6 +214,7 @@ class WebRunManager:
             "finished_at": self._record.finished_at,
             "exit_code": self._record.exit_code,
             "command": list(self._record.command),
+            "operation": self._record.operation,
             "log_path": self._record.log_path,
             "pid": self._record.pid,
             "running": self._record.status == "running",
@@ -234,7 +243,8 @@ class WebRunManager:
             started_at=state.get("web_deployment.started_at"),
             finished_at=state.get("web_deployment.finished_at"),
             exit_code=state.get("web_deployment.exit_code"),
-            command=[sys.executable, "-m", "rakkib.cli", "pull"],
+            command=self._command_for_operation(str(state.get("web_deployment.operation") or FULL_SETUP_OPERATION)),
+            operation=str(state.get("web_deployment.operation") or FULL_SETUP_OPERATION),
             log_path=str(self._log_path),
             pid=None,
         )
@@ -247,9 +257,15 @@ class WebRunManager:
             state.set("web_deployment.started_at", record.started_at)
             state.set("web_deployment.finished_at", record.finished_at)
             state.set("web_deployment.exit_code", record.exit_code)
+            state.set("web_deployment.operation", record.operation)
             state.save(self._state_path)
         except Exception:
             return
+
+    def _command_for_operation(self, operation: str) -> list[str]:
+        if operation == SERVICE_SYNC_OPERATION:
+            return [sys.executable, "-m", "rakkib.cli", "sync-services"]
+        return [sys.executable, "-m", "rakkib.cli", "pull"]
 
     def _read_log_tail(self, limit: int = 200) -> list[str]:
         """Return the last N lines from the current log file."""

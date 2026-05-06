@@ -96,6 +96,27 @@ def _installed_service_ids(state: State) -> set[str]:
     return installed
 
 
+def _selected_service_lists(state: State) -> tuple[list[str], list[str]]:
+    foundation = list(state.get("foundation_services", []) or [])
+    selected = list(state.get("selected_services", []) or [])
+    return foundation, selected
+
+
+def _persist_deployed_selection(state: State) -> None:
+    foundation, selected = _selected_service_lists(state)
+    state.set("deployed.exists", True)
+    state.set("deployed.foundation_services", foundation)
+    state.set("deployed.selected_services", selected)
+
+
+def _deployed_service_lists(state: State) -> tuple[list[str], list[str]]:
+    foundation = state.get("deployed.foundation_services")
+    selected = state.get("deployed.selected_services")
+    if isinstance(foundation, list) and isinstance(selected, list):
+        return list(foundation), list(selected)
+    return _selected_service_lists(state)
+
+
 def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
     current = _installed_service_ids(state)
 
@@ -542,9 +563,60 @@ def _run_service_pull(state: State, state_path: Path, service: str) -> bool:
         console.print(f"[bold red]  Service {service} failed:[/bold red] {exc}")
         return False
 
+    _persist_deployed_selection(state)
     state.save(state_path)
     _print_deployed_urls(state, [service])
     console.print(f"[bold green]Service {service} deployed successfully.[/bold green]")
+    return True
+
+
+def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
+    registry = services_step._load_registry()
+    desired_foundation, desired_selected = _selected_service_lists(state)
+    desired_ids = set(desired_foundation)
+    desired_ids.update(desired_selected)
+
+    previous_foundation, previous_selected = _deployed_service_lists(state)
+    previous_ids = set(previous_foundation)
+    previous_ids.update(previous_selected)
+
+    dependency_errors = _validate_service_dependencies(desired_ids, registry)
+    if dependency_errors:
+        console.print("[bold red]Error:[/bold red] Invalid service selection:")
+        for error in dependency_errors:
+            console.print(f"  - {error}")
+        return False
+
+    with progress_spinner("Applying service changes..."):
+        previous_state = State({
+            "foundation_services": previous_foundation,
+            "selected_services": previous_selected,
+        })
+        removal_order = [
+            svc["id"]
+            for svc in reversed(selected_service_defs(previous_state, registry))
+            if svc["id"] in (previous_ids - desired_ids)
+        ]
+        for svc_id in removal_order:
+            services_step.remove_single_service(state, svc_id)
+
+        _apply_service_selection(state, registry, desired_ids)
+        services_step._generate_missing_secrets(state)
+        postgres_step.run(state)
+
+        added = sorted(desired_ids - previous_ids)
+        if added:
+            for svc_id in added:
+                services_step.run_single_service(state, svc_id)
+        else:
+            data_root = Path(state.get("data_root", "/srv"))
+            services_step._reload_caddy(data_root)
+            services_step.sync_shared_artifacts(
+                state, services_step._repo_dir(), data_root, registry
+            )
+
+    _persist_deployed_selection(state)
+    state.save(state_path)
     return True
 
 
@@ -616,6 +688,10 @@ def pull(ctx: click.Context, service: str | None) -> None:
         ok = _run_steps(state, repo_dir)
     if not ok:
         ctx.exit(1)
+
+    if not service:
+        _persist_deployed_selection(state)
+        state.save(state_path)
 
 
 @cli.command()
@@ -890,6 +966,7 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
             services_step.sync_shared_artifacts(
                 state, services_step._repo_dir(), data_root, services_step._load_registry()
             )
+        _persist_deployed_selection(state)
         state.save(state_path)
 
     console.print("[bold green]Service selection synced successfully.[/bold green]")
@@ -900,6 +977,23 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
         deployed_ids = list(added)
     if deployed_ids:
         _print_deployed_urls(state, deployed_ids)
+
+
+@cli.command(name="sync-services")
+@click.pass_context
+def sync_services(ctx: click.Context) -> None:
+    """Apply the current saved service selection without re-running full setup."""
+    console.print("[bold green]Rakkib sync-services[/bold green]")
+
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+
+    if not _sync_services_to_state_selection(state, state_path):
+        ctx.exit(1)
+
+    console.print("[bold green]Service selection synced successfully.[/bold green]")
+    _print_deployed_urls(state)
 
 
 @cli.command()
@@ -964,6 +1058,7 @@ def remove(ctx: click.Context, service: str, yes: bool) -> None:
     if service in foundation:
         foundation.remove(service)
         state.set("foundation_services", sorted(foundation))
+    _persist_deployed_selection(state)
     state.save(state_path)
 
     data_root = Path(state.get("data_root", "/srv"))

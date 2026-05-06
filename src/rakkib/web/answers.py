@@ -35,6 +35,12 @@ def apply_phase_answers(
     working = State(deepcopy(state.to_dict()))
     confirmations = confirmations or {}
 
+    if schema.service_catalog and state.get("web_deployment.status") == "succeeded":
+        if not state.get("deployed.exists"):
+            working.set("deployed.exists", True)
+            working.set("deployed.foundation_services", state.get("foundation_services", []) or [])
+            working.set("deployed.selected_services", state.get("selected_services", []) or [])
+
     for _ in range(max(1, len(schema.fields) + 1)):
         before = deepcopy(working.to_dict())
         _apply_fields(working, schema, answers)
