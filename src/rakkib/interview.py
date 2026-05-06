@@ -35,16 +35,22 @@ def run_interview(state: State, questions_dir: Path | str = "questions") -> Stat
             default=False,
         )
         if overwrite:
-            state = State({})
+            state = State({}, path=state.path)
 
     resume = state.resume_phase()
     for schema in schemas:
         if schema.phase < resume:
             continue
         _run_phase(schema, state)
-        state.save()
+        _save_if_bound(state)
 
     return state
+
+
+def _save_if_bound(state: State) -> None:
+    """Persist interview progress when the caller supplied a state path."""
+    if state.path is not None:
+        state.save()
 
 
 def _run_phase(schema: QuestionSchema, state: State) -> None:
@@ -54,7 +60,7 @@ def _run_phase(schema: QuestionSchema, state: State) -> None:
     if schema.service_catalog:
         _handle_service_catalog(schema, state)
         _enforce_rules(schema, state)
-        state.save()
+        _save_if_bound(state)
         return
 
     for field in schema.fields:

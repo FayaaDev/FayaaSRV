@@ -10,27 +10,44 @@ import yaml
 from rakkib.schema import load_all_schemas
 
 DEFAULT_STATE_FILE = ".fss-state.yaml"
+_UNSET = object()
 
 
 class State:
     """In-memory representation of .fss-state.yaml."""
 
-    def __init__(self, data: dict[str, Any]) -> None:
+    def __init__(self, data: dict[str, Any], path: Path | str | None = None) -> None:
         self._data = data
+        self._path = Path(path) if path is not None else None
+
+    @property
+    def path(self) -> Path | None:
+        """Return the path this state will save to by default, if bound."""
+        return self._path
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_STATE_FILE) -> "State":
         """Load state from YAML file, returning an empty State if missing."""
         path = Path(path)
         if not path.exists():
-            return cls({})
+            return cls({}, path=path)
         raw = yaml.safe_load(path.read_text()) or {}
-        return cls(raw)
+        return cls(raw, path=path)
 
-    def save(self, path: Path | str = DEFAULT_STATE_FILE) -> None:
+    def save(self, path: Path | str | object = _UNSET) -> None:
         """Persist state to YAML file."""
-        path = Path(path)
-        path.write_text(yaml.safe_dump(self._data, sort_keys=False, allow_unicode=True))
+        if path is _UNSET:
+            if self._path is None:
+                raise RuntimeError(
+                    "State has no save path. Load it with State.load(path) or pass "
+                    "an explicit path to save(path)."
+                )
+            save_path = self._path
+        else:
+            save_path = Path(path)
+            self._path = save_path
+
+        save_path.write_text(yaml.safe_dump(self._data, sort_keys=False, allow_unicode=True))
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notated read, e.g. get('cloudflare.tunnel_uuid')."""
