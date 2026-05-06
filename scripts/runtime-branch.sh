@@ -82,6 +82,18 @@ resolve_ref() {
   die "unknown git ref: ${ref}"
 }
 
+fetch_ref() {
+  local ref="$1"
+  local remote="${2:-}"
+
+  if [[ -n "$remote" && "$ref" == "$remote/"* ]]; then
+    printf '%s\n' "${ref#${remote}/}"
+    return 0
+  fi
+
+  printf '%s\n' "$ref"
+}
+
 check_required_paths_for_ref() {
   local ref="$1"
   local required_path
@@ -193,8 +205,8 @@ sync_runtime() {
     trap cleanup EXIT
   fi
 
-  log "Fetching ${remote}/${main_ref} and ${remote}/${runtime_ref}"
-  git fetch "$remote" "$main_ref" "$runtime_ref"
+  log "Fetching ${remote}/$(fetch_ref "$main_ref" "$remote") and ${remote}/$(fetch_ref "$runtime_ref" "$remote")"
+  git fetch "$remote" "$(fetch_ref "$main_ref" "$remote")" "$(fetch_ref "$runtime_ref" "$remote")"
 
   main_source_ref="$(resolve_ref "$main_ref" "$remote")"
   runtime_source_ref="$(resolve_ref "$runtime_ref" "$remote")"
