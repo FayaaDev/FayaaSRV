@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
 BRANCH="${RAKKIB_BRANCH:-runtime}"
+UPDATE_MODE="${RAKKIB_UPDATE_MODE:-reset}"
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
@@ -57,6 +58,7 @@ Environment overrides:
   RAKKIB_DIR       target checkout path   (default: $HOME/Rakkib)
   RAKKIB_REPO      git repo URL           (default: https://github.com/FayaaDev/Rakkib.git)
   RAKKIB_BRANCH    git branch             (default: runtime)
+  RAKKIB_UPDATE_MODE  reset|skip          (default: reset)
 USAGE
 }
 
@@ -184,12 +186,35 @@ repo_has_local_changes() {
   [[ -n "$(git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]]
 }
 
+repo_local_changes() {
+  git -C "$INSTALL_DIR" status --short 2>/dev/null || true
+}
+
+discard_repo_local_changes() {
+  git -C "$INSTALL_DIR" reset --hard HEAD
+  git -C "$INSTALL_DIR" clean -fd
+}
+
 prepare_repo() {
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
     log "Using existing checkout: ${INSTALL_DIR}"
     if repo_has_local_changes; then
-      warn "Existing checkout has local changes; skipping automatic update."
-      return 0
+      case "$UPDATE_MODE" in
+        reset)
+          warn "Existing checkout has local changes; discarding them before update because RAKKIB_UPDATE_MODE=reset."
+          repo_local_changes >&2
+          discard_repo_local_changes
+          ;;
+        skip)
+          warn "Existing checkout has local changes; skipping automatic update because RAKKIB_UPDATE_MODE=skip."
+          warn "Set RAKKIB_UPDATE_MODE=reset to discard checkout changes and pull the latest code."
+          repo_local_changes >&2
+          return 0
+          ;;
+        *)
+          die "invalid RAKKIB_UPDATE_MODE '${UPDATE_MODE}'. Use 'reset' or 'skip'."
+          ;;
+      esac
     fi
     log "Updating from origin/${BRANCH}"
     git -C "$INSTALL_DIR" fetch origin "$BRANCH"

@@ -46,6 +46,7 @@ def apply_phase_answers(
 
     if schema.phase < 6:
         working.set("confirmed", False)
+        working.set("web_deployment.status", "stale")
 
     return working
 

@@ -624,42 +624,6 @@ services:
       expected_text: Moodist
     notes: "Ambient sounds web app. Optional."
 
-  - id: planning-poker
-    state_bucket: selected_services
-    required: false
-    optional: true
-    image: ghcr.io/andrewbusbee/planning-poker:latest
-    default_port: 3001
-    default_subdomain: planning-poker
-    subdomain_key: planning-poker
-    subdomain_placeholder: PLANNING_POKER_SUBDOMAIN
-    env_keys:
-      - PLANNING_POKER_PORT
-    depends_on: []
-    host_service: false
-    host_port: false
-    caddy:
-      template: planning-poker-public.caddy.tmpl
-    data_dirs:
-      - data/planning-poker
-    homepage:
-      category: Developer Tools
-      name: Planning Poker
-      description: Sprint estimation rooms
-      icon: planning-poker.png
-    monitoring:
-      enabled: true
-      type: http
-      target: public_url
-      path: /
-      interval: 60
-      timeout: 10
-      retries: 3
-    smoke:
-      path: /
-      expected_text: Planning Poker
-    notes: "Planning poker rooms for agile estimation. Optional."
-
   - id: hermes-agent
     state_bucket: selected_services
     required: false

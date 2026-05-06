@@ -207,6 +207,51 @@ def _serialize_phase(schema: QuestionSchema, state: State) -> dict[str, object]:
     }
 
 
+def _deployment_succeeded(state: State) -> bool:
+    """Return whether a browser-triggered deployment completed successfully."""
+    return state.get("web_deployment.status") == "succeeded"
+
+
+def _active_service_ids(state: State) -> set[str]:
+    """Return services selected through the setup/service picker."""
+    active_ids = set(state.get("foundation_services", []) or [])
+    active_ids.update(state.get("selected_services", []) or [])
+    return active_ids
+
+
+def _deployed_urls(state: State) -> list[dict[str, str]]:
+    """Build public service URLs from persisted subdomains."""
+    domain = str(state.get("domain", "") or "").strip().strip(".")
+    subdomains = state.get("subdomains", {}) or {}
+    if not domain or not isinstance(subdomains, dict):
+        return []
+
+    active_ids = _active_service_ids(state)
+    registry = load_service_registry()
+    services = registry.get("services", [])
+    ordered_ids = [svc.get("id") for svc in services if isinstance(svc, dict)]
+    labels = {
+        str(svc.get("id")): str(svc.get("name") or svc.get("label") or svc.get("id"))
+        for svc in services
+        if isinstance(svc, dict) and svc.get("id")
+    }
+
+    urls: list[dict[str, str]] = []
+    for svc_id in ordered_ids:
+        if not isinstance(svc_id, str) or svc_id not in active_ids:
+            continue
+        subdomain = str(subdomains.get(svc_id) or "").strip().strip(".")
+        if not subdomain:
+            continue
+        urls.append({
+            "service": svc_id,
+            "label": labels.get(svc_id, svc_id),
+            "url": f"https://{subdomain}.{domain}",
+        })
+
+    return urls
+
+
 def _serialize_field(field: FieldDef, state: State) -> dict[str, object]:
     """Serialize one field with active secret entries only."""
     payload = asdict(field)
@@ -233,6 +278,8 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
         ready_to_start = state.resume_phase() >= 7 and state.is_confirmed()
         snapshot["resume_phase"] = state.resume_phase()
         snapshot["confirmed"] = state.is_confirmed()
+        snapshot["deployment_succeeded"] = _deployment_succeeded(state)
+        snapshot["deployed_urls"] = _deployed_urls(state)
         snapshot["can_start"] = bool(snapshot["can_start"]) and ready_to_start
         return snapshot
 
@@ -294,6 +341,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
             "state": _redact_state_payload(state),
             "confirmed": state.is_confirmed(),
             "resume_phase": state.resume_phase(),
+            "deployment_succeeded": _deployment_succeeded(state),
         }
 
     @router.patch("/state")
@@ -309,6 +357,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
             "state": _redact_state_payload(state),
             "confirmed": state.is_confirmed(),
             "resume_phase": state.resume_phase(),
+            "deployment_succeeded": _deployment_succeeded(state),
         }
 
     @router.get("/state/resume")
@@ -322,6 +371,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
         return {
             "resume_phase": state.resume_phase(),
             "confirmed": state.is_confirmed(),
+            "deployment_succeeded": _deployment_succeeded(state),
             "phases": [_serialize_phase_summary(schema, state) for schema in schemas],
         }
 

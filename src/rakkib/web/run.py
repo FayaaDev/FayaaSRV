@@ -14,6 +14,8 @@ import subprocess
 import sys
 import threading
 
+from rakkib.state import DEFAULT_STATE_FILE, State
+
 
 def _now_iso() -> str:
     """Return the current UTC timestamp in ISO-8601 form."""
@@ -70,10 +72,11 @@ class WebRunManager:
 
     def __init__(self, repo_dir: Path | str) -> None:
         self._repo_dir = Path(repo_dir)
+        self._state_path = self._repo_dir / DEFAULT_STATE_FILE
         self._log_path = self._repo_dir / ".rakkib-web-run.log"
         self._lock = threading.Lock()
         self._process: subprocess.Popen[str] | None = None
-        self._record = RunRecord(log_path=str(self._log_path))
+        self._record = self._initial_record()
 
     def start(self) -> dict[str, object]:
         """Start the setup run unless one is already active."""
@@ -166,6 +169,7 @@ class WebRunManager:
                     log_path=str(self._log_path),
                     pid=None,
                 )
+                self._persist_finished_status(self._record)
 
     def _refresh_locked(self) -> None:
         """Synchronize the stored record if the child exited between polls."""
@@ -190,6 +194,7 @@ class WebRunManager:
             log_path=str(self._log_path),
             pid=None,
         )
+        self._persist_finished_status(self._record)
 
     def _snapshot_locked(self) -> dict[str, object]:
         """Build the API payload for the current run."""
@@ -210,6 +215,41 @@ class WebRunManager:
             if self._record.status == "running"
             else None,
         }
+
+    def _initial_record(self) -> RunRecord:
+        """Restore the last completed web run status for new `rakkib web` processes."""
+        record = RunRecord(log_path=str(self._log_path))
+        try:
+            state = State.load(self._state_path)
+        except Exception:
+            return record
+
+        status = state.get("web_deployment.status")
+        if status not in {"succeeded", "failed"}:
+            return record
+
+        return RunRecord(
+            status=str(status),
+            message="Setup run completed successfully." if status == "succeeded" else "Setup run exited with errors.",
+            started_at=state.get("web_deployment.started_at"),
+            finished_at=state.get("web_deployment.finished_at"),
+            exit_code=state.get("web_deployment.exit_code"),
+            command=[sys.executable, "-m", "rakkib.cli", "pull"],
+            log_path=str(self._log_path),
+            pid=None,
+        )
+
+    def _persist_finished_status(self, record: RunRecord) -> None:
+        """Persist successful/failed web deployment state across process restarts."""
+        try:
+            state = State.load(self._state_path)
+            state.set("web_deployment.status", record.status)
+            state.set("web_deployment.started_at", record.started_at)
+            state.set("web_deployment.finished_at", record.finished_at)
+            state.set("web_deployment.exit_code", record.exit_code)
+            state.save(self._state_path)
+        except Exception:
+            return
 
     def _read_log_tail(self, limit: int = 200) -> list[str]:
         """Return the last N lines from the current log file."""
