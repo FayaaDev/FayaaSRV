@@ -123,6 +123,16 @@ def test_rendered_homepage_env_allows_public_host(tmp_path):
     assert dst.read_text() == "HOMEPAGE_ALLOWED_HOSTS=home.example.com"
 
 
+def test_rendered_serge_env_uses_flat_secret_key(tmp_path):
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "docker" / "serge" / ".env.example"
+    dst = tmp_path / "serge.env"
+
+    state = State({"SERGE_JWT_SECRET": "serge-secret"})
+    render_file(src, dst, state)
+
+    assert dst.read_text().splitlines()[4] == "SERGE_JWT_SECRET=serge-secret"
+
+
 def test_rendered_n8n_route_keeps_proxy_headers(tmp_path):
     src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "caddy" / "routes" / "n8n-public.caddy.tmpl"
     dst = tmp_path / "n8n.caddy"
