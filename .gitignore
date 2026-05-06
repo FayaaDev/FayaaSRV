@@ -11,6 +11,7 @@
 
 # Local env files
 .env
+docs/cloudflarePermissionFix.md
 
 # Python
 __pycache__/
