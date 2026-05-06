@@ -111,7 +111,7 @@ def _generate_init_sql(state: State) -> str:
 def _apply_sql(sql: str) -> None:
     """Execute *sql* directly inside the postgres container via psql."""
     result = docker_run(
-        ["exec", "-i", "postgres", "psql", "-U", "postgres"],
+        ["exec", "-i", "postgres", "psql", "-h", "127.0.0.1", "-U", "postgres"],
         input=sql,
         check=False,
     )
@@ -135,7 +135,10 @@ def _wait_for_healthy(container: str = "postgres", timeout: int = 60) -> None:
         # Some templates intentionally omit a Docker healthcheck.
         # In that case, fall back to pg_isready so Step 4 still works.
         if status in {"", "<no value>"} or result.returncode != 0:
-            ready = docker_run(["exec", container, "pg_isready", "-U", "postgres"], check=False)
+            ready = docker_run(
+                ["exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
+                check=False,
+            )
             return ready.returncode == 0
 
         return False
@@ -208,7 +211,10 @@ def verify(state: State) -> VerificationResult:
         return VerificationResult.failure("postgres", "Postgres container is not running")
 
     # pg_isready?
-    ready = docker_run(["exec", "postgres", "pg_isready", "-U", "postgres"], check=False)
+    ready = docker_run(
+        ["exec", "postgres", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
+        check=False,
+    )
     if ready.returncode != 0:
         return VerificationResult.failure("postgres", f"pg_isready failed: {ready.stderr.strip()}")
 
