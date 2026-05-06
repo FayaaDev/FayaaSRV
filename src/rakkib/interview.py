@@ -518,20 +518,6 @@ def _enforce_rules(schema: QuestionSchema, state: State) -> None:
         selected_services = state.get("selected_services", []) or []
 
         if if_selected and if_selected in selected_services:
-            require_confirm = rule.get("require_confirm")
-            if require_confirm == "transfer_public_risk":
-                confirmed = prompt_confirm(
-                    "[yellow]Warning:[/yellow] transfer.sh will be deployed as a public "
-                    "unauthenticated upload endpoint. Anyone who can reach the URL can upload files. "
-                    "Continue?",
-                    default=False,
-                )
-                if not confirmed:
-                    state.set(
-                        "selected_services",
-                        [s for s in selected_services if s != "transfer"],
-                    )
-
             requires = rule.get("requires")
             if requires and isinstance(requires, dict):
                 foundation = state.get("foundation_services", []) or []

@@ -347,9 +347,6 @@ fields:
     prompt_template: "Subdomain for <service>? [default: <default>]"
     records:
       - subdomains
-rules:
-  - if_selected: transfer
-    require_confirm: transfer_public_risk
 ```
 
 ---
@@ -478,8 +475,6 @@ Ask:
 - Accept the numeric aliases shown in the checklist as a convenience input and normalize them to the same canonical service slugs before recording state.
 - Add the corresponding services to the selection.
 - If the user presses Enter with no input, none are selected.
-- If `8` selects `transfer`, warn before recording it: "transfer.sh will be deployed as a public unauthenticated upload endpoint. Anyone who can reach the URL can upload files. Rakkib does not put transfer.sh behind HTTP basic auth because that interferes with its CLI/API behavior." Ask the user to confirm they accept this risk before recording `transfer`; do not record it if they decline.
-
 ---
 
 ## Round 3 — Host Addons

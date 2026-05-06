@@ -224,16 +224,6 @@ def _apply_service_catalog_side_effects(state: State, confirmations: dict[str, b
             {"optional_services": "; ".join(dependency_errors)},
         )
 
-    if "transfer" in selected_ids and not confirmations.get("transfer_public_risk", False):
-        raise PhaseValidationError(
-            "transfer.sh requires an explicit risk acknowledgement.",
-            {
-                "optional_services": (
-                    "transfer.sh is a public unauthenticated upload endpoint. Acknowledge this risk to continue."
-                )
-            },
-        )
-
     _apply_service_selection(state, registry, selected_ids)
 
 
