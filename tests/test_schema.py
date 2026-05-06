@@ -127,7 +127,6 @@ def test_phase_3_service_catalog_and_rules():
         "whoami",
         "pairdrop",
         "moodist",
-        "planning-poker",
         "hermes-agent",
         "cheshire-cat-ai",
         "flowise",

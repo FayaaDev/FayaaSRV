@@ -202,11 +202,6 @@ service_catalog:
       numeric_alias: 34
       subdomain_key: moodist
       default_subdomain: moodist
-    - slug: planning-poker
-      label: Planning Poker
-      numeric_alias: 35
-      subdomain_key: planning-poker
-      default_subdomain: planning-poker
     - slug: hermes-agent
       label: Hermes Agent
       numeric_alias: 36
@@ -288,7 +283,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, planning-poker, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -323,7 +318,6 @@ fields:
       "32": whoami
       "33": pairdrop
       "34": moodist
-      "35": planning-poker
       "36": hermes-agent
       "38": cheshire-cat-ai
       "39": flowise

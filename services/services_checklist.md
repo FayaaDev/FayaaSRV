@@ -66,7 +66,6 @@ Duplicates already listed in **Batch 1** are removed here.
 - [ ] Homarr (B)
 
 ### Developer Tools
-- [x] Planning Poker (A)
 - [x] Hermes Agent (E)
 
 ### Books And Reading
