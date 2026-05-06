@@ -98,19 +98,20 @@ git worktree remove ../rakkib-runtime
 1. Edit + commit + push `install.sh` on `main` (step 1 above).
 2. Create `runtime` from the updated `main` (step 2 above) — `git checkout main -- install.sh` then pulls in the new defaults, so `install.sh` is byte-identical on both branches.
 
-### 4. Future sync workflow (out of scope, but flag in commit message)
+### 4. Runtime sync workflow
 
-When `src/rakkib/**`, `pyproject.toml`, or `install.sh` change on `main`, someone needs to mirror the change to `runtime`. Simplest manual recipe (document in the runtime branch's README):
+`runtime` should be regenerated, not hand-maintained. The repo-owned entrypoint is:
 
 ```bash
-git fetch origin
-git switch runtime
-git checkout main -- install.sh pyproject.toml .gitignore src/
-git commit -m "sync from main@<sha>"
-git push
+scripts/runtime-branch.sh sync --push
 ```
 
-Automating this (CI workflow that pushes to `runtime` whenever those paths change on `main`) is a follow-up bead.
+That script creates a detached runtime worktree, wipes it, copies only the
+runtime allowlist from `main`, verifies parity with `main`, commits, and
+optionally pushes the refreshed snapshot.
+
+GitHub Actions should call the same script on `main` pushes so runtime stays
+generated from one path.
 
 ## Critical files to modify / touch
 
@@ -128,6 +129,12 @@ End-to-end check:
    git ls-tree -r runtime --name-only | sort
    ```
    Confirm output contains exactly: `install.sh`, `pyproject.toml`, `.gitignore`, `README.md`, and `src/rakkib/**`. Confirm absence of: `.beads/`, `.claude/`, `.opencode/`, `docs/`, `services/`, `tests/`, `web/`, `AGENTS.md`, `CLAUDE.md`, `WebUI.md`, `pyqr.md`.
+
+   Or run the scripted gate directly:
+
+   ```bash
+   scripts/runtime-branch.sh verify-ref
+   ```
 
 2. **Local clone smoke test (no install).**
    ```bash
