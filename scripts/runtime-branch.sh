@@ -4,6 +4,20 @@ set -Eeuo pipefail
 
 RUNTIME_BRANCH_CLEANUP_DIR=""
 
+pick_temp_parent() {
+  if [[ -n "${TMPDIR:-}" && -d "${TMPDIR}" ]]; then
+    printf '%s\n' "${TMPDIR%/}"
+    return 0
+  fi
+
+  if [[ -d /tmp ]]; then
+    printf '%s\n' "/tmp"
+    return 0
+  fi
+
+  pwd
+}
+
 log() {
   printf '==> %s\n' "$*"
 }
@@ -160,10 +174,11 @@ sync_runtime() {
   local push_changes="$4"
   local worktree_dir="$5"
   local temp_dir=0
-  local main_sha main_source_ref runtime_source_ref
+  local main_sha main_source_ref runtime_source_ref temp_parent
 
   if [[ -z "$worktree_dir" ]]; then
-    worktree_dir="$(mktemp -d "/var/folders/17/ffdv33v56_5cdb1g7cnn9lqh0000gn/T/opencode/runtime-sync.XXXXXX")"
+    temp_parent="$(pick_temp_parent)"
+    worktree_dir="$(mktemp -d "${temp_parent}/runtime-sync.XXXXXX")"
     temp_dir=1
   elif [[ -e "$worktree_dir" ]]; then
     die "worktree dir already exists: ${worktree_dir}"
