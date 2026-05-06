@@ -293,7 +293,6 @@ export function SetupPhase() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [transferRiskAccepted, setTransferRiskAccepted] = useState(false)
   const [serviceSearch, setServiceSearch] = useState('')
 
   useEffect(() => {
@@ -317,7 +316,6 @@ export function SetupPhase() {
         setDraft(buildInitialDraft(payload))
         setFieldErrors({})
         setSubmitError(null)
-        setTransferRiskAccepted(false)
         setServiceSearch('')
       } catch (error) {
         if (cancelled) {
@@ -404,8 +402,6 @@ export function SetupPhase() {
   })
   const readOnlyFields = payload.fields.filter((field) => field.repeat_for || ['derived', 'summary'].includes(field.type))
   const visibleReadOnlyFields = readOnlyFields.filter((field) => hasVisibleBackendValue(payload.phase, field, payload.answers[field.id]))
-  const selectedValue = draft.optional_services
-  const transferSelected = Array.isArray(selectedValue) && selectedValue.some((item) => String(item) === 'transfer')
   const hasServiceCatalog = Boolean(
     payload.service_catalog.foundation_bundle || payload.service_catalog.optional_services || payload.service_catalog.host_addons,
   )
@@ -448,10 +444,7 @@ export function SetupPhase() {
     setFieldErrors({})
 
     try {
-      const result = await submitSetupPhase(payload.phase, {
-        answers: draft,
-        confirmations: transferSelected ? { transfer_public_risk: transferRiskAccepted } : {},
-      })
+      const result = await submitSetupPhase(payload.phase, { answers: draft })
 
       if (payload.phase === 3 && deploymentSucceeded && result.resume_phase >= 7) {
         await submitSetupPhase(6, { answers: { confirmed: true } })
@@ -468,7 +461,6 @@ export function SetupPhase() {
       if (result.resume_phase === payload.phase) {
         setState({ status: 'ready', payload: result.phase, deploymentSucceeded: false })
         setDraft(buildInitialDraft(result.phase))
-        setTransferRiskAccepted(false)
         return
       }
 
@@ -602,27 +594,6 @@ export function SetupPhase() {
               />
             ))}
 
-            {transferSelected ? (
-              <article className="setup-field-card setup-warning-card">
-                <div className="setup-field-header">
-                  <div>
-                    <p className="section-label">Public Uploads</p>
-                    <h2>transfer.sh is open to anyone with the link</h2>
-                  </div>
-                </div>
-                <p className="hero-text">
-                  This service is intentionally public and unauthenticated. Keep it selected only if you want an open upload endpoint.
-                </p>
-                <label className="setup-checkbox-row setup-native-check">
-                  <input
-                    type="checkbox"
-                    checked={transferRiskAccepted}
-                    onChange={(event) => setTransferRiskAccepted(event.target.checked)}
-                  />
-                  <span>I understand and want to include transfer.sh.</span>
-                </label>
-              </article>
-            ) : null}
             <div className="setup-phase-actions">
               <button type="submit" className="bridge-button bridge-button-primary" disabled={isSubmitting}>
                 {isSubmitting
