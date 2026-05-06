@@ -71,6 +71,20 @@ async function fetchApi<T>(path: string): Promise<T> {
   return (await response.json()) as T
 }
 
+async function fetchStaticJson<T>(path: string): Promise<T> {
+  const response = await fetch(path, {
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  })
+
+  if (!response.ok) {
+    throw new ApiError(`Request failed with ${response.status}`, response.status)
+  }
+
+  return (await response.json()) as T
+}
+
 export async function bootstrapSession(token: string): Promise<SessionBootstrapResult> {
   const response = await fetch(sessionBootstrapPath, {
     method: 'POST',
@@ -148,7 +162,8 @@ export async function fetchSetupRunStatus(): Promise<SetupRunStatus> {
 }
 
 export async function fetchPublicServices(): Promise<PublicServicesResponse> {
-  return fetchApi<PublicServicesResponse>('/api/public/services')
+  // Frontend is deployed standalone (Cloudflare Pages/Workers); serve the catalog as a static asset.
+  return fetchStaticJson<PublicServicesResponse>('/services.json')
 }
 
 export async function startSetupRun(): Promise<SetupRunStatus> {

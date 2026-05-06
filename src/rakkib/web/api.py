@@ -227,62 +227,6 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
     router = APIRouter()
     state_path = config.repo_dir / DEFAULT_STATE_FILE
 
-    @router.get("/public/services")
-    def public_services(response: Response) -> dict[str, object]:
-        """Public, unauthenticated service metadata for the landing page.
-
-        This is derived from src/rakkib/data/registry.yaml so the web landing page stays
-        in sync with the actual available services.
-        """
-        response.headers["Cache-Control"] = "no-store"
-
-        registry = load_service_registry()
-        services = registry.get("services", [])
-        if not isinstance(services, list):
-            services = []
-
-        def _fallback_category(svc: dict[str, object]) -> str:
-            if bool(svc.get("required")) or str(svc.get("state_bucket") or "").strip() == "always":
-                return "Core"
-            if bool(svc.get("foundation")):
-                return "Foundation"
-            if bool(svc.get("host_service")):
-                return "Host Add-ons"
-            return "Other"
-
-        result: list[dict[str, object]] = []
-        for svc in services:
-            if not isinstance(svc, dict):
-                continue
-
-            homepage = svc.get("homepage") if isinstance(svc.get("homepage"), dict) else {}
-            if not isinstance(homepage, dict):
-                homepage = {}
-
-            category = str(homepage.get("category") or "").strip() or _fallback_category(svc)
-            name = str(homepage.get("name") or "").strip() or str(svc.get("id") or "").strip()
-            description = str(homepage.get("description") or "").strip() or str(svc.get("notes") or "").strip()
-            icon = str(homepage.get("icon") or "").strip() or None
-
-            result.append(
-                {
-                    "id": str(svc.get("id") or ""),
-                    "required": bool(svc.get("required")),
-                    "optional": bool(svc.get("optional")),
-                    "foundation": bool(svc.get("foundation")),
-                    "host_service": bool(svc.get("host_service")),
-                    "default_subdomain": svc.get("default_subdomain"),
-                    "default_port": svc.get("default_port"),
-                    "category": category,
-                    "name": name,
-                    "description": description,
-                    "icon": icon,
-                }
-            )
-
-        result.sort(key=lambda item: (str(item.get("category") or ""), str(item.get("name") or ""), str(item.get("id") or "")))
-        return {"services": result}
-
     def serialize_run_state() -> dict[str, object]:
         state = _load_state(state_path)
         snapshot = run_manager.snapshot()

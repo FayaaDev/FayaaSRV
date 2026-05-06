@@ -6,6 +6,7 @@ import type { SetupPhasePayload, SetupQuestionField, SetupServiceCatalogItem } f
 import { FieldEditor } from '../components/FieldEditor'
 import { fieldLabel, renderFieldValue } from '../components/FieldRenderer'
 import { SetupShell } from '../components/SetupShell'
+import { useI18n } from '../i18n/useI18n'
 
 const phaseLabels: Record<number, { title: string; description: string }> = {
   1: {
@@ -42,8 +43,8 @@ type PhaseState =
 type CatalogFieldKey = 'foundation_services' | 'optional_services' | 'host_addons'
 type CatalogServiceItem = SetupServiceCatalogItem & { fieldId: CatalogFieldKey }
 
-function formatServiceSubdomain(item: SetupServiceCatalogItem) {
-  return item.default_subdomain ? `${item.default_subdomain}.your domain` : 'Local or host tool'
+function formatServiceSubdomain(item: SetupServiceCatalogItem, subdomainSuffix: string, localOrHostTool: string) {
+  return item.default_subdomain ? `${item.default_subdomain}${subdomainSuffix}` : localOrHostTool
 }
 
 function friendlyLabel(value: string) {
@@ -112,7 +113,11 @@ function serviceTone(slug: string) {
   return tones[index]
 }
 
-function serviceDescription(fieldId: CatalogFieldKey, item: SetupServiceCatalogItem) {
+function serviceDescription(
+  fieldId: CatalogFieldKey,
+  item: SetupServiceCatalogItem,
+  labels: { recommendedCore: string; runsOnHost: string; optionalApp: string },
+) {
   const known: Record<string, string> = {
     nocodb: 'No-code database workspace',
     homepage: 'Your home dashboard',
@@ -137,12 +142,12 @@ function serviceDescription(fieldId: CatalogFieldKey, item: SetupServiceCatalogI
     return known[item.slug]
   }
   if (fieldId === 'foundation_services') {
-    return 'Recommended core service'
+    return labels.recommendedCore
   }
   if (fieldId === 'host_addons') {
-    return 'Runs directly on the host'
+    return labels.runsOnHost
   }
-  return 'Optional self-hosted app'
+  return labels.optionalApp
 }
 
 function ServiceMark({ item }: { item: SetupServiceCatalogItem }) {
@@ -154,7 +159,7 @@ function ServiceMark({ item }: { item: SetupServiceCatalogItem }) {
 }
 
 function catalogSearchText(item: CatalogServiceItem) {
-  return [item.label, item.slug, item.category, item.default_subdomain, serviceDescription(item.fieldId, item)]
+  return [item.label, item.slug, item.category, item.default_subdomain]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -166,11 +171,20 @@ function renderCatalogCategory(
   selected: Set<string>,
   onToggle: (fieldId: CatalogFieldKey, slug: string) => void,
 ) {
+  const { t, tf } = useI18n()
+  const subdomainSuffix = t('serviceAddressSuffix')
+  const localOrHostTool = t('localOrHostTool')
+  const descriptionLabels = {
+    recommendedCore: t('detailRecommendedCore'),
+    runsOnHost: t('detailRunsOnHost'),
+    optionalApp: t('detailOptionalApp'),
+  }
+
   return (
     <article className="setup-service-section" key={title}>
       <div className="setup-field-header">
         <div>
-          <p className="section-label">{items.length} {items.length === 1 ? 'Service' : 'Services'}</p>
+          <p className="section-label">{tf(items.length === 1 ? 'serviceCountOne' : 'serviceCountMany', { count: items.length })}</p>
           <h2>{title}</h2>
         </div>
       </div>
@@ -185,15 +199,15 @@ function renderCatalogCategory(
             role="listitem"
           >
             <ServiceMark item={item} />
-            <span className="setup-service-copy">
-              <strong>{item.label ?? item.slug}</strong>
-              <span>{serviceDescription(item.fieldId, item)}</span>
-            </span>
-            <span className="setup-service-tags">
-              <span className="setup-service-tag">{formatServiceSubdomain(item)}</span>
-              <span className="setup-service-status">{selected.has(item.slug) ? 'Added' : 'Add'}</span>
-            </span>
-          </button>
+              <span className="setup-service-copy">
+                <strong>{item.label ?? item.slug}</strong>
+                <span>{serviceDescription(item.fieldId, item, descriptionLabels)}</span>
+              </span>
+              <span className="setup-service-tags">
+                <span className="setup-service-tag">{formatServiceSubdomain(item, subdomainSuffix, localOrHostTool)}</span>
+                <span className="setup-service-status">{selected.has(item.slug) ? t('statusAdded') : t('statusAdd')}</span>
+              </span>
+            </button>
         ))}
       </div>
     </article>
@@ -269,6 +283,7 @@ function renderBackendField(phase: number, field: SetupQuestionField, answer: un
 export function SetupPhase() {
   const { phase } = useParams()
   const navigate = useNavigate()
+  const { t, tf } = useI18n()
   const phaseNumber = Number(phase)
   const [state, setState] = useState<PhaseState>({ status: 'loading' })
   const [draft, setDraft] = useState<Record<string, unknown>>({})
@@ -501,19 +516,23 @@ export function SetupPhase() {
             <div className="setup-phase-stack setup-service-catalog">
               <article className="setup-service-search-card">
                 <div>
-                  <p className="section-label">Service Library</p>
-                  <h2>Search by service or category</h2>
+                  <p className="section-label">{t('serviceLibraryLabel')}</p>
+                  <h2>{t('serviceSearchTitle')}</h2>
                 </div>
                 <input
                   className="setup-input setup-service-search"
                   type="search"
                   value={serviceSearch}
                   onChange={(event) => setServiceSearch(event.target.value)}
-                  placeholder="Search services, categories, or subdomains"
-                  aria-label="Search services"
+                  placeholder={t('serviceSearchPlaceholder')}
+                  aria-label={t('serviceSearchAriaLabel')}
                 />
                 <p className="setup-field-help">
-                  Showing {filteredCatalogItems.length} of {serviceCatalogItems.length} services across {serviceCategories.length} categories.
+                  {tf('serviceSearchSummary', {
+                    shown: filteredCatalogItems.length,
+                    total: serviceCatalogItems.length,
+                    categories: serviceCategories.length,
+                  })}
                 </p>
                 {fieldErrors.foundation_services || fieldErrors.optional_services || fieldErrors.host_addons ? (
                   <p className="setup-field-error">
@@ -526,9 +545,9 @@ export function SetupPhase() {
                 serviceCategories.map(([category, items]) => renderCatalogCategory(category, items, selectedServices, toggleCatalogSelection))
               ) : (
                 <article className="setup-service-section setup-service-empty">
-                  <p className="section-label">No Matches</p>
-                  <h2>No services match your search</h2>
-                  <p className="hero-text">Try another service name, category, or subdomain.</p>
+                  <p className="section-label">{t('noMatchesLabel')}</p>
+                  <h2>{t('noMatchesTitle')}</h2>
+                  <p className="hero-text">{t('noMatchesHint')}</p>
                 </article>
               )}
             </div>

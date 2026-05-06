@@ -5,6 +5,7 @@ export type I18nContextValue = {
   locale: Locale
   dir: 'ltr' | 'rtl'
   t: (key: TranslationKey) => string
+  tf: (key: TranslationKey, vars: Record<string, string | number>) => string
   ts: (key: string) => string
   setLocale: (locale: Locale) => void
 }

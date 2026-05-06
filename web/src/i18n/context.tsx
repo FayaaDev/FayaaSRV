@@ -2,6 +2,13 @@ import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { translations, type Locale, type TranslationKey } from './translations'
 import { I18nContext } from './state'
 
+function formatTemplate(template: string, vars: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => {
+    const value = vars[key]
+    return value === undefined || value === null ? match : String(value)
+  })
+}
+
 function getInitialLocale(): Locale {
   const stored = localStorage.getItem('locale') as Locale | null
   if (stored === 'en' || stored === 'ar') return stored
@@ -28,6 +35,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [locale],
   )
 
+  const tf = useCallback(
+    (key: TranslationKey, vars: Record<string, string | number>) => {
+      const template = translations[locale][key] as string
+      return formatTemplate(template, vars)
+    },
+    [locale],
+  )
+
   const ts = useCallback(
     (key: string) => {
       const svc = translations[locale].services as Record<string, string>
@@ -37,7 +52,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <I18nContext.Provider value={{ locale, dir, t, ts, setLocale }}>
+    <I18nContext.Provider value={{ locale, dir, t, tf, ts, setLocale }}>
       {children}
     </I18nContext.Provider>
   )

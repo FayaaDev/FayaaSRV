@@ -37,11 +37,12 @@ function ServiceMark({ item }: { item: PublicServiceItem }) {
   )
 }
 
-function formatServiceSubdomain(item: PublicServiceItem) {
-  return item.default_subdomain ? `${item.default_subdomain}.your domain` : 'Local or host tool'
+function formatServiceSubdomain(item: PublicServiceItem, subdomainSuffix: string, localOrHostTool: string) {
+  return item.default_subdomain ? `${item.default_subdomain}${subdomainSuffix}` : localOrHostTool
 }
 
 function catalogSearchText(item: PublicServiceItem) {
+  // Search across raw catalog fields; keep this stable regardless of locale.
   return [
     item.name,
     item.id,
@@ -57,30 +58,37 @@ function catalogSearchText(item: PublicServiceItem) {
     .toLowerCase()
 }
 
-function serviceStatusLabel(item: PublicServiceItem) {
+function serviceStatusLabel(
+  item: PublicServiceItem,
+  labels: { required: string; foundation: string; optional: string },
+) {
   if (item.required) {
-    return 'Required'
+    return labels.required
   }
   if (item.foundation) {
-    return 'Foundation'
+    return labels.foundation
   }
-  return 'Optional'
+  return labels.optional
 }
 
-function serviceDetail(item: PublicServiceItem) {
-  if (item.description) {
-    return item.description
-  }
+function serviceDetail(
+  item: PublicServiceItem,
+  ts: (key: string) => string,
+  labels: { alwaysInstalled: string; runsOnHost: string; optionalApp: string },
+) {
+  const localized = item.name ? ts(item.name) : null
+  if (localized && localized !== item.name) return localized
+  if (item.description) return item.description
 
   if (item.required) {
-    return 'Always installed'
+    return labels.alwaysInstalled
   }
 
   if (item.host_service) {
-    return 'Runs directly on the host'
+    return labels.runsOnHost
   }
 
-  return 'Optional self-hosted app'
+  return labels.optionalApp
 }
 
 function GitHubIcon() {
@@ -93,10 +101,23 @@ function GitHubIcon() {
 
 export function Landing() {
   const location = useLocation()
-  const { t } = useI18n()
+  const { t, tf, ts } = useI18n()
   const [copied, setCopied] = useState(false)
   const [serviceSearch, setServiceSearch] = useState('')
   const [servicesState, setServicesState] = useState<ServicesState>({ status: 'loading' })
+
+  const subdomainSuffix = t('subdomainSuffix')
+  const localOrHostTool = t('localOrHostTool')
+  const statusLabels = {
+    required: t('statusRequired'),
+    foundation: t('statusFoundation'),
+    optional: t('statusOptional'),
+  }
+  const detailLabels = {
+    alwaysInstalled: t('detailAlwaysInstalled'),
+    runsOnHost: t('detailRunsOnHost'),
+    optionalApp: t('detailOptionalApp'),
+  }
 
   const params = new URLSearchParams(location.search)
 
@@ -159,7 +180,7 @@ export function Landing() {
           <div className="install-box" aria-label="Install command">
             <code>{installCommand}</code>
             <button type="button" onClick={copyInstallCommand} aria-live="polite" style={{ direction: 'ltr' }}>
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? t('copied') : t('copy')}
             </button>
           </div>
           <p className="install-note">{t('installNote')}</p>
@@ -200,19 +221,23 @@ export function Landing() {
               <div className="setup-phase-stack setup-service-catalog">
                 <article className="setup-service-search-card">
                   <div>
-                    <p className="section-label">Service Library</p>
-                    <h2>Search by service or category</h2>
+                    <p className="section-label">{t('serviceLibraryLabel')}</p>
+                    <h2>{t('serviceSearchTitle')}</h2>
                   </div>
                   <input
                     className="setup-input setup-service-search"
                     type="search"
                     value={serviceSearch}
                     onChange={(event) => setServiceSearch(event.target.value)}
-                    placeholder="Search services, categories, or subdomains"
-                    aria-label="Search services"
+                    placeholder={t('serviceSearchPlaceholder')}
+                    aria-label={t('serviceSearchAriaLabel')}
                   />
                   <p className="setup-field-help">
-                    Showing {filteredItems.length} of {allItems.length} services across {serviceCategories.length} categories.
+                    {tf('serviceSearchSummary', {
+                      shown: filteredItems.length,
+                      total: allItems.length,
+                      categories: serviceCategories.length,
+                    })}
                   </p>
                 </article>
 
@@ -221,7 +246,9 @@ export function Landing() {
                     <article className="setup-service-section" key={category}>
                       <div className="setup-field-header">
                         <div>
-                          <p className="section-label">{items.length} {items.length === 1 ? 'Service' : 'Services'}</p>
+                          <p className="section-label">
+                            {tf(items.length === 1 ? 'serviceCountOne' : 'serviceCountMany', { count: items.length })}
+                          </p>
                           <h2>{category}</h2>
                         </div>
                       </div>
@@ -237,12 +264,12 @@ export function Landing() {
                             <ServiceMark item={item} />
                             <span className="setup-service-copy">
                               <strong>{item.name ?? item.id}</strong>
-                              <span>{serviceDetail(item)}</span>
+                              <span>{serviceDetail(item, ts, detailLabels)}</span>
                             </span>
                             <span className="setup-service-tags">
-                              <span className="setup-service-tag">{formatServiceSubdomain(item)}</span>
-                              <span className="setup-service-tag">{serviceStatusLabel(item)}</span>
-                              {item.host_service ? <span className="setup-service-tag">Host</span> : null}
+                              <span className="setup-service-tag">{formatServiceSubdomain(item, subdomainSuffix, localOrHostTool)}</span>
+                              <span className="setup-service-tag">{serviceStatusLabel(item, statusLabels)}</span>
+                              {item.host_service ? <span className="setup-service-tag">{t('tagHost')}</span> : null}
                             </span>
                           </article>
                         ))}
@@ -251,9 +278,9 @@ export function Landing() {
                   ))
                 ) : (
                   <article className="setup-service-section setup-service-empty">
-                    <p className="section-label">No Matches</p>
-                    <h2>No services match your search</h2>
-                    <p className="hero-text">Try another service name, category, or subdomain.</p>
+                    <p className="section-label">{t('noMatchesLabel')}</p>
+                    <h2>{t('noMatchesTitle')}</h2>
+                    <p className="hero-text">{t('noMatchesHint')}</p>
                   </article>
                 )}
               </div>
