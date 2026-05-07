@@ -1223,13 +1223,17 @@ class TestRestart:
 
         with (
             patch("rakkib.cli.load_service_registry", return_value=registry),
-            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "caddy"]),
+            patch("rakkib.cli.prompt_checkbox", return_value=["homepage", "caddy"]) as mock_prompt,
             patch("rakkib.cli.services_step.restart_service") as mock_restart,
         ):
             result = runner.invoke(cli, ["restart"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
         assert "Restarting selected services" in result.output
+        choices = mock_prompt.call_args.kwargs["choices"]
+        selectable = [choice for choice in choices if not choice.disabled]
+        assert selectable
+        assert all(choice.checked is False for choice in selectable)
         assert [call.args[1] for call in mock_restart.call_args_list] == ["homepage", "caddy"]
 
     def test_restart_without_args_aborts_when_nothing_deployed(self, tmp_path: Path):
