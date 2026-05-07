@@ -296,7 +296,11 @@ def _get_tunnel_uuid(tunnel_name: str, env: dict[str, str] | None = None) -> str
         return None
     try:
         tunnels = json.loads(result.stdout)
+        if not isinstance(tunnels, list):
+            return None
         for t in tunnels:
+            if not isinstance(t, dict):
+                continue
             if t.get("name") == tunnel_name:
                 return t.get("id")
     except json.JSONDecodeError:
