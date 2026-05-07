@@ -205,7 +205,7 @@ def _build_restart_choices(state: State, registry: dict[str, Any]) -> list[Choic
                 Choice(
                     title=f"  {_service_label(svc)}",
                     value=svc["id"],
-                    checked=True,
+                    checked=False,
                 )
             )
 
@@ -231,7 +231,7 @@ def _build_restart_choices(state: State, registry: dict[str, Any]) -> list[Choic
                 Choice(
                     title=f"  {_service_label(svc)}",
                     value=svc["id"],
-                    checked=True,
+                    checked=False,
                 )
             )
 
