@@ -87,7 +87,7 @@ def _verify_state_file_permissions(state: State) -> VerificationResult:
 
 
 def _verify_rendered_templates(state: State) -> VerificationResult:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     docker_root = data_root / "docker"
     if not docker_root.exists():
         return VerificationResult.success("verify", f"{docker_root} does not exist")

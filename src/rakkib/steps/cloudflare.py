@@ -22,6 +22,7 @@ from rakkib.render import render_file
 from rakkib.service_catalog import cloudflare_enabled, service_fqdn
 from rakkib.state import State
 from rakkib.steps import VerificationResult, load_service_registry
+from rakkib.util import RAKKIB_DATA_DIR
 
 METRICS_RETRY_ATTEMPTS = 20
 METRICS_RETRY_INTERVAL_SEC = 3
@@ -31,7 +32,7 @@ EDGE_LOGS_TAIL_LINES = 200
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 def _home_for_user(user: str | None) -> Path | None:
@@ -241,6 +242,35 @@ def create_dns_route(state: State, fqdn: str, env: dict[str, str] | None = None)
     )
 
 
+def delete_dns_route(state: State, fqdn: str, env: dict[str, str] | None = None) -> str | None:
+    """Delete a Cloudflare tunnel DNS route. Return a warning string on failure."""
+    hostname = str(fqdn or "").strip().strip(".")
+    if not hostname:
+        return None
+
+    tunnel_uuid, tunnel_name = _cloudflare_tunnel_ids(state)
+    tunnel = tunnel_uuid or tunnel_name
+    if not tunnel:
+        return f"Cloudflare DNS record {hostname} may still exist: Cloudflare tunnel is not recorded."
+
+    cloudflared_env = env if env is not None else _cloudflared_env(state.get("admin_user"))
+    commands = [[_cloudflared_bin(), "tunnel", "route", "dns", "delete", str(tunnel), hostname]]
+    if tunnel_name and tunnel_name != tunnel:
+        commands.append([_cloudflared_bin(), "tunnel", "route", "dns", "delete", str(tunnel_name), hostname])
+
+    last_error = "unknown error"
+    for command in commands:
+        result = _run(command, env=cloudflared_env, check=False)
+        if result.returncode == 0:
+            return None
+        last_error = result.stderr.strip() or result.stdout.strip() or last_error
+        lowered = last_error.lower()
+        if "not found" in lowered or "does not exist" in lowered or "doesn't exist" in lowered:
+            return None
+
+    return f"Cloudflare DNS record {hostname} may still exist: {last_error}"
+
+
 def _published_service_ids(state: State) -> list[str]:
     raw = state.get("cloudflare.published_services") or []
     if not isinstance(raw, list):
@@ -272,7 +302,7 @@ def _service_ingress_lines(state: State) -> str:
 
 def render_config(state: State) -> Path:
     """Render cloudflared config with explicit service ingress entries."""
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     config_path = data_root / "data" / "cloudflared" / "config.yml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     state.set("cloudflare.service_ingress", _service_ingress_lines(state))
@@ -283,7 +313,7 @@ def render_config(state: State) -> Path:
 def reload_container(state: State) -> None:
     if not cloudflare_enabled(state):
         return
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     cloudflared_dir = data_root / "docker" / "cloudflared"
     if (cloudflared_dir / "docker-compose.yml").exists():
         docker_run(["compose", "--project-directory", str(cloudflared_dir), "restart"], check=False)
@@ -306,7 +336,7 @@ def publish_service(state: State, svc: dict) -> None:
 
 
 def unpublish_service(state: State, svc: dict, *, warn: bool = True) -> str | None:
-    """Remove local Cloudflare routing for a service and return its stale DNS warning."""
+    """Remove Cloudflare DNS and local routing for a service."""
     if not cloudflare_enabled(state):
         return None
     fqdn = service_fqdn(state, svc)
@@ -314,11 +344,10 @@ def unpublish_service(state: State, svc: dict, *, warn: bool = True) -> str | No
     _set_published_service_ids(state, published)
     render_config(state)
     reload_container(state)
-    if warn and fqdn:
-        return (
-            f"Cloudflare DNS record {fqdn} may still exist. Rakkib removed local routing; "
-            "delete the CNAME in Cloudflare if you want DNS fully cleaned up."
-        )
+    if fqdn:
+        warning = delete_dns_route(state, fqdn)
+        if warn and warning:
+            return f"{warning} Rakkib removed local routing; removed service hostnames should no longer reach the service."
     return None
 
 
@@ -481,7 +510,7 @@ def run(state: State) -> None:
     if not cloudflare_enabled(state):
         return
 
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     auth_method = state.get("cloudflare.auth_method")
     tunnel_strategy = state.get("cloudflare.tunnel_strategy")
     tunnel_name = state.get("cloudflare.tunnel_name")
@@ -845,7 +874,7 @@ def verify(state: State) -> VerificationResult:
     if not cloudflare_enabled(state):
         return VerificationResult.success("cloudflare", "skipped for internal exposure mode")
 
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     auth_method = state.get("cloudflare.auth_method")
     cloudflared_env = _cloudflared_env(state.get("admin_user"))
     tunnel_uuid = state.get("cloudflare.tunnel_uuid") or state.get("tunnel_uuid")

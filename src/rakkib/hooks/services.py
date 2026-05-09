@@ -7,6 +7,7 @@ import os
 import pwd
 import shutil
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from rich.console import Console
@@ -19,6 +20,25 @@ from rakkib.tui import progress_spinner, progress_wait
 
 
 console = Console()
+
+
+@dataclass(frozen=True)
+class HookContext:
+    state: object
+    svc: dict
+    repo: Path
+    data_root: Path
+    log_path: Path
+    registry: dict
+
+
+def _coerce_hook_context(ctx: HookContext | object, *legacy_args) -> HookContext:
+    if isinstance(ctx, HookContext):
+        return ctx
+    if len(legacy_args) != 5:
+        raise TypeError("hook functions require HookContext")
+    svc, repo, data_root, log_path, registry = legacy_args
+    return HookContext(ctx, svc, repo, data_root, log_path, registry)
 
 _KUMA_MANAGED_PREFIX = "Managed by Rakkib (service: "
 _OPENCLAW_INSTALL_URL = "https://openclaw.ai/install.sh"
@@ -92,69 +112,41 @@ def _ensure_node_and_npm() -> None:
     )
 
 
-def claude_install(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def claude_install(ctx: HookContext, *legacy_args) -> None:
     """Install Claude Code CLI for the service user."""
-    del svc, repo, data_root, log_path, registry
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     _run_as_service_user(
-        state,
+        ctx.state,
         ["bash", "-lc", f"curl -fsSL '{_CLAUDE_INSTALL_URL}' | bash"],
         timeout=900,
         timeout_label="Claude install.sh",
     )
 
 
-def claude_uninstall(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def claude_uninstall(ctx: HookContext, *legacy_args) -> None:
     """Best-effort uninstall of Claude Code CLI."""
-    del svc, repo, data_root, log_path, registry
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     # Installer sets up a `claude` launcher. If it exists, try the built-in uninstall.
-    _run_as_service_user(state, ["bash", "-lc", "command -v claude"], check=False)
-    _run_as_service_user(state, ["bash", "-lc", "claude uninstall"], check=False, timeout=300)
+    _run_as_service_user(ctx.state, ["bash", "-lc", "command -v claude"], check=False)
+    _run_as_service_user(ctx.state, ["bash", "-lc", "claude uninstall"], check=False, timeout=300)
 
 
-def codex_install(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def codex_install(ctx: HookContext, *legacy_args) -> None:
     """Install OpenAI Codex CLI via npm for the service user."""
-    del svc, repo, data_root, log_path, registry
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     _ensure_node_and_npm()
 
     # Install into the user's ~/.local so we don't need root-level npm globals.
-    _run_as_service_user(state, ["bash", "-lc", "npm config set prefix \"$HOME/.local\""], timeout=120)
-    _run_as_service_user(state, ["bash", "-lc", "npm i -g @openai/codex"], timeout=900, timeout_label="npm i -g @openai/codex")
+    _run_as_service_user(ctx.state, ["bash", "-lc", "npm config set prefix \"$HOME/.local\""], timeout=120)
+    _run_as_service_user(ctx.state, ["bash", "-lc", "npm i -g @openai/codex"], timeout=900, timeout_label="npm i -g @openai/codex")
 
 
-def codex_uninstall(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def codex_uninstall(ctx: HookContext, *legacy_args) -> None:
     """Best-effort uninstall of OpenAI Codex CLI."""
-    del svc, repo, data_root, log_path, registry
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     if not shutil.which("npm"):
         return
-    _run_as_service_user(state, ["bash", "-lc", "npm uninstall -g @openai/codex"], check=False, timeout=600)
+    _run_as_service_user(ctx.state, ["bash", "-lc", "npm uninstall -g @openai/codex"], check=False, timeout=600)
 
 
 def _write_text_if_changed(path: Path, content: str) -> bool:
@@ -174,19 +166,12 @@ def _restart_service(data_root: Path, svc_id: str) -> None:
     docker_run(["compose", "--project-directory", str(svc_dir), "restart"])
 
 
-def cloudflare_dns_delete(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
-    """Remove local Cloudflare service routing and warn about stale DNS."""
-    del repo, data_root, log_path, registry
+def cloudflare_dns_delete(ctx: HookContext, *legacy_args) -> None:
+    """Remove Cloudflare service DNS/routing and warn if DNS deletion fails."""
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     from rakkib.steps import cloudflare
 
-    warning = cloudflare.unpublish_service(state, svc, warn=True)
+    warning = cloudflare.unpublish_service(ctx.state, ctx.svc, warn=True)
     if warning:
         print(f"WARNING: {warning}")
 
@@ -605,19 +590,12 @@ def _uptime_kuma_sync_payload(state, registry: dict) -> dict[str, object]:
     }
 
 
-def homepage_services_yaml(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def homepage_services_yaml(ctx: HookContext, *legacy_args) -> None:
     """Generate Homepage services.yaml from registry homepage metadata."""
-    del svc, repo, log_path
-    config_dir = data_root / "data" / "homepage" / "config"
+    ctx = _coerce_hook_context(ctx, *legacy_args)
+    config_dir = ctx.data_root / "data" / "homepage" / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
-    _write_text_if_changed(config_dir / "services.yaml", _homepage_services_content(state, registry))
+    _write_text_if_changed(config_dir / "services.yaml", _homepage_services_content(ctx.state, ctx.registry))
 
 
 def _service_postgres_credentials(state, svc: dict) -> tuple[str, str, str]:
@@ -671,17 +649,10 @@ def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) ->
             docker_run(["exec", "uptime-kuma", "node", "/app/data/sync-monitors.cjs"])
 
 
-def service_postgres_login_preflight(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def service_postgres_login_preflight(ctx: HookContext, *legacy_args) -> None:
     """Fail fast if a service cannot log into the shared postgres database."""
-    del repo, data_root, log_path, registry
-    role, db_name, password = _service_postgres_credentials(state, svc)
+    ctx = _coerce_hook_context(ctx, *legacy_args)
+    role, db_name, password = _service_postgres_credentials(ctx.state, ctx.svc)
 
     result = docker_run(
         [
@@ -703,39 +674,31 @@ def service_postgres_login_preflight(
     )
     if result.returncode != 0:
         raise RuntimeError(
-            f"postgres login pre-flight failed for service '{svc['id']}': the database login is not ready "
+            f"postgres login pre-flight failed for service '{ctx.svc['id']}': the database login is not ready "
             "in the postgres container. Ensure Step 4 completed successfully and that the "
             "rendered service password matches the Postgres role password.\n"
             f"psql output: {result.stdout.strip() or result.stderr.strip()}"
         )
 
 
-def openclaw_install(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def openclaw_install(ctx: HookContext, *legacy_args) -> None:
     """Install OpenClaw and ensure a minimal local gateway is configured."""
-    del svc, repo, data_root, registry
-
+    ctx = _coerce_hook_context(ctx, *legacy_args)
     if shutil.which("curl") is None:
         raise RuntimeError("OpenClaw setup requires curl. Install curl and re-run `rakkib pull`.")
 
     _wait_for_openclaw_package_locks()
 
     if os.geteuid() == 0:
-        admin_user, _, _ = _service_admin_user(state)
+        admin_user, _, _ = _service_admin_user(ctx.state)
         subprocess.run(["loginctl", "enable-linger", admin_user], capture_output=True, text=True, check=True)
-        _migrate_root_openclaw_service(state)
+        _migrate_root_openclaw_service(ctx.state)
 
-    openclaw_bin = _resolve_openclaw_bin(state)
+    openclaw_bin = _resolve_openclaw_bin(ctx.state)
     if openclaw_bin is None:
         with progress_spinner("Installing OpenClaw CLI..."):
             install = _run_as_service_user(
-                state,
+                ctx.state,
                 ["bash", "-lc", f"curl -fsSL {_OPENCLAW_INSTALL_URL} | bash -s -- --no-onboard --no-prompt"],
                 check=False,
                 timeout=_OPENCLAW_COMMAND_TIMEOUT,
@@ -747,31 +710,31 @@ def openclaw_install(
                 "OpenClaw installation failed. "
                 f"Command output: {_openclaw_output(install)}"
             )
-        openclaw_bin = _resolve_openclaw_bin(state)
+        openclaw_bin = _resolve_openclaw_bin(ctx.state)
         if openclaw_bin is None:
             raise RuntimeError(
                 "OpenClaw installation completed but the `openclaw` CLI is still unavailable on PATH. "
                 "Check the target user's global npm/bin path, such as `$(npm prefix -g)/bin`, and re-run `rakkib pull`."
             )
 
-    version = _run_openclaw(state, openclaw_bin, ["--version"], check=False)
+    version = _run_openclaw(ctx.state, openclaw_bin, ["--version"], check=False)
     if version.returncode != 0:
         raise RuntimeError(
             "OpenClaw CLI was found but `openclaw --version` failed. "
             f"Command output: {_openclaw_output(version)}"
         )
 
-    _, home_dir, _ = _service_admin_user(state)
+    _, home_dir, _ = _service_admin_user(ctx.state)
     config_path, service_path = _openclaw_paths(home_dir)
     if config_path.exists():
         console.print("[dim]  openclaw: already onboarded, updating config...[/dim]")
-        _ensure_openclaw_gateway_bind(state, openclaw_bin)
-        _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
+        _ensure_openclaw_gateway_bind(ctx.state, openclaw_bin)
+        _ensure_openclaw_control_ui_allowed_origins(ctx.state, openclaw_bin)
         return
 
     with progress_spinner("Running OpenClaw onboarding..."):
         onboard = _run_openclaw(
-            state,
+            ctx.state,
             openclaw_bin,
             [
                 "onboard",
@@ -798,27 +761,19 @@ def openclaw_install(
                 f"Command output: {_openclaw_output(onboard)}"
             )
 
-    _ensure_openclaw_gateway_bind(state, openclaw_bin)
-    _ensure_openclaw_control_ui_allowed_origins(state, openclaw_bin)
+    _ensure_openclaw_gateway_bind(ctx.state, openclaw_bin)
+    _ensure_openclaw_control_ui_allowed_origins(ctx.state, openclaw_bin)
 
 
-def openclaw_gateway_restart(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def openclaw_gateway_restart(ctx: HookContext, *legacy_args) -> None:
     """Ensure the OpenClaw gateway daemon is installed, running, and healthy."""
-    del svc, repo, data_root, registry
-
-    openclaw_bin = _resolve_openclaw_bin(state)
+    ctx = _coerce_hook_context(ctx, *legacy_args)
+    openclaw_bin = _resolve_openclaw_bin(ctx.state)
     if openclaw_bin is None:
         raise RuntimeError("OpenClaw gateway restart requested but the `openclaw` CLI is not installed for the admin user.")
 
     with progress_spinner("Installing OpenClaw gateway service..."):
-        install = _run_openclaw(state, openclaw_bin, ["gateway", "install", "--force"], check=False)
+        install = _run_openclaw(ctx.state, openclaw_bin, ["gateway", "install", "--force"], check=False)
     if install.returncode != 0:
         raise RuntimeError(
             "OpenClaw gateway install failed. "
@@ -826,7 +781,7 @@ def openclaw_gateway_restart(
         )
 
     with progress_spinner("Restarting OpenClaw gateway..."):
-        restart = _run_openclaw(state, openclaw_bin, ["gateway", "restart"], check=False)
+        restart = _run_openclaw(ctx.state, openclaw_bin, ["gateway", "restart"], check=False)
     if restart.returncode != 0:
         raise RuntimeError(
             "OpenClaw gateway restart failed. "
@@ -834,35 +789,27 @@ def openclaw_gateway_restart(
         )
 
     if not _openclaw_gateway_healthcheck():
-        status = _run_openclaw(state, openclaw_bin, ["gateway", "status", "--require-rpc"], check=False)
+        status = _run_openclaw(ctx.state, openclaw_bin, ["gateway", "status", "--require-rpc"], check=False)
         raise RuntimeError(
             "OpenClaw gateway did not become healthy on 127.0.0.1:18789/healthz. "
             f"Status output: {_openclaw_output(status)}"
         )
 
-    url = _openclaw_dashboard_url(state)
+    url = _openclaw_dashboard_url(ctx.state)
     if url:
         console.print(f"[green]  OpenClaw ready:[/green] {url}")
 
-    _openclaw_wait_for_pairing(state, openclaw_bin)
+    _openclaw_wait_for_pairing(ctx.state, openclaw_bin)
 
 
-def openclaw_gateway_uninstall(
-    state,
-    svc: dict,
-    repo: Path,
-    data_root: Path,
-    log_path: Path,
-    registry: dict,
-) -> None:
+def openclaw_gateway_uninstall(ctx: HookContext, *legacy_args) -> None:
     """Purge the managed OpenClaw gateway service while preserving user state."""
-    del svc, repo, data_root, log_path, registry
-
-    openclaw_bin = _resolve_openclaw_bin(state)
+    ctx = _coerce_hook_context(ctx, *legacy_args)
+    openclaw_bin = _resolve_openclaw_bin(ctx.state)
     if openclaw_bin is None:
         return
 
-    uninstall = _run_openclaw(state, openclaw_bin, ["gateway", "uninstall"], check=False)
+    uninstall = _run_openclaw(ctx.state, openclaw_bin, ["gateway", "uninstall"], check=False)
     if uninstall.returncode == 0:
         return
 

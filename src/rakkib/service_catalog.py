@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from rakkib.state import State, subdomain_placeholder_key
+from rakkib.state import State, StateBucket, subdomain_placeholder_key
 
 _SUBDOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -25,8 +25,8 @@ def cloudflare_enabled(state: State) -> bool:
 
 def selected_service_ids(state: State) -> set[str]:
     """Return currently selected foundation and optional service ids."""
-    ids = set(state.get("foundation_services", []) or [])
-    ids.update(state.get("selected_services", []) or [])
+    ids = set(state.get(StateBucket.FOUNDATION_SERVICES, []) or [])
+    ids.update(state.get(StateBucket.SELECTED_SERVICES, []) or [])
     return ids
 
 
@@ -40,7 +40,7 @@ def validate_service_dependencies(selected_ids: set[str], registry: dict[str, An
         missing = []
         for dep in svc.get("depends_on", []):
             dep_svc = by_id.get(dep, {})
-            if dep_svc.get("state_bucket") == "always":
+            if dep_svc.get("state_bucket") == StateBucket.ALWAYS:
                 continue
             if dep not in selected_ids:
                 missing.append(dep)
@@ -53,21 +53,21 @@ def validate_service_dependencies(selected_ids: set[str], registry: dict[str, An
 def apply_service_catalog_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
     """Apply service selection side effects to the shared setup state."""
     active_ids = set(selected_ids)
-    active_ids.update(svc["id"] for svc in registry["services"] if svc.get("state_bucket") == "always")
+    active_ids.update(svc["id"] for svc in registry["services"] if svc.get("state_bucket") == StateBucket.ALWAYS)
 
     foundation_ids = [
         svc["id"]
         for svc in registry["services"]
-        if svc.get("state_bucket") == "foundation_services" and svc["id"] in active_ids
+        if svc.get("state_bucket") == StateBucket.FOUNDATION_SERVICES and svc["id"] in active_ids
     ]
     optional_ids = [
         svc["id"]
         for svc in registry["services"]
-        if svc.get("state_bucket") == "selected_services" and svc["id"] in active_ids
+        if svc.get("state_bucket") == StateBucket.SELECTED_SERVICES and svc["id"] in active_ids
     ]
 
-    state.set("foundation_services", foundation_ids)
-    state.set("selected_services", optional_ids)
+    state.set(StateBucket.FOUNDATION_SERVICES, foundation_ids)
+    state.set(StateBucket.SELECTED_SERVICES, optional_ids)
     if "nocodb" in foundation_ids:
         state.set("admin_email", "admin@nocodb.com")
 

@@ -256,6 +256,12 @@ def _is_docker_permission_error(text: str) -> bool:
 
 def _error_message(cmd: list[str], returncode: int, stderr: str, log_hint: str) -> str:
     message = f"Command failed with exit code {returncode}: {' '.join(cmd)}.{log_hint}"
+    detail = stderr.strip()
+    if detail:
+        if len(detail) > 2048:
+            detail = detail[-2048:]
+            detail = f"...{detail}"
+        message = f"{message}\nstderr:\n{detail}"
     if cmd and cmd[0] == "docker" and _is_docker_permission_error(stderr):
         message = f"{message} {DOCKER_PERMISSION_HINT}"
     return message

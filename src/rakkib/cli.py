@@ -5,10 +5,8 @@ Commands: init, pull, update, doctor, status, add, restart, uninstall, privilege
 
 from __future__ import annotations
 
-import getpass
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import webbrowser
@@ -16,37 +14,48 @@ from pathlib import Path
 from typing import Any
 
 import click
-from questionary import Choice
 from rich.console import Console
 
 from rakkib.docker import DockerError, docker_run, is_docker_permission_error
 from rakkib.doctor import (
     attempt_fix_cloudflared,
-    attempt_fix_compose,
     attempt_fix_docker,
     check_disk,
     check_ram,
+    docker_access_commands,
+    docker_access_user,
+    ensure_prereqs,
     process_owners_for_ports,
+    prepare_docker_access,
     run_checks,
     summary_text,
     to_json,
 )
 from rakkib.interview import run_interview
 from rakkib.secrets import token_urlsafe
-from rakkib.service_catalog import (
-    apply_service_catalog_selection,
-    cloudflare_enabled,
-    normalize_subdomain,
-    validate_subdomain_label,
-    validate_subdomain_map,
-    validate_service_dependencies,
+from rakkib.service_catalog import cloudflare_enabled
+from rakkib.services_cli import (
+    apply_planned_subdomains as _apply_planned_subdomains,
+    apply_service_selection as _apply_service_selection,
+    build_add_choices as _build_add_choices,
+    build_restart_choices as _build_restart_choices,
+    deployed_service_lists as _deployed_service_lists,
+    installed_service_ids as _installed_service_ids,
+    persist_deployed_selection as _persist_deployed_selection,
+    print_deployed_urls as _print_deployed_urls,
+    prompt_service_subdomains as _prompt_service_subdomains,
+    restart_order as _restart_order,
+    selected_service_lists as _selected_service_lists,
+    summarize_service_diff as _summarize_service_diff,
+    validate_selection_dependencies as _validate_service_dependencies,
 )
 from rakkib.state import State
 from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry, selected_service_defs
 from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
 from rakkib.steps.cloudflare import _cloudflared_bin, _show_qr
-from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm, prompt_text
+from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm
+from rakkib.util import checkout_dir as _checkout_dir, detect_lan_ip as _detect_lan_ip, resolve_user, web_url as _web_url
 
 console = Console()
 
@@ -74,449 +83,11 @@ def _render_doctor_table(checks: list, title: str) -> "Table":
 
 
 def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
-    if explicit:
-        return explicit
-    user = state.get("admin_user")
+    user = resolve_user(state, explicit=explicit, require=True)
     if user:
-        return str(user)
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user and sudo_user != "root":
-        return sudo_user
+        return user
     console.print("[red]Admin user is required; pass --admin-user or record admin_user in state.[/red]")
     raise click.Abort()
-
-
-def _service_label(svc: dict[str, Any]) -> str:
-    notes = str(svc.get("notes", "")).strip()
-    summary = notes.split(".", 1)[0].strip()
-    return f"{svc['id']} - {summary}" if summary else svc["id"]
-
-
-def _service_selection_category(svc: dict[str, Any]) -> str:
-    homepage = svc.get("homepage") or {}
-    category = str(homepage.get("category") or "").strip()
-    return category or "Other"
-
-
-def _installed_service_ids(state: State) -> set[str]:
-    installed = set(state.get("foundation_services", []) or [])
-    installed.update(state.get("selected_services", []) or [])
-    return installed
-
-
-def _selected_service_lists(state: State) -> tuple[list[str], list[str]]:
-    foundation = list(state.get("foundation_services", []) or [])
-    selected = list(state.get("selected_services", []) or [])
-    return foundation, selected
-
-
-def _persist_deployed_selection(state: State) -> None:
-    foundation, selected = _selected_service_lists(state)
-    state.set("deployed.exists", True)
-    state.set("deployed.foundation_services", foundation)
-    state.set("deployed.selected_services", selected)
-
-
-def _deployed_service_lists(state: State) -> tuple[list[str], list[str]]:
-    foundation = state.get("deployed.foundation_services")
-    selected = state.get("deployed.selected_services")
-    if isinstance(foundation, list) and isinstance(selected, list):
-        return list(foundation), list(selected)
-    return _selected_service_lists(state)
-
-
-def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
-    current = _installed_service_ids(state)
-
-    choices: list[Choice] = []
-    sections = [
-        ("Always Installed", "always"),
-        ("Foundation Bundle", "foundation_services"),
-    ]
-
-    for title, bucket in sections:
-        bucket_services = [
-            svc for svc in registry["services"]
-            if svc.get("state_bucket") == bucket
-            and not (svc["id"] == "cloudflared" and not cloudflare_enabled(state))
-        ]
-        if not bucket_services:
-            continue
-        choices.append(
-            Choice(title=f"━━ {title} ━━", value=f"__header_{bucket}__", disabled=True)
-        )
-        for svc in bucket_services:
-            checked = bucket == "always" or svc["id"] in current
-            disabled = bucket == "always"
-            choices.append(
-                Choice(
-                    title=f"  {_service_label(svc)}",
-                    value=svc["id"],
-                    checked=checked,
-                    disabled=disabled,
-                )
-            )
-
-    optional_services = [
-        svc for svc in registry["services"] if svc.get("state_bucket") == "selected_services"
-    ]
-    optional_groups: dict[str, list[dict[str, Any]]] = {}
-    for svc in optional_services:
-        optional_groups.setdefault(_service_selection_category(svc), []).append(svc)
-
-    for category, services in optional_groups.items():
-        choices.append(
-            Choice(
-                title=f"━━ {category} ━━",
-                value=f"__header_{category}__",
-                disabled=True,
-            )
-        )
-        for svc in services:
-            choices.append(
-                Choice(
-                    title=f"  {_service_label(svc)}",
-                    value=svc["id"],
-                    checked=svc["id"] in current,
-                )
-            )
-
-    return choices
-
-
-def _build_restart_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
-    if not state.get("deployed.exists", False):
-        return []
-
-    foundation, selected = _deployed_service_lists(state)
-    active_ids = set(foundation)
-    active_ids.update(selected)
-    active_ids.update(
-        svc["id"] for svc in registry["services"] if svc.get("state_bucket") == "always"
-    )
-
-    choices: list[Choice] = []
-    sections = [
-        ("Always Installed", "always"),
-        ("Foundation Bundle", "foundation_services"),
-    ]
-
-    for title, bucket in sections:
-        bucket_services = [
-            svc for svc in registry["services"]
-            if svc.get("state_bucket") == bucket
-            and svc["id"] in active_ids
-            and not (svc["id"] == "cloudflared" and not cloudflare_enabled(state))
-        ]
-        if not bucket_services:
-            continue
-        choices.append(
-            Choice(title=f"━━ {title} ━━", value=f"__header_restart_{bucket}__", disabled=True)
-        )
-        for svc in bucket_services:
-            choices.append(
-                Choice(
-                    title=f"  {_service_label(svc)}",
-                    value=svc["id"],
-                    checked=False,
-                )
-            )
-
-    optional_services = [
-        svc
-        for svc in registry["services"]
-        if svc.get("state_bucket") == "selected_services" and svc["id"] in active_ids
-    ]
-    optional_groups: dict[str, list[dict[str, Any]]] = {}
-    for svc in optional_services:
-        optional_groups.setdefault(_service_selection_category(svc), []).append(svc)
-
-    for category, services in optional_groups.items():
-        choices.append(
-            Choice(
-                title=f"━━ {category} ━━",
-                value=f"__header_restart_{category}__",
-                disabled=True,
-            )
-        )
-        for svc in services:
-            choices.append(
-                Choice(
-                    title=f"  {_service_label(svc)}",
-                    value=svc["id"],
-                    checked=False,
-                )
-            )
-
-    return choices
-
-
-def _restart_order(registry: dict[str, Any], selected_ids: set[str]) -> list[str]:
-    ordered = [svc["id"] for svc in registry["services"] if svc["id"] in selected_ids and svc["id"] != "caddy"]
-    if "caddy" in selected_ids:
-        ordered.append("caddy")
-    return ordered
-
-
-def _validate_service_dependencies(selected_ids: set[str], registry: dict[str, Any]) -> list[str]:
-    return validate_service_dependencies(selected_ids, registry)
-
-
-def _detect_lan_ip() -> str | None:
-    """Best-effort detection of the primary LAN IP for URL printing."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("8.8.8.8", 80))
-            return str(sock.getsockname()[0])
-    except OSError:
-        return None
-
-
-def _web_url(host: str, port: int, token: str | None) -> str:
-    """Build the browser URL shown to the user."""
-    base = f"http://{host}:{port}/"
-    if not token:
-        return base
-    return f"{base}?token={token}"
-
-
-def _checkout_dir(repo_dir: Path) -> Path:
-    """Resolve the git checkout root from either the repo root or package dir."""
-    candidates = [repo_dir, repo_dir.parent.parent]
-    for candidate in candidates:
-        if (candidate / ".git").exists():
-            return candidate
-    return repo_dir
-
-
-def _apply_service_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
-    apply_service_catalog_selection(state, registry, selected_ids)
-
-
-def _prompt_service_subdomains(state: State, registry: dict[str, Any], service_ids: set[str]) -> None:
-    """Prompt for custom subdomains for the given service ids."""
-    if not service_ids:
-        return
-
-    by_id = {svc["id"]: svc for svc in registry["services"]}
-    subdomains = dict(state.get("subdomains", {}) or {})
-    domain = str(state.get("domain") or "").strip().strip(".")
-
-    for svc_id in sorted(service_ids):
-        svc = by_id.get(svc_id)
-        if not svc or not svc.get("default_subdomain"):
-            continue
-
-        default = normalize_subdomain(subdomains.get(svc_id) or svc.get("default_subdomain") or svc_id)
-        while True:
-            suffix = f".{domain}" if domain else ""
-            answer = prompt_text(f"Subdomain for {svc_id}{suffix}", default=default)
-            label = normalize_subdomain(answer or default)
-            message = validate_subdomain_label(label)
-            if message:
-                console.print(f"[red]{message}[/red]")
-                continue
-            duplicate = next(
-                (
-                    other_id
-                    for other_id, other_label in subdomains.items()
-                    if other_id != svc_id and normalize_subdomain(other_label) == label
-                ),
-                None,
-            )
-            if duplicate:
-                console.print(f"[red]{label} is already used by {duplicate}.[/red]")
-                continue
-            subdomains[svc_id] = label
-            state.set(f"subdomains.{svc_id}", label)
-            placeholder = svc.get("subdomain_placeholder")
-            if placeholder:
-                state.set(str(placeholder), label)
-            break
-
-    errors = validate_subdomain_map(subdomains)
-    if errors:
-        raise ValueError("Invalid subdomain configuration: " + "; ".join(errors))
-    state.set("subdomains", subdomains)
-
-
-def _apply_planned_subdomains(state: State, registry: dict[str, Any], planned: dict[str, str]) -> None:
-    state.set("subdomains", planned)
-    for svc in registry["services"]:
-        svc_id = svc["id"]
-        if svc_id not in planned:
-            continue
-        placeholder = svc.get("subdomain_placeholder")
-        if placeholder:
-            state.set(str(placeholder), planned[svc_id])
-
-
-def _summarize_service_diff(added: list[str], removed: list[str]) -> None:
-    if added:
-        console.print(f"[green]Will install:[/green] {', '.join(added)}")
-    if removed:
-        console.print(f"[red]Will remove:[/red] {', '.join(removed)}")
-        console.print("[yellow]Unchecked services will be fully purged, including data and service databases.[/yellow]")
-
-
-def _docker_access_user(state: State | None = None) -> str:
-    if state is not None:
-        admin_user = state.get("admin_user")
-        if admin_user:
-            return str(admin_user)
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user and sudo_user != "root":
-        return sudo_user
-    return getpass.getuser()
-
-
-def _docker_access_commands(user: str) -> str:
-    return (
-        "sudo groupadd -f docker\n"
-        f"sudo usermod -aG docker {user}\n"
-        "sudo systemctl enable --now docker\n"
-        "newgrp docker\n"
-        "docker info\n"
-        "rakkib pull"
-    )
-
-
-def _prepare_docker_access(user: str, *, validate_sudo: bool = True) -> str:
-    if os.geteuid() == 0:
-        return "Rakkib is running as root; Docker socket group repair is not needed."
-    if sys.platform != "linux":
-        return "Automatic Docker group repair is only supported on Linux."
-    if shutil.which("sudo") is None:
-        return "sudo is required to prepare Docker access for a non-root user."
-
-    if validate_sudo and sys.stdin.isatty():
-        console.print("[dim]Rakkib needs sudo once to add this user to the docker group.[/dim]")
-        sudo_check = subprocess.run(["sudo", "-v"])
-        if sudo_check.returncode != 0:
-            return "Sudo validation failed. Run `rakkib auth` from an interactive terminal."
-    elif validate_sudo:
-        return "Run `rakkib auth` from an interactive terminal to prepare Docker access."
-
-    commands = [
-        ["sudo", "-n", "groupadd", "-f", "docker"],
-        ["sudo", "-n", "usermod", "-aG", "docker", user],
-        ["sudo", "-n", "systemctl", "enable", "--now", "docker"],
-    ]
-    for cmd in commands:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
-            return f"Could not run {' '.join(cmd)}: {detail}"
-    return f"Docker access was prepared for user {user}."
-
-
-def _handle_docker_permission_denied(user: str) -> bool:
-    console.print(
-        "[bold red]Docker is installed, but this shell cannot access /var/run/docker.sock.[/bold red]"
-    )
-    console.print(f"[dim]{_prepare_docker_access(user)}[/dim]")
-    console.print(
-        "[yellow]Open a new shell or run `newgrp docker`, then verify with `docker info` "
-        "and rerun `rakkib pull`.[/yellow]"
-    )
-    console.print("[dim]One-command repair if needed: `rakkib auth`[/dim]")
-    console.print(f"[dim]Manual fallback:\n{_docker_access_commands(user)}[/dim]")
-    return False
-
-
-def _check_docker(state: State | None = None) -> bool:
-    """Verify docker and docker compose are available. Install if missing."""
-    docker_user = _docker_access_user(state)
-    if shutil.which("docker") is None:
-        with progress_spinner("Installing Docker..."):
-            msg = attempt_fix_docker()
-        console.print(f"[dim]{msg}[/dim]")
-        if shutil.which("docker") is None:
-            console.print("[bold red]Docker installation did not succeed. Aborting.[/bold red]")
-            return False
-        console.print("[green]Docker installed successfully.[/green]")
-
-    try:
-        docker_run(["info"])
-    except DockerError as exc:
-        if is_docker_permission_error(exc.stderr or str(exc)):
-            return _handle_docker_permission_denied(docker_user)
-        console.print(f"[bold red]Docker is installed but not usable by this shell:[/bold red] {exc}")
-        return False
-
-    compose_check = docker_run(["compose", "version"], check=False)
-    compose_output = f"{compose_check.stdout or ''}\n{compose_check.stderr or ''}"
-    if compose_check.returncode != 0 and is_docker_permission_error(compose_output):
-        return _handle_docker_permission_denied(docker_user)
-    if compose_check.returncode != 0:
-        with progress_spinner("Installing Docker Compose plugin..."):
-            msg = attempt_fix_compose()
-        console.print(f"[dim]{msg}[/dim]")
-        compose_check = docker_run(["compose", "version"], check=False)
-        if compose_check.returncode != 0:
-            console.print("[bold red]docker compose plugin installation did not succeed. Aborting.[/bold red]")
-            return False
-        console.print("[green]docker compose plugin installed successfully.[/green]")
-
-    return True
-
-
-def _ensure_prereqs(state: State | None = None) -> bool:
-    """Install host prerequisites (Docker, cloudflared) if missing. Return False to abort."""
-    if not _check_docker(state):
-        return False
-
-    if state is not None and not cloudflare_enabled(state):
-        return True
-
-    local_cf = Path.home() / ".local" / "bin" / "cloudflared"
-    cf_ok = local_cf.is_file()
-    if not cf_ok:
-        try:
-            cf_ok = (
-                subprocess.run([_cloudflared_bin(), "--version"], capture_output=True, text=True).returncode == 0
-            )
-        except FileNotFoundError:
-            pass
-
-    if not cf_ok:
-        with progress_spinner("Installing cloudflared..."):
-            msg = attempt_fix_cloudflared()
-        console.print(f"[dim]{msg}[/dim]")
-        cf_ok = local_cf.is_file()
-        if cf_ok:
-            try:
-                cf_ok = (
-                    subprocess.run([str(local_cf), "--version"], capture_output=True, text=True).returncode == 0
-                )
-            except FileNotFoundError:
-                cf_ok = False
-        if not cf_ok:
-            console.print(
-                "[bold red]cloudflared installation failed. "
-                "Install manually: https://github.com/cloudflare/cloudflared/releases[/bold red]"
-            )
-            return False
-
-    return True
-
-
-def _print_deployed_urls(state: State, svc_ids: list[str] | None = None) -> None:
-    domain = state.get("domain", "") or ""
-    subdomains: dict[str, str] = state.get("subdomains", {}) or {}
-    if not domain or not subdomains:
-        return
-    active_ids = set(svc_ids) if svc_ids is not None else _installed_service_ids(state)
-    rows = [
-        (svc_id, f"https://{subdomain}.{domain}")
-        for svc_id, subdomain in subdomains.items()
-        if subdomain and svc_id in active_ids
-    ]
-    if not rows:
-        return
-    console.print("\n[bold]Deployed services:[/bold]")
-    for svc_id, url in rows:
-        console.print(f"  [cyan]{svc_id}[/cyan]  {url}")
 
 
 def _run_steps(state: State, repo_dir: Path) -> bool:
@@ -686,7 +257,7 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
             for svc_id in added:
                 services_step.run_single_service(state, svc_id)
         else:
-            data_root = Path(state.get("data_root", "/srv"))
+            data_root = state.data_root
             services_step._reload_caddy(data_root)
             services_step.sync_shared_artifacts(
                 state, services_step._repo_dir(), data_root, registry
@@ -756,7 +327,7 @@ def pull(ctx: click.Context, service: str | None) -> None:
         )
         return
 
-    if not _ensure_prereqs(state):
+    if not ensure_prereqs(state, console=console, cloudflared_bin=_cloudflared_bin()):
         return
 
     if service:
@@ -1057,7 +628,7 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
                 services_step.run_single_service(state, svc_id)
         else:
             # Removals-only or no changes — reload caddy to apply route changes and sync
-            data_root = Path(state.get("data_root", "/srv"))
+            data_root = state.data_root
             services_step._reload_caddy(data_root)
             services_step.sync_shared_artifacts(
                 state, services_step._repo_dir(), data_root, services_step._load_registry()
@@ -1157,7 +728,7 @@ def remove(ctx: click.Context, service: str, yes: bool) -> None:
     _persist_deployed_selection(state)
     state.save(state_path)
 
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     services_step._reload_caddy(data_root)
     services_step.sync_shared_artifacts(state, services_step._repo_dir(), data_root, registry)
 
@@ -1313,7 +884,7 @@ def auth(ctx: click.Context) -> None:
     repo_dir = ctx.obj["repo_dir"]
     state_path = repo_dir / ".fss-state.yaml"
     state = State.load(state_path)
-    user = _docker_access_user(state)
+    user = docker_access_user(state)
     try:
         docker_run(["info"])
         console.print("[green]Docker is already usable by this shell.[/green]")
@@ -1323,11 +894,11 @@ def auth(ctx: click.Context) -> None:
             console.print(f"[yellow]Docker is installed but not usable yet:[/yellow] {exc}")
             return
 
-    message = _prepare_docker_access(user, validate_sudo=False)
+    message = prepare_docker_access(user, validate_sudo=False)
     console.print(f"[dim]{message}[/dim]")
     if not message.startswith("Docker access was prepared"):
         console.print("[dim]Manual fallback:[/dim]")
-        console.print(f"[dim]{_docker_access_commands(user)}[/dim]")
+        console.print(f"[dim]{docker_access_commands(user)}[/dim]")
         ctx.exit(1)
     console.print(
         "[green]Docker access is prepared.[/green] "
@@ -1428,7 +999,7 @@ def privileged_ensure_layout(
     """Create the base Rakkib data directories."""
     state = State.load(state_path)
     if not data_root:
-        data_root = state.get("data_root") or "/srv"
+        data_root = str(state.data_root)
     user = _resolve_admin_user(state, admin_user)
 
     console.print(f"[bold green]Creating Rakkib layout under {data_root}[/bold green]")
@@ -1486,13 +1057,5 @@ def privileged_fix_repo_owner(
             shutil.chown(os.path.join(root, f), user=user, group=None)
     shutil.chown(repo_dir, user=user, group=None)
     console.print(f"[green]Repo ownership updated to {user}.[/green]")
-
-
-
-def main() -> None:
-    """Entrypoint for the rakkib CLI."""
-    cli()
-
-
 if __name__ == "__main__":
-    main()
+    cli()

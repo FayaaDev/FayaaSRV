@@ -15,11 +15,12 @@ from rakkib.secrets import ensure_secrets
 from rakkib.state import State
 from rakkib.steps import VerificationResult, load_service_registry, selected_service_defs
 from rakkib.tui import progress_spinner, progress_wait
+from rakkib.util import RAKKIB_DATA_DIR
 
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 def _parse_env(text: str) -> dict[str, str]:
@@ -157,7 +158,7 @@ def _wait_for_healthy(container: str = "postgres", timeout: int = 60) -> None:
 
 
 def run(state: State) -> None:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     postgres_dir = data_root / "docker" / "postgres"
     init_dir = postgres_dir / "init-scripts"
     init_dir.mkdir(parents=True, exist_ok=True)

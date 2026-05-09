@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,14 @@ from rakkib.schema import load_all_schemas
 
 DEFAULT_STATE_FILE = ".fss-state.yaml"
 _UNSET = object()
+
+
+class StateBucket(str, Enum):
+    """Registry state buckets used for service selection."""
+
+    ALWAYS = "always"
+    FOUNDATION_SERVICES = "foundation_services"
+    SELECTED_SERVICES = "selected_services"
 
 
 class State:
@@ -25,6 +34,11 @@ class State:
     def path(self) -> Path | None:
         """Return the path this state will save to by default, if bound."""
         return self._path
+
+    @property
+    def data_root(self) -> Path:
+        """Return the configured Rakkib data root."""
+        return Path(self.get("data_root", "/srv"))
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_STATE_FILE) -> "State":

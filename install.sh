@@ -5,11 +5,22 @@ set -Eeuo pipefail
 REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
 BRANCH="${RAKKIB_BRANCH:-runtime}"
 UPDATE_MODE="${RAKKIB_UPDATE_MODE:-reset}"
+VENV_INSTALL_IN_PROGRESS=0
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+warn_incomplete_venv() {
+  local status=$?
+  if [[ "${VENV_INSTALL_IN_PROGRESS:-0}" -eq 1 ]]; then
+    warn "venv setup was interrupted; remove the incomplete venv with: rm -rf '${INSTALL_DIR}/.venv' && rerun install.sh"
+  fi
+  exit "$status"
+}
+
+trap warn_incomplete_venv INT TERM ERR
 
 _prompt() {
   local var_name="$1" prompt_text="$2"
@@ -240,6 +251,7 @@ ensure_venv_install() {
   local venv_dir="${INSTALL_DIR}/.venv"
   local bin_dir="${HOME}/.local/bin"
   local target="${bin_dir}/rakkib"
+  VENV_INSTALL_IN_PROGRESS=1
 
   if [[ ! -d "$venv_dir" ]]; then
     log "Creating venv at ${venv_dir}"
@@ -267,6 +279,7 @@ ensure_venv_install() {
   else
     warn "${target} exists and is not a symlink; skipping link creation."
   fi
+  VENV_INSTALL_IN_PROGRESS=0
 }
 
 ensure_shell_path() {

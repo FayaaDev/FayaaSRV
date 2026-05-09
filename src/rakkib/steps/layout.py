@@ -38,7 +38,7 @@ def _sudo_chown(path: Path, user: str, *, recursive: bool = False) -> None:
 
 
 def run(state: State) -> None:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     admin_user = state.get("admin_user")
     platform = state.get("platform", "linux")
     services = _service_ids(state)
@@ -106,7 +106,7 @@ def run(state: State) -> None:
 
 
 def verify(state: State) -> VerificationResult:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     dirs = [
         data_root / "docker",
         data_root / "data",

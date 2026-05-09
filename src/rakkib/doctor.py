@@ -18,9 +18,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from rakkib.docker import DockerError, docker_run
+from rakkib.docker import DockerError, docker_run, is_docker_permission_error
 from rakkib.service_catalog import cloudflare_enabled
 from rakkib.state import State
+from rakkib.tui import progress_spinner
+from rakkib.util import resolve_user
 
 
 @dataclass
@@ -350,6 +352,146 @@ def check_docker() -> CheckResult:
         return CheckResult("docker", "fail", True, str(exc))
 
 
+def docker_access_user(state: State | None = None) -> str:
+    return resolve_user(state) or "root"
+
+
+def docker_access_commands(user: str) -> str:
+    return (
+        "sudo groupadd -f docker\n"
+        f"sudo usermod -aG docker {user}\n"
+        "sudo systemctl enable --now docker\n"
+        "newgrp docker\n"
+        "docker info\n"
+        "rakkib pull"
+    )
+
+
+def prepare_docker_access(user: str, *, validate_sudo: bool = True) -> str:
+    if os.geteuid() == 0:
+        return "Rakkib is running as root; Docker socket group repair is not needed."
+    if sys.platform != "linux":
+        return "Automatic Docker group repair is only supported on Linux."
+    if shutil.which("sudo") is None:
+        return "sudo is required to prepare Docker access for a non-root user."
+
+    if validate_sudo and sys.stdin.isatty():
+        print("Rakkib needs sudo once to add this user to the docker group.", file=sys.stderr)
+        sudo_check = subprocess.run(["sudo", "-v"])
+        if sudo_check.returncode != 0:
+            return "Sudo validation failed. Run `rakkib auth` from an interactive terminal."
+    elif validate_sudo:
+        return "Run `rakkib auth` from an interactive terminal to prepare Docker access."
+
+    commands = [
+        ["sudo", "-n", "groupadd", "-f", "docker"],
+        ["sudo", "-n", "usermod", "-aG", "docker", user],
+        ["sudo", "-n", "systemctl", "enable", "--now", "docker"],
+    ]
+    for cmd in commands:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            return f"Could not run {' '.join(cmd)}: {detail}"
+    return f"Docker access was prepared for user {user}."
+
+
+def handle_docker_permission_denied(console, user: str) -> bool:
+    console.print(
+        "[bold red]Docker is installed, but this shell cannot access /var/run/docker.sock.[/bold red]"
+    )
+    console.print(f"[dim]{prepare_docker_access(user)}[/dim]")
+    console.print(
+        "[yellow]Open a new shell or run `newgrp docker`, then verify with `docker info` "
+        "and rerun `rakkib pull`.[/yellow]"
+    )
+    console.print("[dim]One-command repair if needed: `rakkib auth`[/dim]")
+    console.print(f"[dim]Manual fallback:\n{docker_access_commands(user)}[/dim]")
+    return False
+
+
+def check_docker_prereq(state: State | None = None, console=None) -> bool:
+    """Verify docker and docker compose are available. Install if missing."""
+    docker_user = docker_access_user(state)
+    if shutil.which("docker") is None:
+        with progress_spinner("Installing Docker..."):
+            msg = attempt_fix_docker()
+        if console:
+            console.print(f"[dim]{msg}[/dim]")
+        if shutil.which("docker") is None:
+            if console:
+                console.print("[bold red]Docker installation did not succeed. Aborting.[/bold red]")
+            return False
+        if console:
+            console.print("[green]Docker installed successfully.[/green]")
+
+    try:
+        docker_run(["info"])
+    except DockerError as exc:
+        if is_docker_permission_error(exc.stderr or str(exc)):
+            return handle_docker_permission_denied(console, docker_user) if console else False
+        if console:
+            console.print(f"[bold red]Docker is installed but not usable by this shell:[/bold red] {exc}")
+        return False
+
+    compose_check = docker_run(["compose", "version"], check=False)
+    compose_output = f"{compose_check.stdout or ''}\n{compose_check.stderr or ''}"
+    if compose_check.returncode != 0 and is_docker_permission_error(compose_output):
+        return handle_docker_permission_denied(console, docker_user) if console else False
+    if compose_check.returncode != 0:
+        with progress_spinner("Installing Docker Compose plugin..."):
+            msg = attempt_fix_compose()
+        if console:
+            console.print(f"[dim]{msg}[/dim]")
+        compose_check = docker_run(["compose", "version"], check=False)
+        if compose_check.returncode != 0:
+            if console:
+                console.print("[bold red]docker compose plugin installation did not succeed. Aborting.[/bold red]")
+            return False
+        if console:
+            console.print("[green]docker compose plugin installed successfully.[/green]")
+
+    return True
+
+
+def ensure_prereqs(state: State | None = None, console=None, cloudflared_bin: str = "cloudflared") -> bool:
+    """Install host prerequisites (Docker, cloudflared) if missing."""
+    if not check_docker_prereq(state, console=console):
+        return False
+
+    if state is not None and not cloudflare_enabled(state):
+        return True
+
+    local_cf = Path.home() / ".local" / "bin" / "cloudflared"
+    cf_ok = local_cf.is_file()
+    if not cf_ok:
+        try:
+            cf_ok = subprocess.run([cloudflared_bin, "--version"], capture_output=True, text=True).returncode == 0
+        except FileNotFoundError:
+            pass
+
+    if not cf_ok:
+        with progress_spinner("Installing cloudflared..."):
+            msg = attempt_fix_cloudflared()
+        if console:
+            console.print(f"[dim]{msg}[/dim]")
+        cf_ok = local_cf.is_file()
+        if cf_ok:
+            try:
+                cf_ok = subprocess.run([str(local_cf), "--version"], capture_output=True, text=True).returncode == 0
+            except FileNotFoundError:
+                cf_ok = False
+        if not cf_ok:
+            if console:
+                console.print(
+                    "[bold red]cloudflared installation failed. "
+                    "Install manually: https://github.com/cloudflare/cloudflared/releases[/bold red]"
+                )
+            return False
+
+    return True
+
+
 def check_compose() -> CheckResult:
     if not _command_exists("docker"):
         return CheckResult("compose", "fail", True, "docker command is missing")
@@ -601,7 +743,7 @@ def check_conflicts() -> CheckResult:
 
 def run_checks(state: State) -> list[CheckResult]:
     """Run all diagnostic checks and return results."""
-    data_root = state.get("data_root") or "/srv"
+    data_root = str(state.data_root)
     domain = state.get("domain") or ""
 
     results: list[CheckResult] = []

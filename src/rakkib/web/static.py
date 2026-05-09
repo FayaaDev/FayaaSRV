@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from rakkib.util import RAKKIB_DATA_DIR
+
 
 def packaged_web_root() -> Path:
     """Return the directory containing built or placeholder web assets."""
-    return Path(__file__).resolve().parent.parent / "data" / "web"
+    return RAKKIB_DATA_DIR / "web"
 
 
 def packaged_index_path() -> Path:

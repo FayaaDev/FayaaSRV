@@ -26,6 +26,7 @@ from rakkib.docker import (
     health_check,
 )
 from rakkib.hooks.services import (
+    HookContext,
     POST_RENDER_HOOKS,
     POST_START_HOOKS,
     PRE_START_HOOKS,
@@ -45,6 +46,7 @@ from rakkib.secrets import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
 from rakkib.tui import progress_spinner
+from rakkib.util import RAKKIB_DATA_DIR
 
 
 console = Console()
@@ -57,7 +59,7 @@ console = Console()
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 @functools.lru_cache(maxsize=1)
@@ -206,7 +208,7 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
 
     with TemporaryDirectory(prefix=f"rakkib-{svc_id}-restart-") as tmpdir:
         tmp_root = Path(tmpdir)
-        _render_caddy_route(state, svc, repo, tmp_root)
+        _render_caddy_route(state, svc, repo, tmp_root, validate=False)
         route_after = _read_text_if_exists(tmp_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy")
         route_changed = route_before != route_after
 
@@ -250,7 +252,7 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
     }
 
 
-def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) -> None:
+def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path, *, validate: bool = True) -> None:
     """Render the appropriate Caddy route template for a service."""
     svc_id = svc["id"]
     routes_dir = data_root / "docker" / "caddy" / "routes"
@@ -261,10 +263,45 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) ->
 
     if tmpl_name is None:
         return
+    if "/" in tmpl_name or "\\" in tmpl_name or ".." in Path(tmpl_name).parts:
+        raise ValueError(f"Invalid caddy.template for service {svc_id}: {tmpl_name!r}")
 
     tmpl_path = repo / "templates" / "caddy" / "routes" / tmpl_name
-    if tmpl_path.exists():
-        render_file(tmpl_path, routes_dir / f"{svc_id}.caddy", state)
+    if not tmpl_path.exists():
+        raise FileNotFoundError(f"Service {svc_id} references missing caddy.template: {tmpl_path}")
+
+    route_path = routes_dir / f"{svc_id}.caddy"
+    render_file(tmpl_path, route_path, state)
+    if validate:
+        _validate_caddy_fragment(route_path, svc_id)
+
+
+def _validate_caddy_fragment(route_path: Path, svc_id: str) -> None:
+    """Validate a single rendered Caddy route with service-specific diagnostics."""
+    synthetic = route_path.with_name(f".{route_path.stem}.validate.caddy")
+    synthetic.write_text(
+        "# Synthetic Caddyfile for per-service route validation\n"
+        "{\n\tauto_https off\n}\n"
+        ":80 {\n"
+        f"{route_path.read_text()}\n"
+        "\thandle {\n\t\trespond \"Not found\" 404\n\t}\n"
+        "}\n"
+    )
+    try:
+        validate = docker_run(
+            [
+                "run", "--rm",
+                "-v", f"{synthetic}:/etc/caddy/Caddyfile:ro",
+                "caddy:2", "caddy", "validate", "--config", "/etc/caddy/Caddyfile",
+            ],
+            check=False,
+        )
+    finally:
+        synthetic.unlink(missing_ok=True)
+    if validate.returncode != 0:
+        raise RuntimeError(
+            f"Caddy route validation failed for service {svc_id}: {validate.stderr.strip()}"
+        )
 
 
 def _publish_cloudflare_service(state: State, svc: dict) -> None:
@@ -307,6 +344,10 @@ def _render_extra_templates(state: State, svc: dict, repo: Path, data_root: Path
     for extra in svc.get("extra_templates", []):
         src = repo / extra["src"]
         dst = data_root / extra["dst"]
+        if not src.exists():
+            raise FileNotFoundError(
+                f"Service {svc['id']} references missing extra_templates source: {src}"
+            )
         dst.parent.mkdir(parents=True, exist_ok=True)
         render_file(src, dst, state)
 
@@ -325,7 +366,7 @@ def _run_named_hooks(
         hook = hook_registry.get(hook_name)
         if hook is None:
             raise ValueError(f"Unknown service hook: {hook_name}")
-        hook(state, svc, repo, data_root, log_path, registry)
+        hook(HookContext(state, svc, repo, data_root, log_path, registry))
 
 
 def _reload_caddy(data_root: Path) -> None:
@@ -390,7 +431,7 @@ def remove_single_service(state: State, svc_id: str) -> None:
         raise ValueError(f"Service {svc_id} not found in registry")
 
     svc = by_id[svc_id]
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     service_dir = data_root / "docker" / svc_id
     log_path = data_root / "logs" / f"step5-{svc_id}.log"
     hooks = svc.get("hooks") or {}
@@ -524,7 +565,7 @@ def _container_usable(container_name: str) -> bool:
 
 def service_is_installed(state: State, svc: dict, data_root: Path | None = None) -> bool:
     """Return true when a selected service already has a usable deployment."""
-    data_root = data_root or Path(state.get("data_root", "/srv"))
+    data_root = data_root or state.data_root
 
     if svc.get("host_service"):
         return _host_service_responds(svc)
@@ -537,7 +578,7 @@ def service_is_installed(state: State, svc: dict, data_root: Path | None = None)
 
 def run(state: State) -> None:
     repo = _repo_dir()
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     registry = _load_registry()
 
     _generate_missing_secrets(state)
@@ -557,7 +598,7 @@ def run(state: State) -> None:
 def run_single_service(state: State, svc_id: str) -> None:
     """Deploy a single service by ID."""
     repo = _repo_dir()
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     registry = _load_registry()
 
     by_id = {s["id"]: s for s in registry["services"]}
@@ -619,7 +660,7 @@ def smoke_check(state: State, svc_id: str) -> VerificationResult:
 
 def restart_service(state: State, svc_id: str) -> None:
     """Restart a single service, regenerating rendered artifacts when they drift."""
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     repo = _repo_dir()
     registry = _load_registry()
     by_id = {s["id"]: s for s in registry["services"]}
@@ -665,7 +706,7 @@ def restart_all(state: State) -> list[str]:
     Order: postgres → cloudflared → foundation/selected (dependency order) → caddy
     Caddy is always last so routes are live after all services are up.
     """
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     registry = _load_registry()
 
     always_ids = [

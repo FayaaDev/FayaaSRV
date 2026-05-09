@@ -14,6 +14,7 @@ from pathlib import Path
 from rakkib.render import render_file
 from rakkib.state import State
 from rakkib.steps import VerificationResult
+from rakkib.util import RAKKIB_DATA_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ from rakkib.steps import VerificationResult
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 def _crontab_lines(user: str | None = None) -> list[str]:
@@ -68,7 +69,7 @@ def _is_root() -> bool:
 
 def run(state: State) -> None:
     repo = _repo_dir()
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     backup_dir = Path(state.get("backup_dir", str(data_root / "backups")))
     platform = state.get("platform", "linux")
     admin_user = state.get("admin_user")
@@ -146,7 +147,7 @@ def run(state: State) -> None:
 
 
 def verify(state: State) -> VerificationResult:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     backup_dir = Path(state.get("backup_dir", str(data_root / "backups")))
     admin_user = state.get("admin_user")
     crontab_user = admin_user if _is_root() and admin_user else None

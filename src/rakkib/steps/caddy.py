@@ -13,15 +13,16 @@ from rakkib.docker import DockerError, create_network, docker_run
 from rakkib.render import render_file
 from rakkib.state import State
 from rakkib.steps import VerificationResult
+from rakkib.util import RAKKIB_DATA_DIR
 
 
 def _repo_dir() -> Path:
     """Return the package data directory (contains ``templates/``)."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 def run(state: State) -> None:
-    data_root = Path(state.get("data_root", "/srv"))
+    data_root = state.data_root
     docker_net = state.get("docker_net", "caddy_net")
     caddy_dir = data_root / "docker" / "caddy"
     caddy_dir.mkdir(parents=True, exist_ok=True)

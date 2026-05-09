@@ -15,6 +15,11 @@ from typing import Any
 import yaml
 
 from rakkib.postgres_sql import validate_registry_postgres_identifiers
+from rakkib.util import RAKKIB_DATA_DIR
+
+
+class RegistryError(ValueError):
+    """Raised when the service registry cannot be resolved safely."""
 
 STEP_MODULES: list[tuple[str, str]] = [
     ("layout",     "rakkib.steps.layout"),
@@ -59,7 +64,7 @@ class VerificationResult:
 
 def data_dir() -> Path:
     """Return the package data directory."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return RAKKIB_DATA_DIR
 
 
 @functools.lru_cache(maxsize=1)
@@ -98,8 +103,9 @@ def selected_service_defs(state: Any, registry: dict[str, Any] | None = None) ->
             if in_degree[neighbor] == 0:
                 queue.append(neighbor)
 
-    remaining = [sid for sid in selected_ids if sid not in ordered]
-    ordered.extend(sorted(remaining))
+    remaining = sorted(sid for sid in selected_ids if sid not in ordered)
+    if remaining:
+        raise RegistryError("dependency cycle: " + " -> ".join(remaining))
     return [by_id[sid] for sid in ordered if sid in by_id]
 
 

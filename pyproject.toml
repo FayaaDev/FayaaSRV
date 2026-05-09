@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-rakkib = "rakkib.cli:main"
+rakkib = "rakkib.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
