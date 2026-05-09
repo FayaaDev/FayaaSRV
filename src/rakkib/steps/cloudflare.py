@@ -19,8 +19,9 @@ from pathlib import Path
 from rakkib.docker import compose_up, container_running, DockerError, docker_run
 from rakkib.doctor import attempt_fix_cloudflared
 from rakkib.render import render_file
+from rakkib.service_catalog import cloudflare_enabled, service_fqdn
 from rakkib.state import State
-from rakkib.steps import VerificationResult
+from rakkib.steps import VerificationResult, load_service_registry
 
 METRICS_RETRY_ATTEMPTS = 20
 METRICS_RETRY_INTERVAL_SEC = 3
@@ -203,58 +204,122 @@ def _run(
     return result
 
 
-def _is_missing_dns_route_error(output: str) -> bool:
-    text = output.lower()
-    return any(
-        marker in text
-        for marker in (
-            "not found",
-            "could not find",
-            "does not exist",
-            "no dns route",
-            "no route",
-        )
+def _cloudflare_tunnel_ids(state: State) -> tuple[str | None, str | None]:
+    return (
+        state.get("cloudflare.tunnel_uuid") or state.get("tunnel_uuid"),
+        state.get("cloudflare.tunnel_name") or state.get("tunnel_name"),
     )
 
 
-def delete_dns_route(state: State, fqdn: str) -> None:
-    """Delete a Cloudflare tunnel DNS route, treating an absent route as gone."""
+def create_dns_route(state: State, fqdn: str, env: dict[str, str] | None = None) -> None:
+    """Create or update a Cloudflare tunnel DNS route for a hostname."""
     hostname = str(fqdn or "").strip().strip(".")
     if not hostname:
         return
 
-    tunnel = (
-        state.get("cloudflare.tunnel_uuid")
-        or state.get("cloudflare.tunnel_name")
-        or state.get("tunnel_uuid")
-        or state.get("tunnel_name")
-    )
+    tunnel_uuid, tunnel_name = _cloudflare_tunnel_ids(state)
+    tunnel = tunnel_uuid or tunnel_name
     if not tunnel:
-        return
+        raise RuntimeError(f"DNS route creation failed for {hostname}: Cloudflare tunnel is not recorded")
 
-    result = _run(
-        [
-            _cloudflared_bin(),
-            "tunnel",
-            "route",
-            "dns",
-            "delete",
-            str(tunnel),
-            hostname,
-        ],
-        env=_cloudflared_env(state.get("admin_user")),
-        check=False,
-    )
+    command = [_cloudflared_bin(), "tunnel", "route", "dns", "--overwrite-dns", str(tunnel), hostname]
+    cloudflared_env = env if env is not None else _cloudflared_env(state.get("admin_user"))
+    result = _run(command, env=cloudflared_env, check=False)
+    if result.returncode != 0 and tunnel_name and tunnel_name != tunnel:
+        result = _run(
+            [_cloudflared_bin(), "tunnel", "route", "dns", "--overwrite-dns", str(tunnel_name), hostname],
+            env=cloudflared_env,
+            check=False,
+        )
+
     if result.returncode == 0:
         return
 
-    output = f"{result.stdout}\n{result.stderr}"
-    if _is_missing_dns_route_error(output):
-        return
     raise RuntimeError(
-        f"DNS route deletion failed for {hostname}: "
+        f"DNS route creation failed for {hostname}: "
         f"{result.stderr.strip() if result.stderr else 'unknown error'}"
     )
+
+
+def _published_service_ids(state: State) -> list[str]:
+    raw = state.get("cloudflare.published_services") or []
+    if not isinstance(raw, list):
+        return []
+    return [str(item) for item in raw]
+
+
+def _set_published_service_ids(state: State, service_ids: list[str]) -> None:
+    state.set("cloudflare.published_services", sorted(dict.fromkeys(service_ids)))
+
+
+def _service_ingress_lines(state: State) -> str:
+    registry = load_service_registry()
+    by_id = {svc["id"]: svc for svc in registry.get("services", [])}
+    lines: list[str] = []
+    for svc_id in _published_service_ids(state):
+        svc = by_id.get(svc_id)
+        if not svc:
+            continue
+        fqdn = service_fqdn(state, svc)
+        if not fqdn:
+            continue
+        lines.extend([
+            f"  - hostname: {fqdn}",
+            "    service: http://caddy:80",
+        ])
+    return "\n".join(lines)
+
+
+def render_config(state: State) -> Path:
+    """Render cloudflared config with explicit service ingress entries."""
+    data_root = Path(state.get("data_root", "/srv"))
+    config_path = data_root / "data" / "cloudflared" / "config.yml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    state.set("cloudflare.service_ingress", _service_ingress_lines(state))
+    render_file(_repo_dir() / "templates" / "cloudflared" / "config.yml.tmpl", config_path, state)
+    return config_path
+
+
+def reload_container(state: State) -> None:
+    if not cloudflare_enabled(state):
+        return
+    data_root = Path(state.get("data_root", "/srv"))
+    cloudflared_dir = data_root / "docker" / "cloudflared"
+    if (cloudflared_dir / "docker-compose.yml").exists():
+        docker_run(["compose", "--project-directory", str(cloudflared_dir), "restart"], check=False)
+
+
+def publish_service(state: State, svc: dict) -> None:
+    """Publish a successfully deployed service through Cloudflare."""
+    if not cloudflare_enabled(state):
+        return
+    fqdn = service_fqdn(state, svc)
+    if not fqdn:
+        return
+    create_dns_route(state, fqdn)
+    published = _published_service_ids(state)
+    if svc["id"] not in published:
+        published.append(svc["id"])
+    _set_published_service_ids(state, published)
+    render_config(state)
+    reload_container(state)
+
+
+def unpublish_service(state: State, svc: dict, *, warn: bool = True) -> str | None:
+    """Remove local Cloudflare routing for a service and return its stale DNS warning."""
+    if not cloudflare_enabled(state):
+        return None
+    fqdn = service_fqdn(state, svc)
+    published = [svc_id for svc_id in _published_service_ids(state) if svc_id != svc["id"]]
+    _set_published_service_ids(state, published)
+    render_config(state)
+    reload_container(state)
+    if warn and fqdn:
+        return (
+            f"Cloudflare DNS record {fqdn} may still exist. Rakkib removed local routing; "
+            "delete the CNAME in Cloudflare if you want DNS fully cleaned up."
+        )
+    return None
 
 
 def _repair_dir_ownership(directory: Path, uid: int, gid: int) -> None:
@@ -413,6 +478,9 @@ def _create_tunnel_with_fallback(
 
 
 def run(state: State) -> None:
+    if not cloudflare_enabled(state):
+        return
+
     data_root = Path(state.get("data_root", "/srv"))
     auth_method = state.get("cloudflare.auth_method")
     tunnel_strategy = state.get("cloudflare.tunnel_strategy")
@@ -730,16 +798,12 @@ def run(state: State) -> None:
     if not state.has("cloudflared_metrics_port"):
         state.set("cloudflared_metrics_port", metrics_port)
 
-    state.save()
+    if state.path is not None:
+        state.save()
 
     # 14-15. Render templates
     repo = _repo_dir()
-    config_path = cloudflared_dir / "config.yml"
-    render_file(
-        repo / "templates" / "cloudflared" / "config.yml.tmpl",
-        config_path,
-        state,
-    )
+    config_path = render_config(state)
     _set_owner_mode(config_path, admin_uid, admin_gid, 0o644)
     render_file(
         repo / "templates" / "docker" / "cloudflared" / ".env.example",
@@ -759,42 +823,10 @@ def run(state: State) -> None:
         env=token_env,
     )
 
-    # 17. Create or update DNS routes
-    dns_routes = [domain, f"*.{domain}", f"{ssh_subdomain}.{domain}"]
-    for route in dns_routes:
-        route_result = _run(
-            [
-                _cloudflared_bin(),
-                "tunnel",
-                "route",
-                "dns",
-                "--overwrite-dns",
-                tunnel_uuid,
-                route,
-            ],
-            env=token_env,
-            check=False,
-        )
-        if route_result.returncode != 0:
-            # Fallback: try with tunnel_name when the local build prefers names.
-            route_result = _run(
-                [
-                    _cloudflared_bin(),
-                    "tunnel",
-                    "route",
-                    "dns",
-                    "--overwrite-dns",
-                    tunnel_name,
-                    route,
-                ],
-                env=token_env,
-                check=False,
-            )
-            if route_result.returncode != 0:
-                raise RuntimeError(
-                    f"DNS route creation failed for {route}: "
-                    f"{route_result.stderr.strip() if route_result.stderr else 'unknown error'}"
-                )
+    # 17. Create or update only explicit DNS routes. Service hostnames are
+    # added after each service installs successfully.
+    for route in [domain, f"{ssh_subdomain}.{domain}"]:
+        create_dns_route(state, route, env=token_env)
 
     # 19. Temporary API token was never persisted; token_env goes out of scope here.
 
@@ -810,6 +842,9 @@ def run(state: State) -> None:
 
 
 def verify(state: State) -> VerificationResult:
+    if not cloudflare_enabled(state):
+        return VerificationResult.success("cloudflare", "skipped for internal exposure mode")
+
     data_root = Path(state.get("data_root", "/srv"))
     auth_method = state.get("cloudflare.auth_method")
     cloudflared_env = _cloudflared_env(state.get("admin_user"))

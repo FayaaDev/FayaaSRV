@@ -10,6 +10,7 @@ import stat
 from pathlib import Path
 from typing import Any
 
+from rakkib.service_catalog import cloudflare_enabled
 from rakkib.state import DEFAULT_STATE_FILE, State
 from rakkib.steps import STEP_MODULES, VerificationResult
 
@@ -31,6 +32,9 @@ def _collect_verifications(state: State) -> list[VerificationResult]:
     results: list[VerificationResult] = []
 
     for step_name, module_path in STEP_MODULES:
+        if step_name == "cloudflare" and not cloudflare_enabled(state):
+            results.append(VerificationResult.success("cloudflare", "skipped for internal exposure mode"))
+            continue
         if step_name in cache:
             cached = cache[step_name]
             results.append(VerificationResult(ok=cached["ok"], step=cached["step"], message=cached["message"]))

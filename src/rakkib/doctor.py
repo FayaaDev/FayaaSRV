@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from rakkib.docker import DockerError, docker_run
+from rakkib.service_catalog import cloudflare_enabled
 from rakkib.state import State
 
 
@@ -610,11 +611,13 @@ def run_checks(state: State) -> list[CheckResult]:
     results.append(check_disk(data_root))
     results.append(check_docker())
     results.append(check_compose())
-    results.append(check_cloudflared_binary())
+    if cloudflare_enabled(state):
+        results.append(check_cloudflared_binary())
     results.append(check_public_ports())
     results.append(check_ssh_port())
     results.append(check_domain_dns(domain))
-    results.extend(check_cloudflare_readiness(state))
+    if cloudflare_enabled(state):
+        results.extend(check_cloudflare_readiness(state))
     results.append(check_conflicts())
     return results
 

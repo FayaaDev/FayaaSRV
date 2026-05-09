@@ -69,9 +69,16 @@ def test_phase_2_identity_fields():
     assert domain.type == "text"
     assert domain.validate["pattern"] == r"^(?!https?://).+\..+$"
 
+    exposure = field_map["exposure_mode"]
+    assert exposure.type == "single_select"
+    assert exposure.canonical_values == ["internal", "cloudflare"]
+
+    zone = field_map["zone_in_cloudflare"]
+    assert zone.when == "exposure_mode == cloudflare"
+
     admin_user = field_map["admin_user"]
-    assert admin_user.default_from_host is not None
-    assert admin_user.default_from_host["linux"] == "id -un"
+    assert admin_user.type == "derived"
+    assert admin_user.detect["linux"][0] == "python3"
 
     lan_ip = field_map["lan_ip"]
     assert lan_ip.type == "derived"
@@ -165,37 +172,11 @@ def test_phase_4_cloudflare_execution_paths():
 
     field_map = {f.id: f for f in schema.fields}
 
-    tunnel_strategy = field_map["tunnel_strategy"]
-    assert tunnel_strategy.type == "single_select"
-    assert tunnel_strategy.canonical_values == ["new", "existing"]
-    assert tunnel_strategy.aliases["existing"] == ["existing", "reuse"]
-
-    headless = field_map["headless"]
-    assert headless.type == "confirm"
-    assert headless.when == "cloudflare.tunnel_strategy == new"
-    assert headless.derived_value == {"cloudflare.auth_method": "browser_login"}
-    assert headless.records == ["cloudflare.headless", "cloudflare.auth_method"]
-
-    advanced = field_map["advanced_api_token"]
-    assert advanced.type == "confirm"
-    assert advanced.when == "cloudflare.tunnel_strategy == new and accept_browser_login == false"
-    assert advanced.value_if_true == {"cloudflare.auth_method": "api_token"}
-
-    existing_auth = field_map["existing_tunnel_auth"]
-    assert existing_auth.type == "derived"
-    assert existing_auth.when == "cloudflare.tunnel_strategy == existing"
-    assert existing_auth.value == {"cloudflare.auth_method": "existing_tunnel", "cloudflare.headless": None}
-
-    tunnel_name = field_map["tunnel_name"]
-    assert tunnel_name.default_from_state == "server_name"
-
-    tunnel_uuid = field_map["tunnel_uuid"]
-    assert tunnel_uuid.when == "cloudflare.tunnel_strategy == existing and knows_tunnel_uuid == true"
-    assert tunnel_uuid.validate["pattern"] == r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-
-    creds = field_map["tunnel_credential_paths"]
-    assert creds.when == "cloudflare.tunnel_uuid is not null"
-    assert creds.derive_from == ["data_root", "cloudflare.tunnel_uuid"]
+    defaults = field_map["cloudflare_defaults"]
+    assert defaults.type == "derived"
+    assert defaults.when == "exposure_mode == cloudflare"
+    assert defaults.value["cloudflare.auth_method"] == "browser_login"
+    assert defaults.value["cloudflare.tunnel_strategy"] == "new"
 
 
 def test_phase_5_secrets_and_execution_generated():

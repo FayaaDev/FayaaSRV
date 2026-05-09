@@ -300,7 +300,7 @@ class TestCheckConflicts:
 
 class TestRunChecks:
     def test_runs_all(self):
-        state = State({"domain": "example.com", "data_root": "/srv"})
+        state = State({"domain": "example.com", "data_root": "/srv", "exposure_mode": "cloudflare"})
         with patch("rakkib.doctor.check_os") as mock_os, \
              patch("rakkib.doctor.check_arch") as mock_arch:
             from rakkib.doctor import CheckResult

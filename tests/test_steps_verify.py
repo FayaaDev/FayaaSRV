@@ -26,7 +26,7 @@ class TestCollectVerifications:
             },
         ):
             results = verify_step._collect_verifications(state)
-        assert len(results) == 5
+        assert len(results) == 6
         assert all(r.ok for r in results)
 
     def test_handles_import_error(self):

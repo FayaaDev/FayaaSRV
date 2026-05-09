@@ -16,6 +16,7 @@ from rakkib.service_catalog import (
     apply_service_catalog_selection,
     mark_deployment_stale,
     selected_service_ids,
+    validate_subdomain_map,
     validate_service_dependencies,
 )
 from rakkib.steps import load_service_registry
@@ -250,6 +251,12 @@ def _apply_service_catalog_side_effects(state: State, confirmations: dict[str, b
         )
 
     apply_service_catalog_selection(state, registry, selected_ids)
+    subdomain_errors = validate_subdomain_map(state.get("subdomains", {}) or {})
+    if subdomain_errors:
+        raise PhaseValidationError(
+            "Selected services have invalid subdomains.",
+            {"subdomains": "; ".join(subdomain_errors)},
+        )
 
 
 def _handle_derived(field: FieldDef, state: State) -> None:

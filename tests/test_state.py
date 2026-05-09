@@ -69,6 +69,7 @@ def _phase_2_state() -> dict:
         **_phase_1_state(),
         "server_name": "myserver",
         "domain": "example.com",
+        "exposure_mode": "cloudflare",
         "cloudflare": {"zone_in_cloudflare": True},
         "admin_user": "ubuntu",
         "admin_email": "admin@example.com",
@@ -179,6 +180,16 @@ def test_phase_4_complete_existing_tunnel():
         "tunnel_creds_container_path": None,
     }
     state = State(data)
+    assert state.is_phase_complete(4) is True
+    assert state.resume_phase() == 5
+
+
+def test_phase_4_complete_when_exposure_is_internal():
+    data = _phase_3_state()
+    data["exposure_mode"] = "internal"
+    data.pop("cloudflare", None)
+    state = State(data)
+
     assert state.is_phase_complete(4) is True
     assert state.resume_phase() == 5
 

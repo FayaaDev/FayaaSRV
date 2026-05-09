@@ -196,7 +196,7 @@ class TestRun:
 
         assert cloudflare._cloudflared_env("ubuntu") == {"HOME": "/home/ubuntu"}
 
-    def test_delete_dns_route_uses_cloudflared_delete(self, tmp_path):
+    def test_create_dns_route_uses_cloudflared_overwrite(self, tmp_path):
         state = _make_state(
             tmp_path,
             cloudflare={
@@ -211,7 +211,7 @@ class TestRun:
                 mock_run.return_value.stdout = ""
                 mock_run.return_value.stderr = ""
 
-                cloudflare.delete_dns_route(state, "vault.example.com")
+                cloudflare.create_dns_route(state, "vault.example.com")
 
         mock_run.assert_called_once_with(
             [
@@ -219,23 +219,13 @@ class TestRun:
                 "tunnel",
                 "route",
                 "dns",
-                "delete",
+                "--overwrite-dns",
                 "test-uuid-123",
                 "vault.example.com",
             ],
             env={"HOME": "/home/ubuntu"},
             check=False,
         )
-
-    def test_delete_dns_route_treats_missing_route_as_success(self, tmp_path):
-        state = _make_state(tmp_path, cloudflare={"tunnel_uuid": "test-uuid-123"})
-
-        with patch("rakkib.steps.cloudflare._run") as mock_run:
-            mock_run.return_value.returncode = 1
-            mock_run.return_value.stdout = ""
-            mock_run.return_value.stderr = "route not found"
-
-            cloudflare.delete_dns_route(state, "vault.example.com")
 
     def test_run_new_tunnel_creates_and_discovers(self, tmp_path):
         state = _make_state(tmp_path)
@@ -319,6 +309,7 @@ class TestRun:
         config_path = cloudflared_dir / "config.yml"
         creds_path = cloudflared_dir / "test-uuid.json"
         assert config_path.exists()
+        assert "*.example.com" not in config_path.read_text()
         assert stat.S_IMODE(cloudflared_dir.stat().st_mode) == 0o755
         assert stat.S_IMODE(config_path.stat().st_mode) == 0o644
         assert stat.S_IMODE(creds_path.stat().st_mode) == 0o600
@@ -330,6 +321,26 @@ class TestRun:
         assert f"ADMIN_UID={state.get('admin_uid')}" in env_text
         assert f"ADMIN_GID={state.get('admin_gid')}" in env_text
         assert (docker_dir / "docker-compose.yml").exists()
+
+    def test_run_creates_only_explicit_dns_routes(self, tmp_path):
+        state = _make_state(tmp_path)
+        cloudflared_dir = tmp_path / "data" / "cloudflared"
+        cloudflared_dir.mkdir(parents=True)
+        (cloudflared_dir / "test-uuid-123.json").write_text("{}")
+
+        with patch("rakkib.steps.cloudflare._run") as mock_run:
+            with patch("rakkib.steps.cloudflare.compose_up"):
+                mock_run.side_effect = _subprocess_side_effect()
+                cloudflare.run(state)
+
+        dns_routes = [
+            call.args[0][-1]
+            for call in mock_run.call_args_list
+            if call.args and call.args[0][1:4] == ["tunnel", "route", "dns"]
+        ]
+        assert "example.com" in dns_routes
+        assert "ssh.example.com" in dns_routes
+        assert "*.example.com" not in dns_routes
 
     def test_run_api_token_verifies_and_sets_env(self, tmp_path):
         state = _make_state(
@@ -511,20 +522,6 @@ class TestRun:
         with patch("rakkib.steps.cloudflare._run") as mock_run:
             mock_run.side_effect = _subprocess_side_effect(route_dns_ok=False)
             with pytest.raises(RuntimeError, match="DNS route creation failed"):
-                cloudflare.run(state)
-
-    def test_run_accepts_existing_dns_route_errors(self, tmp_path):
-        state = _make_state(tmp_path)
-        cloudflared_dir = tmp_path / "data" / "cloudflared"
-        cloudflared_dir.mkdir(parents=True)
-        (cloudflared_dir / "test-uuid-123.json").write_text("{}")
-
-        with patch("rakkib.steps.cloudflare._run") as mock_run:
-            with patch("rakkib.steps.cloudflare.compose_up"):
-                mock_run.side_effect = _subprocess_side_effect(
-                    route_dns_ok=False,
-                    route_dns_stderr="record already exists for that hostname",
-                )
                 cloudflare.run(state)
 
     def test_run_raises_on_missing_credentials(self, tmp_path):

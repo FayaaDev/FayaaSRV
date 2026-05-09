@@ -14,6 +14,7 @@ reads_state:
 writes_state:
   - server_name
   - domain
+  - exposure_mode
   - cloudflare.zone_in_cloudflare
   - admin_user
   - admin_email
@@ -40,8 +41,18 @@ fields:
       message: Use a bare domain like example.com, without http:// or https://.
     records:
       - domain
+  - id: exposure_mode
+    type: single_select
+    prompt: How should services be exposed?
+    canonical_values: [internal, cloudflare]
+    aliases:
+      internal: [Internal Docker network, private, local]
+      cloudflare: [Cloudflare tunnel, public]
+    records:
+      - exposure_mode
   - id: zone_in_cloudflare
     type: confirm
+    when: exposure_mode == cloudflare
     prompt: Is this base domain already managed in Cloudflare in the same account you will use for this server? [y/N]
     default: true
     accepted_inputs:
@@ -167,7 +178,19 @@ Validation:
 - Must contain at least one dot
 - Re-ask if either condition is violated
 
-### Q2b — Cloudflare Zone
+### Q2b — Exposure Mode
+
+Ask: "How should services be exposed?"
+
+Default/recommended: `internal`.
+
+Options:
+- `internal`: keep services local/private behind Docker and Caddy; do not create Cloudflare tunnels or DNS routes.
+- `cloudflare`: publish explicit service hostnames through a Cloudflare tunnel.
+
+### Q2c — Cloudflare Zone
+
+Ask this only when `exposure_mode` is `cloudflare`.
 
 Ask: "Is this base domain already managed in Cloudflare in the same account you will use for this server? [y/N]"
 
@@ -186,8 +209,9 @@ Record answer as `cloudflare.zone_in_cloudflare` (Phase 4 will use this value).
 ```yaml
 server_name: value
 domain: value
+exposure_mode: internal
 cloudflare:
-  zone_in_cloudflare: true    # from Q2b
+  zone_in_cloudflare: true    # only when exposure_mode is cloudflare
 admin_user: value
 admin_email: value
 lan_ip: value

@@ -24,6 +24,7 @@ def test_flatten_state_nested():
     state = State({"cloudflare": {"tunnel_uuid": "abc123"}})
     flat = flatten_state(state)
     assert flat["CLOUDFLARE.TUNNEL_UUID"] == "abc123"
+    assert flat["CLOUDFLARE_TUNNEL_UUID"] == "abc123"
 
 
 def test_flatten_state_list():

@@ -11,6 +11,7 @@ reads_state:
   - server_name
   - admin_user
   - data_root
+  - exposure_mode
   - cloudflare.zone_in_cloudflare
 writes_state:
   - cloudflare.auth_method
@@ -24,6 +25,7 @@ writes_state:
 fields:
   - id: cloudflare_defaults
     type: derived
+    when: exposure_mode == cloudflare
     value:
       cloudflare.auth_method: browser_login
       cloudflare.headless: true
@@ -48,7 +50,7 @@ fields:
 
 ## Instructions for the Agent
 
-This phase records the intended Cloudflare setup into `.fss-state.yaml` under the `cloudflare:` section.
+This phase records the exposure mode and, when selected, the intended Cloudflare setup into `.fss-state.yaml` under the `cloudflare:` section.
 
 This phase only determines the intended Cloudflare setup. It does not create the tunnel yet. Tunnel login, tunnel creation, DNS routing, and credentials placement happen later in `steps/3-cloudflare.md`.
 
@@ -60,7 +62,7 @@ Do not ask for a Cloudflare API token during the normal flow. The default and re
 
 ## Questions to Ask
 
-None. This phase is fully automatic:
+The exposure mode was recorded in Phase 2. If `cloudflare` is selected:
 
 - Always create a new tunnel (`cloudflare.tunnel_strategy: new`).
 - Always use Cloudflare browser login during Step 3 (`cloudflare.auth_method: browser_login`).
@@ -68,11 +70,14 @@ None. This phase is fully automatic:
 - Tunnel name is derived from the admin username (`{{admin_user}}-tunnel`).
 - SSH subdomain is always `ssh`.
 
+If `internal` is selected, do not run Cloudflare setup and do not publish DNS routes.
+
 ---
 
 ## Record in .fss-state.yaml
 
 ```yaml
+exposure_mode: cloudflare
 cloudflare:
   zone_in_cloudflare: true    # answered in phase 2 (Q2b in 02-identity.md)
   auth_method: browser_login

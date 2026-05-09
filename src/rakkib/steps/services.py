@@ -40,6 +40,7 @@ from rakkib.postgres_sql import (
     validate_registry_postgres_identifiers,
 )
 from rakkib.render import render_file
+from rakkib.service_catalog import cloudflare_enabled
 from rakkib.secrets import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
@@ -266,6 +267,14 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path) ->
         render_file(tmpl_path, routes_dir / f"{svc_id}.caddy", state)
 
 
+def _publish_cloudflare_service(state: State, svc: dict) -> None:
+    if not cloudflare_enabled(state):
+        return
+    from rakkib.steps import cloudflare
+
+    cloudflare.publish_service(state, svc)
+
+
 def _prepare_service_data(state: State, svc: dict, data_root: Path) -> None:
     for relative_dir in svc.get("data_dirs", []):
         (data_root / relative_dir).mkdir(parents=True, exist_ok=True)
@@ -429,6 +438,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
 
     if is_host:
         _run_named_hooks(hooks.get("post_start", []), POST_START_HOOKS, state, svc, repo, data_root, log_path, registry)
+        _publish_cloudflare_service(state, svc)
         return
 
     svc_dir = data_root / "docker" / svc_id
@@ -465,6 +475,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
         raise RuntimeError(f"Service '{svc_id}' did not become healthy. Log: {log_path}.")
 
     _run_named_hooks(hooks.get("post_start", []), POST_START_HOOKS, state, svc, repo, data_root, log_path, registry)
+    _publish_cloudflare_service(state, svc)
 
 
 def _host_service_responds(svc: dict) -> bool:
@@ -660,7 +671,9 @@ def restart_all(state: State) -> list[str]:
     always_ids = [
         s["id"]
         for s in registry["services"]
-        if s.get("state_bucket") == "always" and s["id"] != "caddy"
+        if s.get("state_bucket") == "always"
+        and s["id"] != "caddy"
+        and not (s["id"] == "cloudflared" and not cloudflare_enabled(state))
     ]
     selected = selected_service_defs(state, registry)
     selected_ids = [s["id"] for s in selected]
