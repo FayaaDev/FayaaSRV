@@ -375,7 +375,7 @@ Display the following to the user (substituting the actual `domain` value from `
 
 Always installed — no choice needed:
   [✓] Caddy          — reverse proxy
-  [✓] Cloudflared    — tunnel to Cloudflare edge
+  [✓] Cloudflared    — only when Cloudflare exposure mode is selected
   [✓] PostgreSQL     — shared database backend
 
 Foundation Bundle (recommended):

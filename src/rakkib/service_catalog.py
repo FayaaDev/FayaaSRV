@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from rakkib.state import State, subdomain_placeholder_key
+
+_SUBDOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def cloudflare_enabled(state: State) -> bool:
+    """Return true when this state should publish through Cloudflare.
+
+    Existing installs predate ``exposure_mode`` but have persisted Cloudflare
+    state, so treat them as Cloudflare-enabled unless they explicitly choose
+    internal mode.
+    """
+    mode = state.get("exposure_mode")
+    if mode is not None:
+        return str(mode).strip().lower() == "cloudflare"
+    return bool(state.get("cloudflare.auth_method") or state.get("cloudflare.tunnel_uuid"))
 
 
 def selected_service_ids(state: State) -> set[str]:
@@ -86,6 +102,56 @@ def apply_service_catalog_selection(state: State, registry: dict[str, Any], sele
 
     state.set("subdomains", subdomains)
     state.set("secrets.values", secrets_values)
+
+
+def normalize_subdomain(value: str) -> str:
+    """Normalize a service subdomain label from prompt or web input."""
+    return str(value or "").strip().strip(".").lower()
+
+
+def validate_subdomain_label(value: str) -> str | None:
+    """Return an error message for an invalid single DNS label."""
+    label = normalize_subdomain(value)
+    if not label:
+        return "Subdomain cannot be empty."
+    if "." in label:
+        return "Use only the subdomain label, not the full domain."
+    if not _SUBDOMAIN_LABEL_RE.match(label):
+        return "Use lowercase letters, numbers, and hyphens; do not start or end with a hyphen."
+    return None
+
+
+def validate_subdomain_map(subdomains: dict[str, str]) -> list[str]:
+    """Validate all selected service subdomains and reject duplicates."""
+    errors: list[str] = []
+    seen: dict[str, str] = {}
+    for svc_id, value in subdomains.items():
+        label = normalize_subdomain(value)
+        message = validate_subdomain_label(label)
+        if message:
+            errors.append(f"{svc_id}: {message}")
+            continue
+        if label in seen:
+            errors.append(f"{svc_id}: duplicates subdomain used by {seen[label]}")
+            continue
+        seen[label] = svc_id
+    return errors
+
+
+def service_fqdn(state: State, svc: dict[str, Any]) -> str | None:
+    """Return the configured public FQDN for a registry service."""
+    domain = str(state.get("domain") or "").strip().strip(".")
+    if not domain:
+        return None
+
+    svc_id = svc["id"]
+    subdomains = state.get("subdomains", {}) or {}
+    subdomain = normalize_subdomain(subdomains.get(svc_id) or svc.get("default_subdomain") or "")
+    if not subdomain:
+        return None
+    if subdomain == domain or subdomain.endswith(f".{domain}"):
+        return subdomain
+    return f"{subdomain}.{domain}"
 
 
 def mark_deployment_stale(state: State) -> None:

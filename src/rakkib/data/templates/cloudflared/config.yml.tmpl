@@ -10,9 +10,7 @@ ingress:
   - hostname: {{DOMAIN}}
     service: http://caddy:80
 
-  # All subdomains
-  - hostname: "*.{{DOMAIN}}"
-    service: http://caddy:80
+{{ CLOUDFLARE_SERVICE_INGRESS | default('') }}
 
   # Catch-all 404
   - service: http_status:404

@@ -35,6 +35,10 @@ from rakkib.interview import run_interview
 from rakkib.secrets import token_urlsafe
 from rakkib.service_catalog import (
     apply_service_catalog_selection,
+    cloudflare_enabled,
+    normalize_subdomain,
+    validate_subdomain_label,
+    validate_subdomain_map,
     validate_service_dependencies,
 )
 from rakkib.state import State
@@ -42,7 +46,7 @@ from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry
 from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
 from rakkib.steps.cloudflare import _cloudflared_bin, _show_qr
-from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm
+from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm, prompt_text
 
 console = Console()
 
@@ -132,7 +136,9 @@ def _build_add_choices(state: State, registry: dict[str, Any]) -> list[Choice]:
 
     for title, bucket in sections:
         bucket_services = [
-            svc for svc in registry["services"] if svc.get("state_bucket") == bucket
+            svc for svc in registry["services"]
+            if svc.get("state_bucket") == bucket
+            and not (svc["id"] == "cloudflared" and not cloudflare_enabled(state))
         ]
         if not bucket_services:
             continue
@@ -197,7 +203,10 @@ def _build_restart_choices(state: State, registry: dict[str, Any]) -> list[Choic
 
     for title, bucket in sections:
         bucket_services = [
-            svc for svc in registry["services"] if svc.get("state_bucket") == bucket and svc["id"] in active_ids
+            svc for svc in registry["services"]
+            if svc.get("state_bucket") == bucket
+            and svc["id"] in active_ids
+            and not (svc["id"] == "cloudflared" and not cloudflare_enabled(state))
         ]
         if not bucket_services:
             continue
@@ -282,6 +291,64 @@ def _checkout_dir(repo_dir: Path) -> Path:
 
 def _apply_service_selection(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
     apply_service_catalog_selection(state, registry, selected_ids)
+
+
+def _prompt_service_subdomains(state: State, registry: dict[str, Any], service_ids: set[str]) -> None:
+    """Prompt for custom subdomains for the given service ids."""
+    if not service_ids:
+        return
+
+    by_id = {svc["id"]: svc for svc in registry["services"]}
+    subdomains = dict(state.get("subdomains", {}) or {})
+    domain = str(state.get("domain") or "").strip().strip(".")
+
+    for svc_id in sorted(service_ids):
+        svc = by_id.get(svc_id)
+        if not svc or not svc.get("default_subdomain"):
+            continue
+
+        default = normalize_subdomain(subdomains.get(svc_id) or svc.get("default_subdomain") or svc_id)
+        while True:
+            suffix = f".{domain}" if domain else ""
+            answer = prompt_text(f"Subdomain for {svc_id}{suffix}", default=default)
+            label = normalize_subdomain(answer or default)
+            message = validate_subdomain_label(label)
+            if message:
+                console.print(f"[red]{message}[/red]")
+                continue
+            duplicate = next(
+                (
+                    other_id
+                    for other_id, other_label in subdomains.items()
+                    if other_id != svc_id and normalize_subdomain(other_label) == label
+                ),
+                None,
+            )
+            if duplicate:
+                console.print(f"[red]{label} is already used by {duplicate}.[/red]")
+                continue
+            subdomains[svc_id] = label
+            state.set(f"subdomains.{svc_id}", label)
+            placeholder = svc.get("subdomain_placeholder")
+            if placeholder:
+                state.set(str(placeholder), label)
+            break
+
+    errors = validate_subdomain_map(subdomains)
+    if errors:
+        raise ValueError("Invalid subdomain configuration: " + "; ".join(errors))
+    state.set("subdomains", subdomains)
+
+
+def _apply_planned_subdomains(state: State, registry: dict[str, Any], planned: dict[str, str]) -> None:
+    state.set("subdomains", planned)
+    for svc in registry["services"]:
+        svc_id = svc["id"]
+        if svc_id not in planned:
+            continue
+        placeholder = svc.get("subdomain_placeholder")
+        if placeholder:
+            state.set(str(placeholder), planned[svc_id])
 
 
 def _summarize_service_diff(added: list[str], removed: list[str]) -> None:
@@ -399,6 +466,9 @@ def _ensure_prereqs(state: State | None = None) -> bool:
     if not _check_docker(state):
         return False
 
+    if state is not None and not cloudflare_enabled(state):
+        return True
+
     local_cf = Path.home() / ".local" / "bin" / "cloudflared"
     cf_ok = local_cf.is_file()
     if not cf_ok:
@@ -455,6 +525,9 @@ def _run_steps(state: State, repo_dir: Path) -> bool:
     verify_cache: dict[str, VerificationResult] = {}
 
     for step_name, module_path in all_steps:
+        if step_name == "cloudflare" and not cloudflare_enabled(state):
+            console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
+            continue
         console.print(f"[bold green]Step {step_name}[/bold green]")
         try:
             module = __import__(module_path, fromlist=["run", "verify"])
@@ -502,6 +575,9 @@ def _run_pre_service_steps(state: State) -> bool:
     for step_name, module_path in STEP_MODULES:
         if step_name == "services":
             break
+        if step_name == "cloudflare" and not cloudflare_enabled(state):
+            console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
+            continue
 
         console.print(f"[bold green]Step {step_name}[/bold green]")
         try:
@@ -858,6 +934,8 @@ def status(ctx: click.Context) -> None:
     for svc in registry["services"]:
         svc_id = svc["id"]
         bucket = svc.get("state_bucket", "")
+        if svc_id == "cloudflared" and not cloudflare_enabled(state):
+            continue
         if bucket != "always" and svc_id not in installed_ids:
             continue
         subdomain = subdomains.get(svc_id)
@@ -930,6 +1008,17 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
 
     added = sorted(selected_ids - old_selected)
     removed = sorted(old_selected - selected_ids)
+    planned_subdomains: dict[str, str] | None = None
+
+    if added and not yes:
+        try:
+            planned_state = State(state.to_dict())
+            _apply_service_selection(planned_state, registry, selected_ids)
+            _prompt_service_subdomains(planned_state, registry, set(added))
+            planned_subdomains = dict(planned_state.get("subdomains", {}) or {})
+        except ValueError as exc:
+            console.print(f"[bold red]Error:[/bold red] {exc}")
+            sys.exit(1)
 
     if added or removed:
         _summarize_service_diff(added, removed)
@@ -942,15 +1031,21 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
         console.print("[yellow]No selection changes; refreshing selected services.[/yellow]")
 
     with progress_spinner("Applying service changes..."):
+        previous_state = State({
+            "foundation_services": list(state.get("foundation_services", []) or []),
+            "selected_services": list(state.get("selected_services", []) or []),
+        })
         removal_order = [
             svc["id"]
-            for svc in reversed(selected_service_defs(state, registry))
+            for svc in reversed(selected_service_defs(previous_state, registry))
             if svc["id"] in removed
         ]
         for svc_id in removal_order:
             services_step.remove_single_service(state, svc_id)
 
         _apply_service_selection(state, registry, selected_ids)
+        if planned_subdomains is not None:
+            _apply_planned_subdomains(state, registry, planned_subdomains)
         services_step._generate_missing_secrets(state)
         state.save(state_path)
 

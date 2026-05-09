@@ -15,7 +15,13 @@ from rich.console import Console
 from rakkib.normalize import apply_normalize, eval_when, resolve_numeric_aliases
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.state import State, subdomain_placeholder_key
-from rakkib.service_catalog import apply_service_catalog_selection, mark_deployment_stale
+from rakkib.service_catalog import (
+    apply_service_catalog_selection,
+    normalize_subdomain,
+    mark_deployment_stale,
+    validate_subdomain_label,
+    validate_subdomain_map,
+)
 from rakkib.steps import load_service_registry
 from rakkib.tui import prompt_checkbox, prompt_confirm, prompt_password, prompt_select, prompt_text
 
@@ -207,10 +213,52 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
 
     state.set("host_addons", host_selected)
     apply_service_catalog_selection(state, registry, set(foundation_selected + optional_selected))
+    _prompt_selected_service_subdomains(state, registry, set(foundation_selected + optional_selected))
     mark_deployment_stale(state)
 
-    # Subdomains are always defaults; keep the flow non-interactive.
-    state.set("customize_subdomains", False)
+    state.set("customize_subdomains", True)
+
+
+def _prompt_selected_service_subdomains(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:
+    """Let users accept or customize selected service subdomain defaults."""
+    subdomains = dict(state.get("subdomains", {}) or {})
+    domain = str(state.get("domain") or "").strip().strip(".")
+
+    for svc in registry.get("services", []):
+        svc_id = svc["id"]
+        if svc_id not in selected_ids or not svc.get("default_subdomain"):
+            continue
+
+        default = normalize_subdomain(subdomains.get(svc_id) or svc.get("default_subdomain") or svc_id)
+        while True:
+            suffix = f".{domain}" if domain else ""
+            answer = prompt_text(f"Subdomain for {svc_id}{suffix}", default=default)
+            label = normalize_subdomain(answer or default)
+            message = validate_subdomain_label(label)
+            if message:
+                console.print(f"[red]{message}[/red]")
+                continue
+            duplicate = next(
+                (
+                    other_id
+                    for other_id, other_label in subdomains.items()
+                    if other_id != svc_id and normalize_subdomain(other_label) == label
+                ),
+                None,
+            )
+            if duplicate:
+                console.print(f"[red]{label} is already used by {duplicate}.[/red]")
+                continue
+            subdomains[svc_id] = label
+            state.set(f"subdomains.{svc_id}", label)
+            placeholder = svc.get("subdomain_placeholder") or subdomain_placeholder_key(svc_id)
+            state.set(str(placeholder), label)
+            break
+
+    errors = validate_subdomain_map(subdomains)
+    if errors:
+        raise ValueError("Invalid subdomain configuration: " + "; ".join(errors))
+    state.set("subdomains", subdomains)
 
 
 # ---------------------------------------------------------------------------

@@ -57,9 +57,13 @@ def _flatten(prefix: str, node: Any, out: dict[str, Any]) -> None:
             _flatten(new_prefix, value, out)
     elif isinstance(node, list):
         # Store as newline-joined string for multiline placeholders
-        out[prefix.upper()] = "\n".join(str(x) for x in node)
+        key = prefix.upper()
+        out[key] = "\n".join(str(x) for x in node)
+        out[key.replace(".", "_")] = out[key]
     else:
-        out[prefix.upper()] = str(node) if node is not None else ""
+        key = prefix.upper()
+        out[key] = str(node) if node is not None else ""
+        out[key.replace(".", "_")] = out[key]
 
 
 def render_string(template_text: str, context: dict[str, str]) -> str:

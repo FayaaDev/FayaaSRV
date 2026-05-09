@@ -174,20 +174,6 @@ def _restart_service(data_root: Path, svc_id: str) -> None:
     docker_run(["compose", "--project-directory", str(svc_dir), "restart"])
 
 
-def _service_fqdn(state, svc: dict) -> str | None:
-    domain = str(state.get("domain") or "").strip().strip(".")
-    subdomain = str(
-        state.get(f"subdomains.{svc['id']}")
-        or svc.get("default_subdomain")
-        or ""
-    ).strip().strip(".")
-    if not domain or not subdomain:
-        return None
-    if subdomain == domain or subdomain.endswith(f".{domain}"):
-        return subdomain
-    return f"{subdomain}.{domain}"
-
-
 def cloudflare_dns_delete(
     state,
     svc: dict,
@@ -196,13 +182,13 @@ def cloudflare_dns_delete(
     log_path: Path,
     registry: dict,
 ) -> None:
-    """Remove the service's Cloudflare DNS route when the service is deselected."""
+    """Remove local Cloudflare service routing and warn about stale DNS."""
     del repo, data_root, log_path, registry
     from rakkib.steps import cloudflare
 
-    fqdn = _service_fqdn(state, svc)
-    if fqdn:
-        cloudflare.delete_dns_route(state, fqdn)
+    warning = cloudflare.unpublish_service(state, svc, warn=True)
+    if warning:
+        print(f"WARNING: {warning}")
 
 
 def _service_admin_user(state) -> tuple[str, Path, int]:
