@@ -39,8 +39,7 @@ def create_app(config: WebRuntimeConfig) -> FastAPI:
                 return FileResponse(file_path)
 
         if not normalized:
-            headers = {"Cache-Control": "no-store"} if request.query_params.get("token") else None
-            return FileResponse(packaged_index_path(), headers=headers)
+            return FileResponse(packaged_index_path())
 
         if normalized == "setup" or normalized.startswith("setup/"):
             if not auth.allow_setup_route(request):

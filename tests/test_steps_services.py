@@ -739,8 +739,29 @@ class TestRemoveSingleService:
         assert not data_dir.exists()
         assert not extra_path.exists()
         sql = mock_run.call_args.kwargs["input"]
+        assert "datname = $rakkib$n8n_db$rakkib$" in sql
         assert "DROP DATABASE IF EXISTS n8n_db;" in sql
         assert "DROP ROLE IF EXISTS n8n;" in sql
+
+    @patch("rakkib.steps.services.docker_run")
+    def test_drop_postgres_resources_rejects_invalid_identifier(self, mock_run):
+        svc = {"id": "bad", "postgres": {"role": "bad;drop", "password_key": "BAD_DB_PASS"}}
+
+        with pytest.raises(ValueError, match="Invalid postgres role"):
+            services_step._drop_service_postgres_resources(svc)
+
+        mock_run.assert_not_called()
+
+    @patch("rakkib.steps.services.subprocess.run")
+    def test_prepare_service_data_raises_when_chown_fails(self, mock_run, tmp_path):
+        data_root = tmp_path / "srv"
+        (data_root / "data" / "n8n").mkdir(parents=True)
+        mock_run.return_value = MagicMock(returncode=1, stderr="sudo password required\n")
+        state = State({"platform": "linux"})
+        svc = {"id": "n8n", "chown": {"uid": 1000, "gid": 1000}}
+
+        with pytest.raises(RuntimeError, match="sudo password required"):
+            services_step._prepare_service_data(state, svc, data_root)
 
     @patch("rakkib.steps.services._run_named_hooks")
     def test_host_service_runs_remove_hooks(self, mock_hooks, tmp_path):
@@ -762,6 +783,30 @@ class TestRemoveSingleService:
 
         mock_hooks.assert_called_once()
         assert mock_hooks.call_args.args[0] == ["openclaw_gateway_uninstall"]
+
+    def test_remove_service_deletes_cloudflare_dns_route(self, tmp_path):
+        data_root = tmp_path / "srv"
+        registry = {
+            "services": [
+                {
+                    "id": "vaultwarden",
+                    "state_bucket": "selected_services",
+                    "default_subdomain": "vault",
+                    "hooks": {"remove": ["cloudflare_dns_delete"]},
+                }
+            ]
+        }
+        state = State({
+            "data_root": str(data_root),
+            "domain": "example.com",
+            "subdomains": {"vaultwarden": "vault"},
+        })
+
+        with patch("rakkib.steps.services._load_registry", return_value=registry):
+            with patch("rakkib.steps.cloudflare.delete_dns_route") as mock_delete:
+                services_step.remove_single_service(state, "vaultwarden")
+
+        mock_delete.assert_called_once_with(state, "vault.example.com")
 
 
 class TestVerify:

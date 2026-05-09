@@ -55,7 +55,13 @@ fields:
     type: derived
     source: host
     detect:
-      linux: 'if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER}" != "root" ]; then printf %s "$SUDO_USER"; else id -un; fi'
+      linux:
+        - python3
+        - -c
+        - |
+          import getpass, os
+          user = os.environ.get("SUDO_USER")
+          print(user if user and user != "root" else getpass.getuser())
       mac: id -un
     records:
       - admin_user
@@ -70,8 +76,27 @@ fields:
     type: derived
     source: host
     detect:
-      linux: 'timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo UTC'
-      mac: 'systemsetup -gettimezone 2>/dev/null | awk "{print \$3}" || echo UTC'
+      linux:
+        - python3
+        - -c
+        - |
+          from pathlib import Path
+          import subprocess
+
+          result = subprocess.run(["timedatectl", "show", "-p", "Timezone", "--value"], capture_output=True, text=True)
+          timezone = result.stdout.strip()
+          if not timezone:
+              timezone = Path("/etc/timezone").read_text().strip() if Path("/etc/timezone").exists() else "UTC"
+          print(timezone or "UTC")
+      mac:
+        - python3
+        - -c
+        - |
+          import subprocess
+
+          result = subprocess.run(["systemsetup", "-gettimezone"], capture_output=True, text=True)
+          output = result.stdout.strip()
+          print(output.split(":", 1)[1].strip() if ":" in output else "UTC")
     records:
       - tz
   - id: lan_ip

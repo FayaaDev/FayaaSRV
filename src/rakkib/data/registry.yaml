@@ -97,6 +97,8 @@ services:
     hooks:
       pre_start:
         - service_postgres_login_preflight
+      remove:
+        - cloudflare_dns_delete
 
   - id: homepage
     state_bucket: foundation_services
@@ -119,6 +121,8 @@ services:
     hooks:
       post_render:
         - homepage_services_yaml
+      remove:
+        - cloudflare_dns_delete
     notes: "Service dashboard. Foundation bundle service. services.yaml generated from selected service list."
 
   - id: uptime-kuma
@@ -158,6 +162,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Uptime monitoring. Foundation bundle service."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: dockge
     state_bucket: foundation_services
@@ -189,6 +196,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Docker Compose manager UI. Foundation bundle service. Mounts the stacks directory."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   # --- Optional Services (Tier 1) ---
 
@@ -248,6 +258,8 @@ services:
     hooks:
       pre_start:
         - service_postgres_login_preflight
+      remove:
+        - cloudflare_dns_delete
 
   - id: immich
     state_bucket: selected_services
@@ -293,6 +305,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: transfer
     state_bucket: selected_services
@@ -328,6 +343,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: jellyfin
     state_bucket: selected_services
@@ -358,6 +376,9 @@ services:
       timeout: 10
       retries: 3
     notes: "Media server. Optional. Self-hosted streaming for movies, TV, music, and photos."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: filebrowser
     state_bucket: selected_services
@@ -397,6 +418,9 @@ services:
       path: /
       expected_text: File Browser
     notes: "Browser-based file manager. Optional. Stores managed files under Rakkib's data root."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: webdav
     state_bucket: selected_services
@@ -453,6 +477,9 @@ services:
       path: /
       expected_text: "WebDAV endpoint"
     notes: "Apache WebDAV server (bytemark/webdav). Optional. Data stored under data/webdav/dav."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: it-tools
     state_bucket: selected_services
@@ -486,6 +513,9 @@ services:
       path: /
       expected_text: IT Tools
     notes: "Static developer utility collection. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: cyberchef
     state_bucket: selected_services
@@ -519,6 +549,9 @@ services:
       path: /
       expected_text: CyberChef
     notes: "Static data transformation toolkit. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: whoami
     state_bucket: selected_services
@@ -552,6 +585,9 @@ services:
       path: /
       expected_text: "Hostname:"
     notes: "Tiny debug service that prints request details. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: pairdrop
     state_bucket: selected_services
@@ -590,6 +626,9 @@ services:
       path: /
       expected_text: PairDrop
     notes: "AirDrop-like file sharing in the browser. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: moodist
     state_bucket: selected_services
@@ -623,6 +662,9 @@ services:
       path: /
       expected_text: Moodist
     notes: "Ambient sounds web app. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: hermes-agent
     state_bucket: selected_services
@@ -660,6 +702,9 @@ services:
       path: /
       expected_text: Hermes
     notes: "Hermes Agent dashboard and gateway. WARNING: dashboard may expose secrets; do not expose publicly without authentication."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: chatpad
     state_bucket: selected_services
@@ -693,6 +738,9 @@ services:
       path: /
       expected_text: Chatpad
     notes: "Chatpad AI web UI. Optional. Data is stored in the browser by default."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: lobe-chat
     state_bucket: selected_services
@@ -729,6 +777,9 @@ services:
       path: /
       expected_text: Lobe
     notes: "Lobe Chat web UI. Optional. Configure model provider keys via env."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: open-webui
     state_bucket: selected_services
@@ -771,6 +822,9 @@ services:
       path: /
       expected_text: Open WebUI
     notes: "Open WebUI. Optional. Set OLLAMA_BASE_URL to reach your Ollama (host or remote)."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: forgejo
     state_bucket: selected_services
@@ -822,6 +876,8 @@ services:
     hooks:
       pre_start:
         - service_postgres_login_preflight
+      remove:
+        - cloudflare_dns_delete
 
   - id: drawio
     state_bucket: selected_services
@@ -855,6 +911,9 @@ services:
       path: /
       expected_text: draw.io
     notes: "Diagramming and whiteboarding app. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: excalidraw
     state_bucket: selected_services
@@ -888,6 +947,9 @@ services:
       path: /
       expected_text: Excalidraw
     notes: "Virtual whiteboard for sketching diagrams. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: openclaw
     state_bucket: selected_services
@@ -925,6 +987,7 @@ services:
         - openclaw_gateway_restart
       remove:
         - openclaw_gateway_uninstall
+        - cloudflare_dns_delete
     notes: "Personal AI assistant gateway. Runs as a systemd user service on the host (not in Docker). Proxy via Caddy to host port 18789."
 
   - id: claude
@@ -1019,6 +1082,9 @@ services:
       path: /admin
       expected_text: Cheshire Cat
     notes: "AI agent microservice with an admin UI and REST API. Public root redirects to /admin and ships with a Qdrant sidecar for RAG. Optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: flowise
     state_bucket: selected_services
@@ -1055,6 +1121,9 @@ services:
       path: /
       expected_text: Flowise
     notes: "Visual AI agent builder. Optional. Uses local persistent storage under /root/.flowise."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: serge
     state_bucket: selected_services
@@ -1096,6 +1165,9 @@ services:
       path: /
       expected_text: Serge
     notes: "Web UI for chatting with local llama.cpp-backed models. Optional. Requires substantial RAM/CPU for larger models."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: anse
     state_bucket: selected_services
@@ -1142,6 +1214,9 @@ services:
       path: /
       expected_text: Anse
     notes: "AI chat UI (Astro) supporting OpenAI-compatible backends. Optional. Set OPENAI_API_KEY in .env or via the UI settings."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: homer
     state_bucket: selected_services
@@ -1180,6 +1255,9 @@ services:
       path: /
       expected_text: Homer
     notes: "Static dashboard. Optional. config.yml is seeded by the image on first run via INIT_ASSETS and is user-editable thereafter."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: dozzle
     state_bucket: selected_services
@@ -1213,6 +1291,9 @@ services:
       path: /
       expected_text: Dozzle
     notes: "Container log viewer. Mounts Docker socket read-only. Optional. Exposes all container logs — restrict access at the Caddy or network layer if needed."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: glance
     state_bucket: selected_services
@@ -1251,6 +1332,9 @@ services:
       path: /
       expected_text: Glance
     notes: "Glanceable dashboard. Optional. glance.yml is seeded via extra_templates on every deploy — back up manual edits before running rakkib pull."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: dashy
     state_bucket: selected_services
@@ -1292,6 +1376,9 @@ services:
       path: /
       expected_text: Dashy
     notes: "Highly customisable dashboard. Optional. conf.yml is seeded via extra_templates on every deploy; edit data/dashy/conf.yml to customise."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: beszel
     state_bucket: selected_services
@@ -1322,6 +1409,9 @@ services:
       path: /
       expected_text: Beszel
     notes: "Lightweight server monitoring hub. Optional. Agents connect separately; hub listens on 8090."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: autoheal
     state_bucket: selected_services
@@ -1401,6 +1491,9 @@ services:
       path: /
       expected_text: FreshRSS
     notes: "Self-hosted RSS feed aggregator. Optional. Uses built-in SQLite by default; Postgres/MySQL are optional."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: actual-budget
     state_bucket: selected_services
@@ -1431,6 +1524,9 @@ services:
       path: /
       expected_text: Actual
     notes: "Self-hosted Actual Budget sync server. Optional. Data stored under /data inside the container."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: rsshub
     state_bucket: selected_services
@@ -1461,6 +1557,9 @@ services:
       path: /healthz
       expected_text: ok
     notes: "RSS generator (RSSHub). Optional. Deployed with Redis cache + browserless/chrome for broader route support."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: vaultwarden
     state_bucket: selected_services
@@ -1494,6 +1593,9 @@ services:
       path: /
       expected_text: Vaultwarden
     notes: "Bitwarden-compatible password manager (Vaultwarden). Optional. DOMAIN should match the public https URL when behind a reverse proxy."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: adguard
     state_bucket: selected_services
@@ -1525,6 +1627,9 @@ services:
       path: /
       expected_text: AdGuard Home
     notes: "Network-wide ad blocker (AdGuard Home). Optional. Web UI is reverse proxied via Caddy. DNS ports are not bound by default to avoid conflicts with the host resolver; bind 53/tcp+udp manually if you want LAN clients to use AdGuard for DNS."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: whoogle
     state_bucket: selected_services
@@ -1558,6 +1663,9 @@ services:
       path: /
       expected_text: Whoogle Search
     notes: "Privacy-respecting metasearch engine. Optional. Stores container /config under the Rakkib data root."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: stirling-pdf
     state_bucket: selected_services
@@ -1596,6 +1704,9 @@ services:
       path: /
       expected_text: Stirling
     notes: "Browser-based PDF toolbox. Optional. Consider restricting access; uploaded documents are processed server-side."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: mealie
     state_bucket: selected_services
@@ -1632,6 +1743,9 @@ services:
       expected_text: Mealie
       timeout: 120
     notes: "Recipe manager. Optional. Stores its SQLite database and uploads under data/mealie/data."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: gitea
     state_bucket: selected_services
@@ -1677,6 +1791,8 @@ services:
     hooks:
       pre_start:
         - service_postgres_login_preflight
+      remove:
+        - cloudflare_dns_delete
 
   - id: privatebin
     state_bucket: selected_services
@@ -1711,6 +1827,9 @@ services:
       path: /
       expected_text: PrivateBin
     notes: "Encrypted pastebin (PrivateBin). Optional. Uses privatebin/nginx-fpm-alpine with filesystem storage persisted under /srv/data."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
 
   - id: ollama-cpu
     state_bucket: selected_services

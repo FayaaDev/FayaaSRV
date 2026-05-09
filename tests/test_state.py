@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -244,6 +245,15 @@ def test_state_load_save(tmp_path):
     state.save(path)
     loaded = State.load(path)
     assert loaded.get("foo") == "bar"
+
+
+def test_save_creates_0o600_state_file(tmp_path):
+    path = tmp_path / ".fss-state.yaml"
+
+    State({"foo": "bar"}).save(path)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert not (tmp_path / ".fss-state.yaml.tmp").exists()
 
 
 def test_state_loaded_from_path_saves_back_to_same_file(tmp_path):

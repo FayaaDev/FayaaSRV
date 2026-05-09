@@ -17,7 +17,7 @@ class AuthManager:
     def __init__(self, *, startup_token: str | None, token_auth_enabled: bool) -> None:
         self._startup_token = startup_token or ""
         self._token_auth_enabled = token_auth_enabled
-        self._sessions: set[str] = set()
+        self._sessions: dict[str, str] = {}
 
     @property
     def token_auth_enabled(self) -> bool:
@@ -41,10 +41,8 @@ class AuthManager:
         return False
 
     def allow_setup_route(self, request: Request) -> bool:
-        """Allow setup routes when already authenticated or carrying a bootstrap token."""
-        if self.authenticate_request(request):
-            return True
-        return bool(request.query_params.get("token"))
+        """Allow setup routes only when already authenticated."""
+        return self.authenticate_request(request)
 
     def validate_token(self, token: str | None) -> bool:
         """Return True when the provided bootstrap token matches this process."""
@@ -54,11 +52,34 @@ class AuthManager:
             return False
         return compare_digest(token, self._startup_token)
 
-    def issue_session(self) -> str:
-        """Create and remember a new in-memory session id."""
+    def issue_session(self) -> tuple[str, str]:
+        """Create and remember a new in-memory session id and CSRF token."""
         session_id = token_urlsafe(32)
-        self._sessions.add(session_id)
-        return session_id
+        csrf_token = token_urlsafe(32)
+        self._sessions[session_id] = csrf_token
+        return session_id, csrf_token
+
+    def csrf_token_for_request(self, request: Request) -> str | None:
+        """Return the CSRF token for the request's active session cookie."""
+        session_id = request.cookies.get(SESSION_COOKIE_NAME, "")
+        if not session_id:
+            return None
+        return self._sessions.get(session_id)
+
+    def require_csrf(self, request: Request) -> None:
+        """Raise a 403 when a cookie-authenticated mutation lacks a valid CSRF token."""
+        expected = self.csrf_token_for_request(request)
+        if expected is None:
+            return
+
+        provided = request.headers.get("x-csrf-token", "")
+        if compare_digest(provided, expected):
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing or invalid CSRF token.",
+        )
 
     def bootstrap_token(self) -> str | None:
         """Return the active bootstrap token for this process when enabled."""
@@ -72,7 +93,7 @@ class AuthManager:
             key=SESSION_COOKIE_NAME,
             value=session_id,
             httponly=True,
-            samesite="lax",
+            samesite="strict",
             secure=False,
             path="/",
         )

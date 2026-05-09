@@ -14,6 +14,8 @@ from typing import Any
 
 import yaml
 
+from rakkib.postgres_sql import validate_registry_postgres_identifiers
+
 STEP_MODULES: list[tuple[str, str]] = [
     ("layout",     "rakkib.steps.layout"),
     ("caddy",      "rakkib.steps.caddy"),
@@ -64,7 +66,9 @@ def data_dir() -> Path:
 def load_service_registry() -> dict[str, Any]:
     """Load and cache the service registry."""
     with (data_dir() / "registry.yaml").open() as fh:
-        return yaml.safe_load(fh)
+        registry = yaml.safe_load(fh)
+    validate_registry_postgres_identifiers(registry)
+    return registry
 
 
 def selected_service_defs(state: Any, registry: dict[str, Any] | None = None) -> list[dict[str, Any]]:

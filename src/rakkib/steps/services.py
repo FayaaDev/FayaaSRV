@@ -34,6 +34,11 @@ from rakkib.hooks.services import (
     sync_shared_artifacts,
 )
 from rakkib.normalize import eval_when
+from rakkib.postgres_sql import (
+    postgres_identifier,
+    postgres_literal,
+    validate_registry_postgres_identifiers,
+)
 from rakkib.render import render_file
 from rakkib.secrets import FACTORIES
 from rakkib.state import State
@@ -57,7 +62,9 @@ def _repo_dir() -> Path:
 @functools.lru_cache(maxsize=1)
 def _load_registry() -> dict:
     with (_repo_dir() / "registry.yaml").open() as fh:
-        return yaml.safe_load(fh)
+        registry = yaml.safe_load(fh)
+    validate_registry_postgres_identifiers(registry)
+    return registry
 
 
 def _selected_and_always_services(state: State, registry: dict) -> list[dict]:
@@ -271,7 +278,7 @@ def _prepare_service_data(state: State, svc: dict, data_root: Path) -> None:
     if not service_data_root.exists():
         return
 
-    subprocess.run(
+    result = subprocess.run(
         [
             "sudo",
             "-n",
@@ -283,6 +290,8 @@ def _prepare_service_data(state: State, svc: dict, data_root: Path) -> None:
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
 
 
 def _render_extra_templates(state: State, svc: dict, repo: Path, data_root: Path) -> None:
@@ -340,11 +349,19 @@ def _drop_service_postgres_resources(svc: dict) -> None:
     if not postgres:
         return
 
-    role = postgres.get("role", svc["id"])
-    db_name = postgres.get("db", role)
+    role = postgres_identifier(
+        postgres.get("role", svc["id"]),
+        field=f"postgres role for service {svc['id']}",
+    )
+    db_name = postgres_identifier(
+        postgres.get("db", role),
+        field=f"postgres database for service {svc['id']}",
+    )
+    db_literal = postgres_literal(db_name)
     sql = "\n".join(
         [
-            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();",
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            f"WHERE datname = {db_literal} AND pid <> pg_backend_pid();",
             f"DROP DATABASE IF EXISTS {db_name};",
             f"DROP ROLE IF EXISTS {role};",
         ]
@@ -380,8 +397,7 @@ def remove_single_service(state: State, svc_id: str) -> None:
     shutil.rmtree(data_root / "data" / svc_id, ignore_errors=True)
 
     route_path = data_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy"
-    if route_path.exists():
-        route_path.unlink()
+    route_path.unlink(missing_ok=True)
 
     for extra in svc.get("extra_templates", []):
         dst = data_root / extra["dst"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,20 @@ from rakkib.tui import prompt_checkbox, prompt_confirm, prompt_password, prompt_
 
 console = Console()
 _TEMPLATE_KEY_RE = re.compile(r"\{\{([^{}]+)\}\}")
+_SCHEMA_COMMAND_FORBIDDEN_RE = re.compile(r"[;|&$`(){}<>]")
+
+
+def _split_schema_command(command: Any) -> list[str]:
+    """Parse a schema-loaded command without enabling shell metacharacters."""
+    if isinstance(command, list):
+        if not all(isinstance(part, str) and part for part in command):
+            raise ValueError("schema command argv must contain non-empty strings")
+        return command
+
+    command = str(command)
+    if _SCHEMA_COMMAND_FORBIDDEN_RE.search(command):
+        raise ValueError("schema command contains shell metacharacters")
+    return shlex.split(command)
 
 
 def run_interview(state: State, questions_dir: Path | str = "questions") -> State:
@@ -285,7 +300,11 @@ def _run_detect(field: FieldDef, state: State) -> Any:
 
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, check=False
+            _split_schema_command(command),
+            shell=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         output = result.stdout.strip()
     except Exception:
@@ -556,7 +575,7 @@ def _get_default(field: FieldDef, state: State) -> Any:
                         return os.environ.get("SUDO_USER", "")
                     try:
                         result = subprocess.run(
-                            cmd, shell=True, capture_output=True, text=True
+                            _split_schema_command(cmd), shell=False, capture_output=True, text=True
                         )
                         return result.stdout.strip()
                     except Exception:
@@ -565,7 +584,7 @@ def _get_default(field: FieldDef, state: State) -> Any:
                 cmd = host_default["mac"]
                 try:
                     result = subprocess.run(
-                        cmd, shell=True, capture_output=True, text=True
+                        _split_schema_command(cmd), shell=False, capture_output=True, text=True
                     )
                     return result.stdout.strip()
                 except Exception:
@@ -573,7 +592,10 @@ def _get_default(field: FieldDef, state: State) -> Any:
         else:
             try:
                 result = subprocess.run(
-                    str(host_default), shell=True, capture_output=True, text=True
+                    _split_schema_command(str(host_default)),
+                    shell=False,
+                    capture_output=True,
+                    text=True,
                 )
                 return result.stdout.strip()
             except Exception:

@@ -196,6 +196,47 @@ class TestRun:
 
         assert cloudflare._cloudflared_env("ubuntu") == {"HOME": "/home/ubuntu"}
 
+    def test_delete_dns_route_uses_cloudflared_delete(self, tmp_path):
+        state = _make_state(
+            tmp_path,
+            cloudflare={
+                "tunnel_uuid": "test-uuid-123",
+                "tunnel_name": "rakkib-example",
+            },
+        )
+
+        with patch("rakkib.steps.cloudflare._cloudflared_bin", return_value="cloudflared"):
+            with patch("rakkib.steps.cloudflare._run") as mock_run:
+                mock_run.return_value.returncode = 0
+                mock_run.return_value.stdout = ""
+                mock_run.return_value.stderr = ""
+
+                cloudflare.delete_dns_route(state, "vault.example.com")
+
+        mock_run.assert_called_once_with(
+            [
+                "cloudflared",
+                "tunnel",
+                "route",
+                "dns",
+                "delete",
+                "test-uuid-123",
+                "vault.example.com",
+            ],
+            env={"HOME": "/home/ubuntu"},
+            check=False,
+        )
+
+    def test_delete_dns_route_treats_missing_route_as_success(self, tmp_path):
+        state = _make_state(tmp_path, cloudflare={"tunnel_uuid": "test-uuid-123"})
+
+        with patch("rakkib.steps.cloudflare._run") as mock_run:
+            mock_run.return_value.returncode = 1
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = "route not found"
+
+            cloudflare.delete_dns_route(state, "vault.example.com")
+
     def test_run_new_tunnel_creates_and_discovers(self, tmp_path):
         state = _make_state(tmp_path)
         cloudflared_dir = tmp_path / "data" / "cloudflared"

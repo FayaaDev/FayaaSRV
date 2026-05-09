@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from rakkib.docker import DockerError, docker_run
+from rakkib.postgres_sql import postgres_identifier, postgres_literal
 from rakkib.render import render_file, render_text
 from rakkib.secrets import ensure_secrets
 from rakkib.state import State
@@ -75,20 +76,27 @@ def _generate_init_sql(state: State) -> str:
         return str(value)
 
     def _add_service(name: str, role: str, password: str, db_name: str | None = None) -> None:
-        db = db_name or role
+        role = postgres_identifier(role, field=f"postgres role for service {name}")
+        db = postgres_identifier(db_name or role, field=f"postgres database for service {name}")
+        role_literal = postgres_literal(role)
+        db_literal = postgres_literal(db)
+        password_literal = postgres_literal(password)
+        block = "\n".join(
+            [
+                "BEGIN",
+                f"    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = {role_literal}) THEN",
+                f"        CREATE ROLE {role} WITH LOGIN PASSWORD {password_literal};",
+                "    ELSE",
+                f"        ALTER ROLE {role} WITH PASSWORD {password_literal};",
+                "    END IF;",
+                "END",
+            ]
+        )
         lines.extend(
             [
                 f"-- {name}",
-                "DO $$",
-                "BEGIN",
-                f"    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{role}') THEN",
-                f"        CREATE ROLE {role} WITH LOGIN PASSWORD '{password}';",
-                "    ELSE",
-                f"        ALTER ROLE {role} WITH PASSWORD '{password}';",
-                "    END IF;",
-                "END",
-                "$$;",
-                f"SELECT 'CREATE DATABASE {db} OWNER {role}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{db}') \\gexec",
+                f"DO {postgres_literal(block)};",
+                f"SELECT 'CREATE DATABASE {db} OWNER {role}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = {db_literal}) \\gexec",
                 "",
             ]
         )
@@ -178,6 +186,7 @@ def run(state: State) -> None:
     sql = _generate_init_sql(state)
     sql_path = init_dir / "init-services.sql"
     sql_path.write_text(sql)
+    os.chmod(sql_path, 0o600)
 
     # 4. Render docker-compose.yml.
     render_file(

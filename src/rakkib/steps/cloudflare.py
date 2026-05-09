@@ -203,6 +203,60 @@ def _run(
     return result
 
 
+def _is_missing_dns_route_error(output: str) -> bool:
+    text = output.lower()
+    return any(
+        marker in text
+        for marker in (
+            "not found",
+            "could not find",
+            "does not exist",
+            "no dns route",
+            "no route",
+        )
+    )
+
+
+def delete_dns_route(state: State, fqdn: str) -> None:
+    """Delete a Cloudflare tunnel DNS route, treating an absent route as gone."""
+    hostname = str(fqdn or "").strip().strip(".")
+    if not hostname:
+        return
+
+    tunnel = (
+        state.get("cloudflare.tunnel_uuid")
+        or state.get("cloudflare.tunnel_name")
+        or state.get("tunnel_uuid")
+        or state.get("tunnel_name")
+    )
+    if not tunnel:
+        return
+
+    result = _run(
+        [
+            _cloudflared_bin(),
+            "tunnel",
+            "route",
+            "dns",
+            "delete",
+            str(tunnel),
+            hostname,
+        ],
+        env=_cloudflared_env(state.get("admin_user")),
+        check=False,
+    )
+    if result.returncode == 0:
+        return
+
+    output = f"{result.stdout}\n{result.stderr}"
+    if _is_missing_dns_route_error(output):
+        return
+    raise RuntimeError(
+        f"DNS route deletion failed for {hostname}: "
+        f"{result.stderr.strip() if result.stderr else 'unknown error'}"
+    )
+
+
 def _repair_dir_ownership(directory: Path, uid: int, gid: int) -> None:
     """Recursively rewrite ownership under *directory* to uid:gid.
 

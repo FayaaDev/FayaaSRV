@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +48,14 @@ class State:
             save_path = Path(path)
             self._path = save_path
 
-        save_path.write_text(yaml.safe_dump(self._data, sort_keys=False, allow_unicode=True))
+        tmp_path = save_path.with_suffix(save_path.suffix + ".tmp")
+        data = yaml.safe_dump(self._data, sort_keys=False, allow_unicode=True)
+        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(data)
+        tmp_path.chmod(0o600)
+        os.replace(tmp_path, save_path)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notated read, e.g. get('cloudflare.tunnel_uuid')."""

@@ -311,17 +311,18 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
                 ),
             }
 
-        session_id = auth.issue_session()
+        session_id, csrf_token = auth.issue_session()
         auth.set_session_cookie(response, session_id)
-        return {"ok": True}
+        return {"ok": True, "csrf_token": csrf_token}
 
     @router.get("/session")
-    def session_status(request: Request, response: Response) -> dict[str, bool]:
+    def session_status(request: Request, response: Response) -> dict[str, bool | str | None]:
         auth.require_api_auth(request)
         response.headers["Cache-Control"] = "no-store"
         return {
             "authenticated": True,
             "auth_enabled": auth.token_auth_enabled,
+            "csrf_token": auth.csrf_token_for_request(request),
         }
 
     @router.get("/session/bootstrap-token")
@@ -353,6 +354,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
     @router.patch("/state")
     def patch_state(payload: StatePatchRequest, request: Request, response: Response) -> dict[str, object]:
         auth.require_api_auth(request)
+        auth.require_csrf(request)
         response.headers["Cache-Control"] = "no-store"
 
         state = _load_state(state_path)
@@ -413,6 +415,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
         response: Response,
     ) -> dict[str, object]:
         auth.require_api_auth(request)
+        auth.require_csrf(request)
         response.headers["Cache-Control"] = "no-store"
 
         current_state = _load_state(state_path)
@@ -454,6 +457,7 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
     @router.post("/run/start")
     def start_run(request: Request, response: Response, payload: RunStartRequest | None = None) -> dict[str, object]:
         auth.require_api_auth(request)
+        auth.require_csrf(request)
         response.headers["Cache-Control"] = "no-store"
 
         state = _load_state(state_path)

@@ -10,10 +10,12 @@ import type {
 
 const sessionBootstrapPath = '/api/session/bootstrap'
 const sessionBootstrapTokenPath = '/api/session/bootstrap-token'
+let csrfToken: string | null = null
 
 export type SessionBootstrapResult = {
   ok: boolean
   message?: string
+  csrf_token?: string
 }
 
 export type SessionBootstrapTokenResult = {
@@ -85,6 +87,14 @@ async function fetchStaticJson<T>(path: string): Promise<T> {
   return (await response.json()) as T
 }
 
+function rememberCsrfToken(token: string | null | undefined) {
+  csrfToken = token?.trim() || null
+}
+
+function csrfHeader() {
+  return csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
+}
+
 export async function bootstrapSession(token: string): Promise<SessionBootstrapResult> {
   const response = await fetch(sessionBootstrapPath, {
     method: 'POST',
@@ -97,7 +107,9 @@ export async function bootstrapSession(token: string): Promise<SessionBootstrapR
   })
 
   if (response.ok) {
-    return { ok: true }
+    const payload = (await response.json()) as SessionBootstrapResult
+    rememberCsrfToken(payload.csrf_token)
+    return { ok: true, csrf_token: payload.csrf_token }
   }
 
   let message: string | undefined
@@ -116,7 +128,9 @@ export async function bootstrapSession(token: string): Promise<SessionBootstrapR
 }
 
 export async function fetchSession(): Promise<SessionStatus> {
-  return fetchApi<SessionStatus>('/api/session')
+  const session = await fetchApi<SessionStatus>('/api/session')
+  rememberCsrfToken(session.csrf_token)
+  return session
 }
 
 export async function fetchBootstrapToken(): Promise<SessionBootstrapTokenResult> {
@@ -145,6 +159,7 @@ export async function submitSetupPhase(
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
+      ...csrfHeader(),
     },
     body: JSON.stringify(payload),
   })
@@ -173,6 +188,7 @@ export async function startSetupRun(mode: 'full_setup' | 'service_sync' = 'full_
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
+      ...csrfHeader(),
     },
     body: JSON.stringify({ mode }),
   })

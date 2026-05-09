@@ -70,7 +70,7 @@ def test_generate_init_sql_falls_back_to_flat_state_secret(tmp_path):
 
     content = postgres._generate_init_sql(state)
 
-    assert "CREATE ROLE nocodb WITH LOGIN PASSWORD 'flat-nocodb-pass';" in content
+    assert "CREATE ROLE nocodb WITH LOGIN PASSWORD $rakkib$flat-nocodb-pass$rakkib$;" in content
 
 
 def test_generate_init_sql_includes_all_selected_db_services(tmp_path):
@@ -81,10 +81,40 @@ def test_generate_init_sql_includes_all_selected_db_services(tmp_path):
 
     content = postgres._generate_init_sql(state)
 
-    assert "CREATE ROLE nocodb WITH LOGIN PASSWORD 'nocodb-pass';" in content
+    assert "CREATE ROLE nocodb WITH LOGIN PASSWORD $rakkib$nocodb-pass$rakkib$;" in content
     assert "CREATE DATABASE nocodb_db OWNER nocodb" in content
-    assert "CREATE ROLE n8n WITH LOGIN PASSWORD 'n8n-pass';" in content
+    assert "CREATE ROLE n8n WITH LOGIN PASSWORD $rakkib$n8n-pass$rakkib$;" in content
     assert "CREATE DATABASE n8n_db OWNER n8n" in content
+
+
+def test_generate_init_sql_dollar_quotes_passwords(tmp_path):
+    state = _make_state(tmp_path)
+    state.set("foundation_services", [])
+    state.set("selected_services", ["n8n"])
+    state.set("secrets.values.N8N_DB_PASS", "pa'ss$rakkib$word")
+
+    content = postgres._generate_init_sql(state)
+
+    assert "PASSWORD $rakkib_1$pa'ss$rakkib$word$rakkib_1$;" in content
+
+
+def test_generate_init_sql_rejects_invalid_postgres_identifier(tmp_path):
+    state = _make_state(tmp_path)
+    state.set("foundation_services", [])
+    state.set("selected_services", ["bad"])
+    state.set("secrets.values.BAD_DB_PASS", "pass")
+    registry = {
+        "services": [
+            {
+                "id": "bad",
+                "postgres": {"role": "bad;drop", "password_key": "BAD_DB_PASS"},
+            }
+        ]
+    }
+
+    with patch("rakkib.steps.postgres.load_service_registry", return_value=registry):
+        with pytest.raises(ValueError, match="Invalid postgres role"):
+            postgres._generate_init_sql(state)
 
 
 def test_generate_init_sql_raises_when_service_password_missing(tmp_path):
@@ -130,6 +160,21 @@ def test_postgres_run_sets_env_permissions(tmp_path):
 
     env_path = tmp_path / "docker" / "postgres" / ".env"
     stat = env_path.stat()
+    assert stat.st_mode & 0o777 == 0o600
+
+
+def test_postgres_run_sets_init_sql_permissions(tmp_path):
+    state = _make_state(tmp_path)
+
+    with patch("rakkib.steps.postgres._wait_for_healthy"):
+        with patch("rakkib.steps.postgres.docker_run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+            postgres.run(state)
+
+    sql_path = tmp_path / "docker" / "postgres" / "init-scripts" / "init-services.sql"
+    stat = sql_path.stat()
     assert stat.st_mode & 0o777 == 0o600
 
 

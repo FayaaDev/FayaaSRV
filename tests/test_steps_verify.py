@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -105,6 +106,28 @@ class TestVerify:
         assert result.state_slice is not None
         assert "layout" in result.state_slice["failed_steps"]
         assert "caddy" in result.state_slice["failed_steps"]
+
+    def test_fails_when_state_file_is_world_readable(self, tmp_path):
+        state_file = tmp_path / ".fss-state.yaml"
+        state_file.write_text("confirmed: true\n")
+        state_file.chmod(0o644)
+        state = State({}, path=state_file)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "rakkib.steps.layout": MagicMock(verify=lambda s: VerificationResult.success("layout")),
+                "rakkib.steps.caddy": MagicMock(verify=lambda s: VerificationResult.success("caddy")),
+                "rakkib.steps.postgres": MagicMock(verify=lambda s: VerificationResult.success("postgres")),
+                "rakkib.steps.services": MagicMock(verify=lambda s: VerificationResult.success("services")),
+                "rakkib.steps.cron": MagicMock(verify=lambda s: VerificationResult.success("cron")),
+            },
+        ):
+            result = verify_step.verify(state)
+
+        assert stat.S_IMODE(state_file.stat().st_mode) == 0o644
+        assert result.ok is False
+        assert "chmod 600" in result.message
 
 
 class TestRun:

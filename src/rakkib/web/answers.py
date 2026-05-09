@@ -6,6 +6,7 @@ import subprocess
 from copy import deepcopy
 from dataclasses import dataclass
 import re
+import shlex
 from typing import Any
 
 from rakkib.normalize import apply_normalize, eval_when
@@ -14,6 +15,20 @@ from rakkib.state import State, subdomain_placeholder_key
 from rakkib.steps import load_service_registry
 
 _TEMPLATE_KEY_RE = re.compile(r"\{\{([^{}]+)\}\}")
+_SCHEMA_COMMAND_FORBIDDEN_RE = re.compile(r"[;|&$`(){}<>]")
+
+
+def _split_schema_command(command: Any) -> list[str]:
+    """Parse a schema-loaded command without enabling shell metacharacters."""
+    if isinstance(command, list):
+        if not all(isinstance(part, str) and part for part in command):
+            raise ValueError("schema command argv must contain non-empty strings")
+        return command
+
+    command = str(command)
+    if _SCHEMA_COMMAND_FORBIDDEN_RE.search(command):
+        raise ValueError("schema command contains shell metacharacters")
+    return shlex.split(command)
 
 
 @dataclass
@@ -373,7 +388,13 @@ def _run_detect(field: FieldDef, state: State) -> Any:
         return None
 
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            _split_schema_command(command),
+            shell=False,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         output = result.stdout.strip()
     except Exception:
         output = ""

@@ -5,10 +5,11 @@ Run the final smoke tests for the deployed server.
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 from typing import Any
 
-from rakkib.state import State
+from rakkib.state import DEFAULT_STATE_FILE, State
 from rakkib.steps import STEP_MODULES, VerificationResult
 
 
@@ -63,6 +64,21 @@ def _collect_verifications(state: State) -> list[VerificationResult]:
     return results
 
 
+def _verify_state_file_permissions(state: State) -> VerificationResult:
+    state_path = state.path or Path(DEFAULT_STATE_FILE)
+    if not state_path.exists():
+        return VerificationResult.success("verify", f"{state_path} does not exist")
+
+    mode = stat.S_IMODE(state_path.stat().st_mode)
+    if mode & ~0o600:
+        return VerificationResult.failure(
+            "verify",
+            f"{state_path} mode is {mode:#04o}; run `chmod 600 {state_path}` before continuing",
+        )
+
+    return VerificationResult.success("verify", f"{state_path} permissions are restricted")
+
+
 def _print_summary(results: list[VerificationResult]) -> None:
     """Print a plain-text summary of verification results."""
     print("")
@@ -98,7 +114,7 @@ def _print_summary(results: list[VerificationResult]) -> None:
 
 
 def run(state: State) -> None:
-    results = _collect_verifications(state)
+    results = [_verify_state_file_permissions(state), *_collect_verifications(state)]
     failures = [r for r in results if not r.ok]
 
     if failures:
@@ -113,7 +129,7 @@ def run(state: State) -> None:
 
 
 def verify(state: State) -> VerificationResult:
-    results = _collect_verifications(state)
+    results = [_verify_state_file_permissions(state), *_collect_verifications(state)]
     failures = [r for r in results if not r.ok]
 
     if not failures:

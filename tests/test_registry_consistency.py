@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from rakkib.hooks.services import POST_RENDER_HOOKS, POST_START_HOOKS, PRE_START_HOOKS
+import pytest
+
+from rakkib.hooks.services import POST_RENDER_HOOKS, POST_START_HOOKS, PRE_START_HOOKS, REMOVE_HOOKS
+from rakkib.postgres_sql import validate_registry_postgres_identifiers
 from rakkib.steps import data_dir, load_service_registry
 
 
@@ -26,6 +29,8 @@ def test_registry_templates_and_hooks_resolve():
             assert hook_name in PRE_START_HOOKS
         for hook_name in hooks.get("post_start", []):
             assert hook_name in POST_START_HOOKS
+        for hook_name in hooks.get("remove", []):
+            assert hook_name in REMOVE_HOOKS
 
 
 def test_registry_postgres_contracts_are_complete():
@@ -53,3 +58,23 @@ def test_registry_postgres_contracts_are_complete():
         assert "service_postgres_login_preflight" in pre_start_hooks, (
             f"{svc['id']} declares postgres and must use service_postgres_login_preflight"
         )
+
+
+def test_registry_postgres_identifiers_are_valid():
+    registry = load_service_registry()
+
+    validate_registry_postgres_identifiers(registry)
+
+
+def test_registry_postgres_identifier_validation_rejects_invalid_values():
+    registry = {
+        "services": [
+            {
+                "id": "bad",
+                "postgres": {"role": "bad;drop", "password_key": "BAD_DB_PASS"},
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Invalid postgres role"):
+        validate_registry_postgres_identifiers(registry)

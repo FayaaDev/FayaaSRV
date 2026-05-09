@@ -1,6 +1,7 @@
 export type SessionStatus = {
   authenticated: boolean
   auth_enabled: boolean
+  csrf_token: string | null
 }
 
 export type SetupPhaseSummary = {
