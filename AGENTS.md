@@ -18,7 +18,9 @@ Assume the target machine is **bare metal** — only `curl`, `git`, and `python3
 
 sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
 
-Dont debug and run tests on current machine, the app is being tested on a bare metal machine. Not this one
+- Bare-metal install and runtime validation happen on the test server, not the dev workstation. Do not treat local tests as a substitute for fresh-server validation.
+- Local developer regression baseline after Python changes: run `python3 -m py_compile <changed-python-files>` and the relevant pytest target through the project venv, usually `.venv/bin/python -m pytest <target>`.
+- Install local test tooling with `python3 -m venv .venv && .venv/bin/python -m pip install -e '.[test]'` when `.venv` or pytest is missing. Keep this dev-only; do not assume pytest exists on bare-metal target hosts.
 
 Solo one-line command:
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash

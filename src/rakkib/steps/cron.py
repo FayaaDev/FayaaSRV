@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 from rakkib.render import render_file
+from rakkib.service_catalog import cloudflare_enabled
 from rakkib.state import State
 from rakkib.steps import VerificationResult
 from rakkib.util import RAKKIB_DATA_DIR
@@ -58,6 +59,11 @@ def _install_cron_entry(
     return new_lines
 
 
+def _remove_cron_entry(lines: list[str], marker: str) -> list[str]:
+    """Remove a managed cron entry by marker."""
+    return [line for line in lines if not line.endswith(marker)]
+
+
 def _is_root() -> bool:
     return os.geteuid() == 0
 
@@ -74,6 +80,9 @@ def run(state: State) -> None:
     platform = state.get("platform", "linux")
     admin_user = state.get("admin_user")
     selected = set(state.get("selected_services", []) or [])
+    cf_enabled = cloudflare_enabled(state)
+    if cf_enabled and not state.has("cloudflared_metrics_port"):
+        state.set("cloudflared_metrics_port", "20241")
 
     backup_dir.mkdir(parents=True, exist_ok=True)
     healthchecks_dir = backup_dir / "healthchecks"
@@ -100,6 +109,8 @@ def run(state: State) -> None:
     # --- Render healthcheck scripts ----------------------------------------
     healthcheck_scripts: list[Path] = []
     for tmpl in (repo / "templates" / "backups" / "healthchecks").glob("*.tmpl"):
+        if tmpl.name == "cloudflared-healthcheck.sh.tmpl" and not cf_enabled:
+            continue
         script_name = tmpl.name.replace(".tmpl", "")
         dst = healthchecks_dir / script_name
         render_file(tmpl, dst, state)
@@ -128,7 +139,8 @@ def run(state: State) -> None:
 
     # Cloudflared health check every 5 minutes
     cf_script = user_bin / "cloudflared-healthcheck.sh"
-    if cf_script.exists():
+    lines = _remove_cron_entry(lines, "# RAKKIB: cloudflared-healthcheck")
+    if cf_enabled and cf_script.exists():
         lines = _install_cron_entry(
             lines,
             "# RAKKIB: cloudflared-healthcheck",
@@ -151,6 +163,7 @@ def verify(state: State) -> VerificationResult:
     backup_dir = Path(state.get("backup_dir", str(data_root / "backups")))
     admin_user = state.get("admin_user")
     crontab_user = admin_user if _is_root() and admin_user else None
+    cf_enabled = cloudflare_enabled(state)
 
     for script in (backup_dir / "backup-local.sh", backup_dir / "restore-local.sh"):
         if not script.exists():
@@ -170,7 +183,7 @@ def verify(state: State) -> VerificationResult:
     required_markers = ["# RAKKIB: backup-local"]
 
     cf_script = Path.home() / ".local" / "bin" / "cloudflared-healthcheck.sh"
-    if cf_script.exists():
+    if cf_enabled and cf_script.exists():
         required_markers.append("# RAKKIB: cloudflared-healthcheck")
 
     for marker in required_markers:

@@ -77,7 +77,7 @@ class TestRun:
     @patch("rakkib.steps.cron.render_file")
     @patch("rakkib.steps.cron.shutil.copy2")
     @patch("pathlib.Path.exists")
-    def test_installs_openclaw_cron_when_selected(
+    def test_does_not_install_openclaw_cron_when_selected(
         self,
         mock_exists: MagicMock,
         mock_copy: MagicMock,
@@ -105,8 +105,8 @@ class TestRun:
         cron_step.run(state)
 
         written_lines = mock_write.call_args[0][0]
-        assert any("# RAKKIB: claw-healthcheck" in line for line in written_lines)
-        assert any("# RAKKIB: claw-memory-alert" in line for line in written_lines)
+        assert not any("# RAKKIB: claw-healthcheck" in line for line in written_lines)
+        assert not any("# RAKKIB: claw-memory-alert" in line for line in written_lines)
 
     @patch("rakkib.steps.cron._is_root")
     @patch("rakkib.steps.cron._crontab_lines")
@@ -172,6 +172,87 @@ class TestRun:
         cron_step.run(state)
         written_lines = mock_write.call_args[0][0]
         assert not any("claw-healthcheck" in line for line in written_lines)
+
+    @patch("pathlib.Path.home")
+    @patch("rakkib.steps.cron._is_root", return_value=False)
+    @patch("rakkib.steps.cron._crontab_lines")
+    @patch("rakkib.steps.cron._write_crontab")
+    @patch("rakkib.steps.cron.render_file")
+    def test_internal_mode_skips_cloudflared_healthcheck(
+        self,
+        mock_render: MagicMock,
+        mock_write: MagicMock,
+        mock_read: MagicMock,
+        mock_is_root: MagicMock,
+        mock_home: MagicMock,
+        tmp_path: Path,
+    ):
+        def _create_file(src, dst, state):
+            assert Path(src).name != "cloudflared-healthcheck.sh.tmpl"
+            Path(dst).parent.mkdir(parents=True, exist_ok=True)
+            Path(dst).write_text("# rendered\n")
+
+        mock_render.side_effect = _create_file
+        mock_read.return_value = [
+            "*/5 * * * * bash /home/user/.local/bin/cloudflared-healthcheck.sh  # RAKKIB: cloudflared-healthcheck",
+        ]
+        mock_home.return_value = tmp_path / "home"
+        data_root = tmp_path / "srv"
+        backup_dir = data_root / "backups"
+        state = State({
+            "data_root": str(data_root),
+            "backup_dir": str(backup_dir),
+            "platform": "linux",
+            "exposure_mode": "internal",
+            "selected_services": [],
+        })
+
+        cron_step.run(state)
+
+        rendered_templates = [Path(call.args[0]).name for call in mock_render.call_args_list]
+        written_lines = mock_write.call_args[0][0]
+        assert "cloudflared-healthcheck.sh.tmpl" not in rendered_templates
+        assert not any("cloudflared-healthcheck" in line for line in written_lines)
+        assert not state.has("cloudflared_metrics_port")
+
+    @patch("pathlib.Path.home")
+    @patch("rakkib.steps.cron._is_root", return_value=False)
+    @patch("rakkib.steps.cron._crontab_lines")
+    @patch("rakkib.steps.cron._write_crontab")
+    @patch("rakkib.steps.cron.render_file")
+    def test_cloudflare_mode_installs_cloudflared_healthcheck(
+        self,
+        mock_render: MagicMock,
+        mock_write: MagicMock,
+        mock_read: MagicMock,
+        mock_is_root: MagicMock,
+        mock_home: MagicMock,
+        tmp_path: Path,
+    ):
+        def _create_file(src, dst, state):
+            Path(dst).parent.mkdir(parents=True, exist_ok=True)
+            Path(dst).write_text("# rendered\n")
+
+        mock_render.side_effect = _create_file
+        mock_read.return_value = []
+        mock_home.return_value = tmp_path / "home"
+        data_root = tmp_path / "srv"
+        backup_dir = data_root / "backups"
+        state = State({
+            "data_root": str(data_root),
+            "backup_dir": str(backup_dir),
+            "platform": "linux",
+            "exposure_mode": "cloudflare",
+            "selected_services": [],
+        })
+
+        cron_step.run(state)
+
+        rendered_templates = [Path(call.args[0]).name for call in mock_render.call_args_list]
+        written_lines = mock_write.call_args[0][0]
+        assert "cloudflared-healthcheck.sh.tmpl" in rendered_templates
+        assert any("# RAKKIB: cloudflared-healthcheck" in line for line in written_lines)
+        assert state.get("cloudflared_metrics_port") == "20241"
 
 
 class TestVerify:
@@ -269,7 +350,7 @@ class TestVerify:
 
     @patch("rakkib.steps.cron._crontab_lines")
     @patch("pathlib.Path.home", return_value=Path("/tmp/fake_home"))
-    def test_fails_when_openclaw_markers_missing(self, mock_home: MagicMock, mock_read: MagicMock, tmp_path: Path):
+    def test_does_not_require_openclaw_markers(self, mock_home: MagicMock, mock_read: MagicMock, tmp_path: Path):
         mock_read.return_value = [
             "30 2 * * * /srv/backups/backup-local.sh  # RAKKIB: backup-local",
         ]
@@ -288,5 +369,4 @@ class TestVerify:
             "selected_services": ["openclaw"],
         })
         result = cron_step.verify(state)
-        assert result.ok is False
-        assert "claw-healthcheck" in result.message
+        assert result.ok is True
