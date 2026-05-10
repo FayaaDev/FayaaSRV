@@ -33,14 +33,6 @@ fields:
       message: Use lowercase letters, numbers, and hyphens only.
     records:
       - server_name
-  - id: domain
-    type: text
-    prompt: What is your base domain? (e.g. example.com — all services will be subdomains of this)
-    validate:
-      pattern: ^(?!https?://).+\..+$
-      message: Use a bare domain like example.com, without http:// or https://.
-    records:
-      - domain
   - id: exposure_mode
     type: single_select
     prompt: How should services be exposed?
@@ -50,6 +42,21 @@ fields:
       cloudflare: [Cloudflare tunnel, public]
     records:
       - exposure_mode
+  - id: internal_domain
+    type: derived
+    when: exposure_mode == internal
+    value: localhost
+    records:
+      - domain
+  - id: domain
+    type: text
+    when: exposure_mode == cloudflare
+    prompt: What is your base domain? (e.g. example.com — all services will be subdomains of this)
+    validate:
+      pattern: ^(?!https?://).+\..+$
+      message: Use a bare domain like example.com, without http:// or https://.
+    records:
+      - domain
   - id: zone_in_cloudflare
     type: confirm
     when: exposure_mode == cloudflare
@@ -169,7 +176,19 @@ Ask: "What is your server name? (e.g. myserver — used in configs and backup ma
 
 Validation: must be non-empty, lowercase alphanumeric and hyphens only (no spaces, no dots).
 
-### Q2 — Base Domain
+### Q2 — Exposure Mode
+
+Ask: "How should services be exposed?"
+
+Default/recommended: `internal`.
+
+Options:
+- `internal`: keep services on the private Docker network; do not create Caddy, Cloudflare tunnels, or DNS routes.
+- `cloudflare`: publish explicit service hostnames through a Cloudflare tunnel.
+
+### Q2b — Base Domain
+
+Ask this only when `exposure_mode` is `cloudflare`.
 
 Ask: "What is your base domain? (e.g. example.com — all services will be subdomains of this)"
 
@@ -178,15 +197,7 @@ Validation:
 - Must contain at least one dot
 - Re-ask if either condition is violated
 
-### Q2b — Exposure Mode
-
-Ask: "How should services be exposed?"
-
-Default/recommended: `internal`.
-
-Options:
-- `internal`: keep services local/private behind Docker and Caddy; do not create Cloudflare tunnels or DNS routes.
-- `cloudflare`: publish explicit service hostnames through a Cloudflare tunnel.
+For `internal`, record `domain: localhost` without prompting. Internal mode does not deploy Caddy host routes, so this value is only a harmless placeholder for state compatibility.
 
 ### Q2c — Cloudflare Zone
 

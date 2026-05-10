@@ -33,7 +33,7 @@ from rakkib.doctor import (
 )
 from rakkib.interview import run_interview
 from rakkib.secrets import token_urlsafe
-from rakkib.service_catalog import cloudflare_enabled
+from rakkib.service_catalog import caddy_enabled, cloudflare_enabled
 from rakkib.services_cli import (
     apply_planned_subdomains as _apply_planned_subdomains,
     apply_service_selection as _apply_service_selection,
@@ -96,6 +96,9 @@ def _run_steps(state: State, repo_dir: Path) -> bool:
     verify_cache: dict[str, VerificationResult] = {}
 
     for step_name, module_path in all_steps:
+        if step_name == "caddy" and not caddy_enabled(state):
+            console.print("[dim]Skipping caddy — exposure mode is internal.[/dim]")
+            continue
         if step_name == "cloudflare" and not cloudflare_enabled(state):
             console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
             continue
@@ -146,6 +149,9 @@ def _run_pre_service_steps(state: State) -> bool:
     for step_name, module_path in STEP_MODULES:
         if step_name == "services":
             break
+        if step_name == "caddy" and not caddy_enabled(state):
+            console.print("[dim]Skipping caddy — exposure mode is internal.[/dim]")
+            continue
         if step_name == "cloudflare" and not cloudflare_enabled(state):
             console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
             continue
@@ -505,12 +511,14 @@ def status(ctx: click.Context) -> None:
     for svc in registry["services"]:
         svc_id = svc["id"]
         bucket = svc.get("state_bucket", "")
+        if svc_id == "caddy" and not caddy_enabled(state):
+            continue
         if svc_id == "cloudflared" and not cloudflare_enabled(state):
             continue
         if bucket != "always" and svc_id not in installed_ids:
             continue
         subdomain = subdomains.get(svc_id)
-        if subdomain and domain:
+        if subdomain and domain and caddy_enabled(state):
             console.print(f"  [cyan]{svc_id}[/cyan]  https://{subdomain}.{domain}")
         else:
             console.print(f"  [cyan]{svc_id}[/cyan]")

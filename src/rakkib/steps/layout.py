@@ -9,13 +9,18 @@ import os
 import subprocess
 from pathlib import Path
 
+from rakkib.service_catalog import caddy_enabled, cloudflare_enabled
 from rakkib.state import State
 from rakkib.steps import VerificationResult
 
 
 def _service_ids(state: State) -> list[str]:
     """Return the union of required, foundation, and selected service IDs."""
-    required = ["caddy", "cloudflared", "postgres"]
+    required = ["postgres"]
+    if caddy_enabled(state):
+        required.append("caddy")
+    if cloudflare_enabled(state):
+        required.append("cloudflared")
     foundation = state.get("foundation_services", []) or []
     selected = state.get("selected_services", []) or []
     return required + foundation + selected
@@ -51,11 +56,12 @@ def run(state: State) -> None:
         data_root / "backups",
         data_root / "MDs",
         data_root / "logs",
+    ]
+    if cloudflare_enabled(state):
         # Pre-create cloudflared's data dir so the cloudflare step starts
         # from a clean admin-owned tree even if a prior broken run left
         # files owned by the container's default `nonroot` user (UID 65532).
-        data_root / "data" / "cloudflared",
-    ]
+        dirs.append(data_root / "data" / "cloudflared")
     for svc in services:
         dirs.append(data_root / "docker" / svc)
 
@@ -90,8 +96,9 @@ def run(state: State) -> None:
                 data_root,
                 data_root / "apps",
                 data_root / "data",
-                data_root / "data" / "cloudflared",
             ]
+            if cloudflare_enabled(state):
+                top_only.append(data_root / "data" / "cloudflared")
             for d in top_only:
                 _sudo_chown(d, str(admin_user))
             for d in admin_trees:

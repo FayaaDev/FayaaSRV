@@ -23,6 +23,14 @@ def cloudflare_enabled(state: State) -> bool:
     return bool(state.get("cloudflare.auth_method") or state.get("cloudflare.tunnel_uuid"))
 
 
+def caddy_enabled(state: State) -> bool:
+    """Return true when Caddy should be deployed for public service routing."""
+    mode = state.get("exposure_mode")
+    if mode is not None:
+        return str(mode).strip().lower() == "cloudflare"
+    return True
+
+
 def selected_service_ids(state: State) -> set[str]:
     """Return currently selected foundation and optional service ids."""
     ids = set(state.get(StateBucket.FOUNDATION_SERVICES, []) or [])

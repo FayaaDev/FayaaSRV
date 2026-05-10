@@ -70,7 +70,7 @@ The exposure mode was recorded in Phase 2. If `cloudflare` is selected:
 - Tunnel name is derived from the admin username (`{{admin_user}}-tunnel`).
 - SSH subdomain is always `ssh`.
 
-If `internal` is selected, do not run Cloudflare setup and do not publish DNS routes.
+If `internal` is selected, do not run Caddy or Cloudflare setup and do not publish DNS routes.
 
 ---
 

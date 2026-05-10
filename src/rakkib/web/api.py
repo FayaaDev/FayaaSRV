@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
+from rakkib.service_catalog import caddy_enabled
 from rakkib.state import DEFAULT_STATE_FILE, State
 from rakkib.steps import load_service_registry
 
@@ -227,6 +228,9 @@ def _active_service_ids(state: State) -> set[str]:
 
 def _deployed_urls(state: State) -> list[dict[str, str]]:
     """Build public service URLs from persisted subdomains."""
+    if not caddy_enabled(state):
+        return []
+
     domain = str(state.get("domain", "") or "").strip().strip(".")
     subdomains = state.get("subdomains", {}) or {}
     if not domain or not isinstance(subdomains, dict):

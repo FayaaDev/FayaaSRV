@@ -41,7 +41,7 @@ from rakkib.postgres_sql import (
     validate_registry_postgres_identifiers,
 )
 from rakkib.render import render_file
-from rakkib.service_catalog import cloudflare_enabled
+from rakkib.service_catalog import caddy_enabled, cloudflare_enabled
 from rakkib.secrets import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
@@ -200,7 +200,7 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
     svc_id = svc["id"]
     service_dir = data_root / "docker" / svc_id
     route_path = data_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy"
-    route_before = _read_text_if_exists(route_path)
+    route_before = _read_text_if_exists(route_path) if caddy_enabled(state) else None
     extra_before = {
         extra["dst"]: _read_text_if_exists(data_root / extra["dst"])
         for extra in svc.get("extra_templates", [])
@@ -208,9 +208,12 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
 
     with TemporaryDirectory(prefix=f"rakkib-{svc_id}-restart-") as tmpdir:
         tmp_root = Path(tmpdir)
-        _render_caddy_route(state, svc, repo, tmp_root, validate=False)
-        route_after = _read_text_if_exists(tmp_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy")
-        route_changed = route_before != route_after
+        if caddy_enabled(state):
+            _render_caddy_route(state, svc, repo, tmp_root, validate=False)
+            route_after = _read_text_if_exists(tmp_root / "docker" / "caddy" / "routes" / f"{svc_id}.caddy")
+            route_changed = route_before != route_after
+        else:
+            route_changed = False
 
         _render_extra_templates(state, svc, repo, tmp_root)
         extra_changed = any(
@@ -471,8 +474,8 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     hooks = svc.get("hooks") or {}
     console.print(f"[dim]Deploying {svc_id}... log: {log_path}[/dim]")
 
-    # --- Caddy route (always, for both host and Docker services) ---------
-    _render_caddy_route(state, svc, repo, data_root)
+    if caddy_enabled(state):
+        _render_caddy_route(state, svc, repo, data_root)
 
     _run_named_hooks(hooks.get("post_render", []), POST_RENDER_HOOKS, state, svc, repo, data_root, log_path, registry)
     _run_named_hooks(hooks.get("pre_start", []), PRE_START_HOOKS, state, svc, repo, data_root, log_path, registry)
@@ -590,8 +593,8 @@ def run(state: State) -> None:
             continue
         _deploy_single_service(state, svc, repo, data_root)
 
-    # --- Reload Caddy after all services -------------------------------------
-    _reload_caddy(data_root)
+    if caddy_enabled(state):
+        _reload_caddy(data_root)
     sync_shared_artifacts(state, repo, data_root, registry)
 
 
@@ -608,12 +611,19 @@ def run_single_service(state: State, svc_id: str) -> None:
     _generate_missing_secrets(state)
     svc = by_id[svc_id]
     _deploy_single_service(state, svc, repo, data_root)
-    _reload_caddy(data_root)
+    if caddy_enabled(state):
+        _reload_caddy(data_root)
     sync_shared_artifacts(state, repo, data_root, registry)
 
 
 def smoke_check(state: State, svc_id: str) -> VerificationResult:
     """Fetch a service's public URL and assert its registry smoke marker is present."""
+    if not caddy_enabled(state):
+        return VerificationResult.success(
+            "services",
+            f"Smoke check skipped for {svc_id}; internal exposure mode does not create Caddy/Cloudflare URLs",
+        )
+
     registry = _load_registry()
     by_id = {s["id"]: s for s in registry["services"]}
     if svc_id not in by_id:
@@ -672,9 +682,10 @@ def restart_service(state: State, svc_id: str) -> None:
 
     if svc.get("host_service"):
         if changes["any"]:
-            _render_caddy_route(state, svc, repo, data_root)
+            if caddy_enabled(state):
+                _render_caddy_route(state, svc, repo, data_root)
             _render_extra_templates(state, svc, repo, data_root)
-            if changes["route"]:
+            if changes["route"] and caddy_enabled(state):
                 _reload_caddy(data_root)
 
         hooks = svc.get("hooks") or {}
@@ -694,7 +705,7 @@ def restart_service(state: State, svc_id: str) -> None:
             progress_message=f"Restarting {svc_id}...",
         )
 
-    if changes["route"]:
+    if changes["route"] and caddy_enabled(state):
         if not changes["service"]:
             _render_caddy_route(state, svc, repo, data_root)
         _reload_caddy(data_root)
@@ -726,7 +737,8 @@ def restart_all(state: State) -> list[str]:
     for svc_id in selected_ids:
         if svc_id not in order:
             order.append(svc_id)
-    order.append("caddy")
+    if caddy_enabled(state):
+        order.append("caddy")
 
     restarted: list[str] = []
     for svc_id in order:

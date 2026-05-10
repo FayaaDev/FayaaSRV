@@ -10,6 +10,7 @@ from rich.console import Console
 
 from rakkib.service_catalog import (
     apply_service_catalog_selection,
+    caddy_enabled,
     cloudflare_enabled,
     normalize_subdomain,
     validate_subdomain_label,
@@ -82,6 +83,7 @@ def _append_bucket_choices(
     bucket_services = [
         svc for svc in registry["services"]
         if svc.get("state_bucket") == bucket
+        and not (svc["id"] == "caddy" and not caddy_enabled(state))
         and not (svc["id"] == "cloudflared" and not cloudflare_enabled(state))
         and (not options.include_only_active or svc["id"] in options.active_ids)
     ]
@@ -169,7 +171,7 @@ def validate_selection_dependencies(selected_ids: set[str], registry: dict[str, 
 
 def prompt_service_subdomains(state: State, registry: dict[str, Any], service_ids: set[str]) -> None:
     """Prompt for custom subdomains for the given service ids."""
-    if not service_ids:
+    if not service_ids or not caddy_enabled(state):
         return
 
     by_id = {svc["id"]: svc for svc in registry["services"]}
@@ -234,6 +236,10 @@ def summarize_service_diff(added: list[str], removed: list[str]) -> None:
 
 
 def print_deployed_urls(state: State, svc_ids: list[str] | None = None) -> None:
+    if not caddy_enabled(state):
+        console.print("[dim]Internal exposure mode: Caddy/Cloudflare service URLs are not created.[/dim]")
+        return
+
     domain = state.get("domain", "") or ""
     subdomains: dict[str, str] = state.get("subdomains", {}) or {}
     if not domain or not subdomains:

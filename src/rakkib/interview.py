@@ -17,6 +17,7 @@ from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.state import State, subdomain_placeholder_key
 from rakkib.service_catalog import (
     apply_service_catalog_selection,
+    caddy_enabled,
     normalize_subdomain,
     mark_deployment_stale,
     validate_subdomain_label,
@@ -213,10 +214,11 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
 
     state.set("host_addons", host_selected)
     apply_service_catalog_selection(state, registry, set(foundation_selected + optional_selected))
-    _prompt_selected_service_subdomains(state, registry, set(foundation_selected + optional_selected))
+    if caddy_enabled(state):
+        _prompt_selected_service_subdomains(state, registry, set(foundation_selected + optional_selected))
     mark_deployment_stale(state)
 
-    state.set("customize_subdomains", True)
+    state.set("customize_subdomains", caddy_enabled(state))
 
 
 def _prompt_selected_service_subdomains(state: State, registry: dict[str, Any], selected_ids: set[str]) -> None:

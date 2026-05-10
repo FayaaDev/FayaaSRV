@@ -362,7 +362,7 @@ Numeric checklist positions may still be accepted as convenience aliases, but ca
 
 When rendering the checklist, the selectable label must always be the service or addon name shown below (`NocoDB`, `Homepage`, `VErgo Terminal`, etc.). Use `[✓]` and `[ ]` only as visual state markers. Do not render `selected`, `unselected`, `true`, or `false` as an option label.
 
-Subdomains are automatically set to the defaults from the service catalog. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
+Subdomains are automatically set to the defaults from the service catalog for Cloudflare routing. In internal exposure mode, do not prompt for subdomains because Caddy routes are not created. Record all results into `.fss-state.yaml`. Do not advance to `questions/04-cloudflare.md` until recording is complete.
 
 ---
 
@@ -374,7 +374,7 @@ Display the following to the user (substituting the actual `domain` value from `
 === Service Selection ===
 
 Always installed — no choice needed:
-  [✓] Caddy          — reverse proxy
+  [✓] Caddy          — reverse proxy; only when Cloudflare exposure mode is selected
   [✓] Cloudflared    — only when Cloudflare exposure mode is selected
   [✓] PostgreSQL     — shared database backend
 
