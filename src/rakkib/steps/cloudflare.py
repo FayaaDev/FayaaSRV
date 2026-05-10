@@ -217,6 +217,61 @@ def _cloudflare_tunnel_ids(state: State) -> tuple[str | None, str | None]:
     )
 
 
+def _required_cloudflare_value(state: State, key: str, label: str) -> str:
+    """Return a non-empty Cloudflare state value or raise an actionable error."""
+    raw = state.get(key)
+    value = str(raw).strip() if raw is not None else ""
+    if value:
+        return value
+    raise RuntimeError(
+        f"Cloudflare setup is missing {label} (`{key}`). "
+        "Run `rakkib init` to regenerate Cloudflare settings, then rerun `rakkib pull`."
+    )
+
+
+def _optional_cloudflare_value(state: State, key: str) -> str | None:
+    raw = state.get(key)
+    value = str(raw).strip() if raw is not None else ""
+    return value or None
+
+
+def _validate_cloudflare_state(state: State) -> tuple[str, str, str | None, str, str]:
+    """Validate state used by cloudflared before any subprocess command runs."""
+    auth_method = _required_cloudflare_value(
+        state, "cloudflare.auth_method", "authentication method"
+    )
+    tunnel_strategy = _required_cloudflare_value(
+        state, "cloudflare.tunnel_strategy", "tunnel strategy"
+    )
+    domain = _required_cloudflare_value(state, "domain", "domain")
+    tunnel_name = _optional_cloudflare_value(state, "cloudflare.tunnel_name")
+    tunnel_uuid = _optional_cloudflare_value(state, "cloudflare.tunnel_uuid")
+    ssh_subdomain = _optional_cloudflare_value(state, "cloudflare.ssh_subdomain") or "ssh"
+
+    if auth_method not in {"browser_login", "api_token", "existing_tunnel"}:
+        raise RuntimeError(
+            f"Cloudflare setup has unsupported authentication method `{auth_method}`. "
+            "Run `rakkib init` to regenerate Cloudflare settings, then rerun `rakkib pull`."
+        )
+    if tunnel_strategy not in {"new", "existing"}:
+        raise RuntimeError(
+            f"Cloudflare setup has unsupported tunnel strategy `{tunnel_strategy}`. "
+            "Run `rakkib init` to regenerate Cloudflare settings, then rerun `rakkib pull`."
+        )
+    if tunnel_strategy == "new" and not tunnel_name:
+        raise RuntimeError(
+            "Cloudflare setup is missing tunnel name (`cloudflare.tunnel_name`). "
+            "Run `rakkib init` to regenerate Cloudflare settings, then rerun `rakkib pull`."
+        )
+    if tunnel_strategy == "existing" and not tunnel_name and not tunnel_uuid:
+        raise RuntimeError(
+            "Cloudflare setup is missing tunnel identity (`cloudflare.tunnel_name` or `cloudflare.tunnel_uuid`). "
+            "Run `rakkib init` to regenerate Cloudflare settings, then rerun `rakkib pull`."
+        )
+
+    return auth_method, tunnel_strategy, tunnel_name, domain, ssh_subdomain.strip(".") or "ssh"
+
+
 def create_dns_route(state: State, fqdn: str, env: dict[str, str] | None = None) -> None:
     """Create or update a Cloudflare tunnel DNS route for a hostname."""
     hostname = str(fqdn or "").strip().strip(".")
@@ -516,14 +571,6 @@ def run(state: State) -> None:
         return
 
     data_root = state.data_root
-    auth_method = state.get("cloudflare.auth_method")
-    tunnel_strategy = state.get("cloudflare.tunnel_strategy")
-    tunnel_name = state.get("cloudflare.tunnel_name")
-    ssh_subdomain = state.get("cloudflare.ssh_subdomain", "ssh")
-    domain = state.get("domain")
-    docker_net = state.get("docker_net", "caddy_net")
-    lan_ip = state.get("lan_ip", "127.0.0.1")
-    metrics_port = state.get("cloudflared_metrics_port", "20241")
     admin_user = state.get("admin_user")
     cloudflared_env = _cloudflared_env(admin_user)
     zone_in_cloudflare = state.get("cloudflare.zone_in_cloudflare", False)
@@ -557,6 +604,13 @@ def run(state: State) -> None:
             "The domain is not active in Cloudflare. "
             "Complete Cloudflare zone setup first, then resume."
         )
+
+    auth_method, tunnel_strategy, tunnel_name, domain, ssh_subdomain = _validate_cloudflare_state(
+        state
+    )
+    docker_net = state.get("docker_net", "caddy_net")
+    lan_ip = state.get("lan_ip", "127.0.0.1")
+    metrics_port = state.get("cloudflared_metrics_port", "20241")
 
     # 1. Confirm cloudflared CLI is installed
     try:

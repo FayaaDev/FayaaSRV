@@ -105,6 +105,22 @@ class TestRun:
         with pytest.raises(RuntimeError, match="not active in Cloudflare"):
             cloudflare.run(state)
 
+    def test_run_rejects_missing_new_tunnel_name_before_cloudflared(self, tmp_path):
+        state = _make_state(
+            tmp_path,
+            cloudflare={
+                "auth_method": "browser_login",
+                "tunnel_strategy": "new",
+                "tunnel_name": None,
+                "zone_in_cloudflare": True,
+            },
+        )
+        with patch("rakkib.steps.cloudflare._run") as mock_run:
+            with pytest.raises(RuntimeError, match="cloudflare.tunnel_name"):
+                cloudflare.run(state)
+
+        mock_run.assert_not_called()
+
     def test_run_rejects_missing_cloudflared(self, tmp_path):
         state = _make_state(tmp_path)
         with patch("rakkib.steps.cloudflare._run") as mock_run:
