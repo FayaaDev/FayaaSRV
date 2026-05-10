@@ -90,6 +90,10 @@ def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
     raise click.Abort()
 
 
+def _stdin_is_interactive() -> bool:
+    return sys.stdin.isatty()
+
+
 def _run_steps(state: State, repo_dir: Path) -> bool:
     """Execute setup steps in order. Return True if all pass."""
     all_steps = STEP_MODULES + [("verify", "rakkib.steps.verify")]
@@ -917,17 +921,40 @@ def auth(ctx: click.Context) -> None:
 
 @cli.command()
 @click.option("--lan", is_flag=True, help="Bind to 0.0.0.0 and print a LAN URL.")
+@click.option("--local", "local_only", is_flag=True, help="Bind locally and skip the LAN setup prompt.")
 @click.option("--host", default="127.0.0.1", show_default=True, help="Host interface to bind.")
 @click.option("--port", default=8080, show_default=True, type=int, help="TCP port to bind.")
 @click.option("--token", "startup_token", default="", help="Explicit setup token to require.")
 @click.option("--no-token", is_flag=True, help="Disable token auth for this web session.")
 @click.option("--no-open", is_flag=True, help="Do not attempt to open a browser automatically.")
 @click.pass_context
-def web(ctx: click.Context, lan: bool, host: str, port: int, startup_token: str, no_token: bool, no_open: bool) -> None:
+def web(
+    ctx: click.Context,
+    lan: bool,
+    local_only: bool,
+    host: str,
+    port: int,
+    startup_token: str,
+    no_token: bool,
+    no_open: bool,
+) -> None:
     """Run the local browser UI and token bootstrap server."""
     import uvicorn
 
     from rakkib.web import WebRuntimeConfig, create_app
+
+    if lan and local_only:
+        console.print("[bold red]Error:[/bold red] Use either --lan or --local, not both.")
+        raise click.Abort()
+
+    if not lan and not local_only and host == "127.0.0.1" and _stdin_is_interactive():
+        lan = prompt_confirm(
+            "Do you want to set up your server from another machine on your network?",
+            default=False,
+        )
+
+    if local_only:
+        host = "127.0.0.1"
 
     bind_host = host
     if lan and host == "127.0.0.1":

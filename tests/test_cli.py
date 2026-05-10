@@ -1205,6 +1205,92 @@ class TestPullSnapshots:
         assert state.get("deployed.selected_services") == ["n8n"]
 
 
+class TestWeb:
+    def test_web_prompt_yes_enables_lan_bind(self, tmp_path: Path):
+        runner = CliRunner()
+
+        with (
+            patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch("rakkib.cli.prompt_confirm", return_value=True) as mock_prompt,
+            patch("rakkib.cli._detect_lan_ip", return_value="192.168.1.50"),
+            patch("rakkib.cli._show_qr"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            result = runner.invoke(
+                cli,
+                ["web", "--no-open", "--no-token"],
+                obj={"repo_dir": tmp_path},
+            )
+
+        assert result.exit_code == 0
+        mock_prompt.assert_called_once_with(
+            "Do you want to set up your server from another machine on your network?",
+            default=False,
+        )
+        assert mock_run.call_args.kwargs["host"] == "0.0.0.0"
+        assert "LAN:" in result.output
+        assert "http://192.168.1.50:8080" in result.output
+
+    def test_web_prompt_no_keeps_local_bind(self, tmp_path: Path):
+        runner = CliRunner()
+
+        with (
+            patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch("rakkib.cli.prompt_confirm", return_value=False),
+            patch("rakkib.cli._detect_lan_ip") as mock_detect_lan_ip,
+            patch("rakkib.cli._show_qr"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            result = runner.invoke(
+                cli,
+                ["web", "--no-open", "--no-token"],
+                obj={"repo_dir": tmp_path},
+            )
+
+        assert result.exit_code == 0
+        assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
+        mock_detect_lan_ip.assert_not_called()
+        assert "LAN:" not in result.output
+
+    def test_web_local_skips_lan_prompt(self, tmp_path: Path):
+        runner = CliRunner()
+
+        with (
+            patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch("rakkib.cli.prompt_confirm") as mock_prompt,
+            patch("rakkib.cli._show_qr"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            result = runner.invoke(
+                cli,
+                ["web", "--local", "--no-open", "--no-token"],
+                obj={"repo_dir": tmp_path},
+            )
+
+        assert result.exit_code == 0
+        mock_prompt.assert_not_called()
+        assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
+
+    def test_web_non_interactive_skips_lan_prompt(self, tmp_path: Path):
+        runner = CliRunner()
+
+        with (
+            patch("rakkib.cli._stdin_is_interactive", return_value=False),
+            patch("rakkib.cli.prompt_confirm") as mock_prompt,
+            patch("rakkib.cli._show_qr"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            result = runner.invoke(
+                cli,
+                ["web", "--no-open", "--no-token"],
+                obj={"repo_dir": tmp_path},
+            )
+
+        assert result.exit_code == 0
+        mock_prompt.assert_not_called()
+        assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
+
+
 class TestSyncServices:
     def test_sync_services_invokes_narrow_state_sync(self, tmp_path: Path):
         runner = CliRunner()
