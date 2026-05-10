@@ -68,6 +68,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13001
+      container_port: 8080
     caddy:
       template: nocodb.caddy.tmpl
     secrets:
@@ -114,6 +118,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13000
+      container_port: 3000
     caddy:
       template: homepage-public.caddy.tmpl
     data_dirs:
@@ -141,6 +149,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13002
+      container_port: 3001
     caddy:
       template: uptime-kuma-public.caddy.tmpl
     secrets:
@@ -180,6 +192,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13003
+      container_port: 5001
     caddy:
       template: dockge-public.caddy.tmpl
     homepage:
@@ -217,6 +233,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13004
+      container_port: 5678
     caddy:
       template: n8n-public.caddy.tmpl
     env_preserve_keys:
@@ -277,6 +297,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13005
+      container_port: 2283
     caddy:
       template: immich-public.caddy.tmpl
     env_preserve_keys:
@@ -322,6 +346,10 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    internal_access:
+      enabled: true
+      host_port: 13006
+      container_port: 8080
     caddy:
       template: transfer.caddy.tmpl
     data_dirs:
@@ -360,6 +388,10 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    internal_access:
+      enabled: true
+      host_port: 13007
+      container_port: 8096
     caddy:
       template: jellyfin-public.caddy.tmpl
     homepage:
@@ -1844,6 +1876,10 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    internal_access:
+      enabled: true
+      host_port: 13434
+      container_port: 11434
     data_dirs:
       - data/ollama-cpu
     notes: "Ollama LLM runtime (CPU). Optional. Binds API port 11434 to 127.0.0.1 only (not exposed via Caddy). Use this service if you do not have a supported GPU runtime."
@@ -1861,6 +1897,10 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    internal_access:
+      enabled: true
+      host_port: 13435
+      container_port: 11434
     data_dirs:
       - data/ollama-amd
     notes: "Ollama LLM runtime (AMD ROCm). Optional. Requires ROCm-capable host drivers and maps /dev/kfd + /dev/dri into the container. API port 11434 is bound to 127.0.0.1 only (not exposed via Caddy)."
@@ -1878,6 +1918,10 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    internal_access:
+      enabled: true
+      host_port: 13436
+      container_port: 11434
     data_dirs:
       - data/ollama-nvidia
     notes: "Ollama LLM runtime (NVIDIA GPU). Optional. Requires NVIDIA Container Toolkit on the host; compose requests an NVIDIA GPU device reservation. API port 11434 is bound to 127.0.0.1 only (not exposed via Caddy)."

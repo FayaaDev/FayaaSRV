@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 
 from rakkib.postgres_sql import validate_registry_postgres_identifiers
+from rakkib.service_catalog import validate_registry_internal_access
 from rakkib.util import RAKKIB_DATA_DIR
 
 
@@ -73,6 +74,7 @@ def load_service_registry() -> dict[str, Any]:
     with (data_dir() / "registry.yaml").open() as fh:
         registry = yaml.safe_load(fh)
     validate_registry_postgres_identifiers(registry)
+    validate_registry_internal_access(registry)
     return registry
 
 

@@ -33,7 +33,7 @@ from rakkib.doctor import (
 )
 from rakkib.interview import run_interview
 from rakkib.secrets import token_urlsafe
-from rakkib.service_catalog import caddy_enabled, cloudflare_enabled
+from rakkib.service_catalog import caddy_enabled, cloudflare_enabled, deployed_service_urls
 from rakkib.services_cli import (
     apply_planned_subdomains as _apply_planned_subdomains,
     apply_service_selection as _apply_service_selection,
@@ -264,7 +264,8 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
                 services_step.run_single_service(state, svc_id)
         else:
             data_root = state.data_root
-            services_step._reload_caddy(data_root)
+            if caddy_enabled(state):
+                services_step._reload_caddy(data_root)
             services_step.sync_shared_artifacts(
                 state, services_step._repo_dir(), data_root, registry
             )
@@ -503,10 +504,10 @@ def status(ctx: click.Context) -> None:
     # Installed services
     console.rule("[bold]Installed Services[/bold]")
     registry = services_step._load_registry()
-    subdomains: dict[str, str] = state.get("subdomains", {}) or {}
     foundation_ids = set(state.get("foundation_services", []) or [])
     selected_ids = set(state.get("selected_services", []) or [])
     installed_ids = foundation_ids | selected_ids
+    urls = {row["service"]: row["url"] for row in deployed_service_urls(state, registry, installed_ids)}
 
     for svc in registry["services"]:
         svc_id = svc["id"]
@@ -517,9 +518,8 @@ def status(ctx: click.Context) -> None:
             continue
         if bucket != "always" and svc_id not in installed_ids:
             continue
-        subdomain = subdomains.get(svc_id)
-        if subdomain and domain and caddy_enabled(state):
-            console.print(f"  [cyan]{svc_id}[/cyan]  https://{subdomain}.{domain}")
+        if svc_id in urls:
+            console.print(f"  [cyan]{svc_id}[/cyan]  {urls[svc_id]}")
         else:
             console.print(f"  [cyan]{svc_id}[/cyan]")
 
@@ -637,7 +637,8 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
         else:
             # Removals-only or no changes — reload caddy to apply route changes and sync
             data_root = state.data_root
-            services_step._reload_caddy(data_root)
+            if caddy_enabled(state):
+                services_step._reload_caddy(data_root)
             services_step.sync_shared_artifacts(
                 state, services_step._repo_dir(), data_root, services_step._load_registry()
             )

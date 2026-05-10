@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
-from rakkib.service_catalog import caddy_enabled
+from rakkib.service_catalog import deployed_service_urls
 from rakkib.state import DEFAULT_STATE_FILE, State
 from rakkib.steps import load_service_registry
 
@@ -227,39 +227,9 @@ def _active_service_ids(state: State) -> set[str]:
 
 
 def _deployed_urls(state: State) -> list[dict[str, str]]:
-    """Build public service URLs from persisted subdomains."""
-    if not caddy_enabled(state):
-        return []
-
-    domain = str(state.get("domain", "") or "").strip().strip(".")
-    subdomains = state.get("subdomains", {}) or {}
-    if not domain or not isinstance(subdomains, dict):
-        return []
-
-    active_ids = _active_service_ids(state)
+    """Build user-facing service URLs for the current exposure mode."""
     registry = load_service_registry()
-    services = registry.get("services", [])
-    ordered_ids = [svc.get("id") for svc in services if isinstance(svc, dict)]
-    labels = {
-        str(svc.get("id")): str(svc.get("name") or svc.get("label") or svc.get("id"))
-        for svc in services
-        if isinstance(svc, dict) and svc.get("id")
-    }
-
-    urls: list[dict[str, str]] = []
-    for svc_id in ordered_ids:
-        if not isinstance(svc_id, str) or svc_id not in active_ids:
-            continue
-        subdomain = str(subdomains.get(svc_id) or "").strip().strip(".")
-        if not subdomain:
-            continue
-        urls.append({
-            "service": svc_id,
-            "label": labels.get(svc_id, svc_id),
-            "url": f"https://{subdomain}.{domain}",
-        })
-
-    return urls
+    return deployed_service_urls(state, registry, _active_service_ids(state))
 
 
 def _serialize_field(field: FieldDef, state: State) -> dict[str, object]:

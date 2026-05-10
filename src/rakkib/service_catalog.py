@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from rakkib.state import State, StateBucket, subdomain_placeholder_key
+from rakkib.util import detect_lan_ip
 
 _SUBDOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -160,6 +161,84 @@ def service_fqdn(state: State, svc: dict[str, Any]) -> str | None:
     if subdomain == domain or subdomain.endswith(f".{domain}"):
         return subdomain
     return f"{subdomain}.{domain}"
+
+
+def _normalize_url_path(path: object) -> str:
+    value = str(path or "/")
+    return value if value.startswith("/") else f"/{value}"
+
+
+def service_url(state: State, svc: dict[str, Any], *, path: object | None = None, lan_ip: str | None = None) -> str | None:
+    """Return the user-facing URL for a service in the current exposure mode."""
+    url_path = _normalize_url_path(path if path is not None else (svc.get("internal_access") or {}).get("path") or "/")
+
+    if caddy_enabled(state):
+        fqdn = service_fqdn(state, svc)
+        if not fqdn:
+            return None
+        return f"https://{fqdn}{url_path}"
+
+    access = svc.get("internal_access") or {}
+    if not access.get("enabled"):
+        return None
+    host_port = access.get("host_port")
+    if host_port is None:
+        return None
+    host = lan_ip or str(state.get("lan_ip") or "").strip() or detect_lan_ip() or "127.0.0.1"
+    scheme = str(access.get("scheme") or "http")
+    return f"{scheme}://{host}:{int(host_port)}{url_path}"
+
+
+def deployed_service_urls(
+    state: State,
+    registry: dict[str, Any],
+    svc_ids: set[str] | None = None,
+) -> list[dict[str, str]]:
+    """Return ordered user-facing URLs for selected services."""
+    active_ids = set(svc_ids) if svc_ids is not None else selected_service_ids(state)
+    lan_ip = str(state.get("lan_ip") or "").strip() or detect_lan_ip() or "127.0.0.1"
+    rows: list[dict[str, str]] = []
+
+    for svc in registry.get("services", []):
+        if not isinstance(svc, dict):
+            continue
+        svc_id = svc.get("id")
+        if not isinstance(svc_id, str) or svc_id not in active_ids:
+            continue
+        url = service_url(state, svc, lan_ip=lan_ip)
+        if not url:
+            continue
+        rows.append({
+            "service": svc_id,
+            "label": str(svc.get("name") or (svc.get("homepage") or {}).get("name") or svc_id),
+            "url": url,
+        })
+
+    return rows
+
+
+def validate_registry_internal_access(registry: dict[str, Any]) -> None:
+    """Validate direct-port metadata used by internal exposure mode."""
+    seen_ports: dict[int, str] = {}
+    for svc in registry.get("services", []):
+        if not isinstance(svc, dict):
+            continue
+        access = svc.get("internal_access") or {}
+        if not access.get("enabled"):
+            continue
+
+        svc_id = str(svc.get("id") or "<unknown>")
+        host_port = access.get("host_port")
+        container_port = access.get("container_port")
+        if host_port is None or container_port is None:
+            raise ValueError(f"Service {svc_id} internal_access.enabled requires host_port and container_port")
+
+        host_port_int = int(host_port)
+        if host_port_int in seen_ports:
+            raise ValueError(
+                f"Duplicate internal_access.host_port {host_port_int}: {svc_id} conflicts with {seen_ports[host_port_int]}"
+            )
+        seen_ports[host_port_int] = svc_id
 
 
 def mark_deployment_stale(state: State) -> None:

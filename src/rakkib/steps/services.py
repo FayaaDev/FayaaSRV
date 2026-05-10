@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import functools
+import socket
 import shutil
 import subprocess
 from pathlib import Path
@@ -41,7 +42,7 @@ from rakkib.postgres_sql import (
     validate_registry_postgres_identifiers,
 )
 from rakkib.render import render_file
-from rakkib.service_catalog import caddy_enabled, cloudflare_enabled
+from rakkib.service_catalog import caddy_enabled, cloudflare_enabled, service_url, validate_registry_internal_access
 from rakkib.secrets import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
@@ -67,6 +68,7 @@ def _load_registry() -> dict:
     with (_repo_dir() / "registry.yaml").open() as fh:
         registry = yaml.safe_load(fh)
     validate_registry_postgres_identifiers(registry)
+    validate_registry_internal_access(registry)
     return registry
 
 
@@ -240,9 +242,11 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
             compose_changed = False
             compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
             if compose_tmpl.exists():
-                render_file(compose_tmpl, tmp_service_dir / "docker-compose.yml", state)
+                temp_compose_path = tmp_service_dir / "docker-compose.yml"
+                render_file(compose_tmpl, temp_compose_path, state)
+                _apply_internal_access_ports(state, svc, temp_compose_path)
                 compose_changed = _read_text_if_exists(compose_path) != _read_text_if_exists(
-                    tmp_service_dir / "docker-compose.yml"
+                    temp_compose_path
                 )
 
             missing_data_dirs = any(not (data_root / relative_dir).exists() for relative_dir in svc.get("data_dirs", []))
@@ -353,6 +357,75 @@ def _render_extra_templates(state: State, svc: dict, repo: Path, data_root: Path
             )
         dst.parent.mkdir(parents=True, exist_ok=True)
         render_file(src, dst, state)
+
+
+def _internal_access(svc: dict) -> dict:
+    access = svc.get("internal_access") or {}
+    return access if access.get("enabled") else {}
+
+
+def _internal_port_mapping(svc: dict) -> str | None:
+    access = _internal_access(svc)
+    if not access:
+        return None
+    return f"0.0.0.0:{int(access['host_port'])}:{int(access['container_port'])}"
+
+
+def _target_compose_service(compose: dict, svc: dict) -> str:
+    services = compose.get("services") or {}
+    requested = (_internal_access(svc).get("compose_service") or "").strip()
+    if requested:
+        if requested not in services:
+            raise ValueError(f"Service {svc['id']} internal_access.compose_service {requested!r} not found in compose")
+        return requested
+    if svc["id"] in services:
+        return svc["id"]
+    container_name = svc.get("container_name")
+    if container_name:
+        for service_name, service_def in services.items():
+            if isinstance(service_def, dict) and service_def.get("container_name") == container_name:
+                return service_name
+    if len(services) == 1:
+        return next(iter(services))
+    raise ValueError(f"Service {svc['id']} internal_access needs compose_service for multi-service compose")
+
+
+def _apply_internal_access_ports(state: State, svc: dict, compose_path: Path) -> None:
+    """Inject the registry-declared direct port into internal-mode compose."""
+    if caddy_enabled(state) or not _internal_access(svc) or svc.get("host_service"):
+        return
+    mapping = _internal_port_mapping(svc)
+    if not mapping or not compose_path.exists():
+        return
+
+    compose = yaml.safe_load(compose_path.read_text()) or {}
+    services = compose.get("services") or {}
+    service_name = _target_compose_service(compose, svc)
+    service_def = services.setdefault(service_name, {})
+    if not isinstance(service_def, dict):
+        raise ValueError(f"Service {svc['id']} compose service {service_name!r} must be a mapping")
+    service_def["ports"] = [mapping]
+    compose_path.write_text(yaml.safe_dump(compose, sort_keys=False))
+
+
+def _ensure_internal_port_available(state: State, svc: dict, data_root: Path) -> None:
+    access = _internal_access(svc)
+    if caddy_enabled(state) or not access or svc.get("host_service"):
+        return
+
+    # Existing compose projects may legitimately own this port during a restart.
+    if (data_root / "docker" / svc["id"] / "docker-compose.yml").exists():
+        return
+
+    host_port = int(access["host_port"])
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.25)
+        in_use = sock.connect_ex(("127.0.0.1", host_port)) == 0
+    if in_use:
+        raise RuntimeError(
+            f"Internal access port {host_port} for service '{svc['id']}' is already in use. "
+            f"Free port {host_port} or change {svc['id']}.internal_access.host_port in the registry."
+        )
 
 
 def _run_named_hooks(
@@ -488,6 +561,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     svc_dir = data_root / "docker" / svc_id
 
     _prepare_service_data(state, svc, data_root)
+    _ensure_internal_port_available(state, svc, data_root)
 
     # --- Render templates ------------------------------------------------
 
@@ -501,7 +575,9 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     # docker-compose.yml
     compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
     if compose_tmpl.exists():
-        render_file(compose_tmpl, svc_dir / "docker-compose.yml", state)
+        compose_path = svc_dir / "docker-compose.yml"
+        render_file(compose_tmpl, compose_path, state)
+        _apply_internal_access_ports(state, svc, compose_path)
 
     _render_extra_templates(state, svc, repo, data_root)
 
@@ -618,12 +694,6 @@ def run_single_service(state: State, svc_id: str) -> None:
 
 def smoke_check(state: State, svc_id: str) -> VerificationResult:
     """Fetch a service's public URL and assert its registry smoke marker is present."""
-    if not caddy_enabled(state):
-        return VerificationResult.success(
-            "services",
-            f"Smoke check skipped for {svc_id}; internal exposure mode does not create Caddy/Cloudflare URLs",
-        )
-
     registry = _load_registry()
     by_id = {s["id"]: s for s in registry["services"]}
     if svc_id not in by_id:
@@ -634,14 +704,12 @@ def smoke_check(state: State, svc_id: str) -> VerificationResult:
     if not smoke:
         return VerificationResult.success("services", f"No smoke check declared for {svc_id}")
 
-    domain = state.get("domain")
-    subdomain = (state.get("subdomains", {}) or {}).get(svc_id)
-    if not domain or not subdomain:
-        return VerificationResult.failure("services", f"No public URL recorded for {svc_id}")
-
     path = str(smoke.get("path") or "/")
     path = path if path.startswith("/") else f"/{path}"
-    url = f"https://{subdomain}.{domain}{path}"
+    url = service_url(state, svc, path=path)
+    if not url:
+        return VerificationResult.failure("services", f"No user-facing URL recorded for {svc_id}")
+
     timeout = str(smoke.get("timeout", 20))
     result = subprocess.run(
         ["curl", "-fsSL", "--max-time", timeout, url],
@@ -795,11 +863,13 @@ def verify(state: State) -> VerificationResult:
                 f"Container {container_name} ({svc_id}) is not running",
             )
 
-        needs_host_port = svc.get("host_port", False)
-        if port and needs_host_port and not container_publishes_port(container_name, port):
+        access = _internal_access(svc) if not caddy_enabled(state) else {}
+        published_port = int(access["container_port"]) if access else port
+        needs_host_port = bool(svc.get("host_port", False) or access)
+        if published_port and needs_host_port and not container_publishes_port(container_name, published_port):
             return VerificationResult.failure(
                 "services",
-                f"Container {container_name} does not publish port {port}",
+                f"Container {container_name} does not publish port {published_port}",
             )
 
     return VerificationResult.success("services", "All selected services are running")

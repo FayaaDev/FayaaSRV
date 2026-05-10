@@ -12,6 +12,7 @@ from rakkib.service_catalog import (
     apply_service_catalog_selection,
     caddy_enabled,
     cloudflare_enabled,
+    deployed_service_urls,
     normalize_subdomain,
     validate_subdomain_label,
     validate_subdomain_map,
@@ -236,22 +237,13 @@ def summarize_service_diff(added: list[str], removed: list[str]) -> None:
 
 
 def print_deployed_urls(state: State, svc_ids: list[str] | None = None) -> None:
-    if not caddy_enabled(state):
-        console.print("[dim]Internal exposure mode: Caddy/Cloudflare service URLs are not created.[/dim]")
-        return
+    from rakkib.steps import load_service_registry
 
-    domain = state.get("domain", "") or ""
-    subdomains: dict[str, str] = state.get("subdomains", {}) or {}
-    if not domain or not subdomains:
-        return
+    registry = load_service_registry()
     active_ids = set(svc_ids) if svc_ids is not None else installed_service_ids(state)
-    rows = [
-        (svc_id, f"https://{subdomain}.{domain}")
-        for svc_id, subdomain in subdomains.items()
-        if subdomain and svc_id in active_ids
-    ]
+    rows = deployed_service_urls(state, registry, active_ids)
     if not rows:
         return
     console.print("\n[bold]Deployed services:[/bold]")
-    for svc_id, url in rows:
-        console.print(f"  [cyan]{svc_id}[/cyan]  {url}")
+    for row in rows:
+        console.print(f"  [cyan]{row['service']}[/cyan]  {row['url']}")

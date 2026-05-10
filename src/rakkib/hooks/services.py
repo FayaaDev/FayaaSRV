@@ -15,7 +15,7 @@ from rich.console import Console
 from rakkib.docker import container_running, docker_run
 from rakkib.doctor import wait_for_apt_locks
 from rakkib.render import render_file
-from rakkib.service_catalog import caddy_enabled
+from rakkib.service_catalog import caddy_enabled, service_url
 from rakkib.steps import selected_service_defs
 from rakkib.tui import progress_spinner, progress_wait
 
@@ -483,10 +483,7 @@ def _homepage_services_content(state, registry: dict) -> str:
         if not homepage:
             continue
 
-        subdomain = state.get(f"subdomains.{selected_svc['id']}", selected_svc["id"])
-        href = None
-        if caddy_enabled(state):
-            href = f"https://{subdomain}.{state.get('domain', 'localhost')}"
+        href = service_url(state, selected_svc)
         block_lines = [f"    - {homepage['name']}:"]
         if href:
             block_lines.append(f"        href: {href}")
@@ -513,27 +510,19 @@ def _resolve_monitoring_target(state, svc: dict, monitoring: dict) -> dict[str, 
     hostname = f"{subdomain}.{domain}"
 
     if target == "public_url":
-        if not caddy_enabled(state):
-            port = monitoring.get("port") or svc.get("default_port")
-            container_name = svc.get("container_name", svc["id"])
-            if monitor_type == "ping":
-                return {"hostname": container_name}
-            if monitor_type == "tcp":
-                if port is None:
-                    raise ValueError(f"Service {svc['id']} monitoring.container requires a port")
-                return {"hostname": container_name, "port": int(port)}
-            if port is None:
-                raise ValueError(f"Service {svc['id']} monitoring.container requires a port")
-            normalized_path = path if str(path).startswith("/") else f"/{path}"
-            scheme = "https" if monitor_type == "https" else "http"
-            return {"url": f"{scheme}://{container_name}:{int(port)}{normalized_path}"}
-
         if monitor_type == "ping":
             return {"hostname": hostname}
         if monitor_type == "tcp":
-            return {"hostname": hostname, "port": int(monitoring.get("port", 443))}
-        normalized_path = path if str(path).startswith("/") else f"/{path}"
-        return {"url": f"https://{hostname}{normalized_path}"}
+            if caddy_enabled(state):
+                return {"hostname": hostname, "port": int(monitoring.get("port", 443))}
+            access = svc.get("internal_access") or {}
+            if not access.get("enabled") or access.get("host_port") is None:
+                raise ValueError(f"Service {svc['id']} monitoring.public_url requires internal_access.host_port")
+            return {"hostname": str(state.get("lan_ip") or "127.0.0.1"), "port": int(access["host_port"])}
+        url = service_url(state, svc, path=path)
+        if not url:
+            raise ValueError(f"Service {svc['id']} monitoring.public_url has no user-facing URL")
+        return {"url": url}
 
     if target == "host_port":
         port = monitoring.get("port") or svc.get("default_port")
