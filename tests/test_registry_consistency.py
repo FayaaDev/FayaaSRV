@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from rakkib.hooks.services import POST_RENDER_HOOKS, POST_START_HOOKS, PRE_START_HOOKS, REMOVE_HOOKS
+from rakkib.hooks.services import POST_RENDER_HOOKS, POST_START_HOOKS, PRE_START_HOOKS, REMOVE_HOOKS, RESTART_HOOKS
 from rakkib.postgres_sql import validate_registry_postgres_identifiers
 from rakkib.steps import data_dir, load_service_registry
 
@@ -29,6 +29,8 @@ def test_registry_templates_and_hooks_resolve():
             assert hook_name in PRE_START_HOOKS
         for hook_name in hooks.get("post_start", []):
             assert hook_name in POST_START_HOOKS
+        for hook_name in hooks.get("restart", []):
+            assert hook_name in RESTART_HOOKS
         for hook_name in hooks.get("remove", []):
             assert hook_name in REMOVE_HOOKS
 

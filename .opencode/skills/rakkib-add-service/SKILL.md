@@ -27,6 +27,7 @@ Service is complete only when it works cleanly with `rakkib init`, `rakkib pull`
 
 - service id, display label, category (foundation / optional)
 - docker image/tag policy, default port, `host_service`, `host_port`, default subdomain
+- internal exposure support: direct LAN `internal_access.host_port`, `container_port`, optional `scheme`, `path`, and `compose_service`
 - dependencies, env keys, generated secrets
 - shared Postgres? monitoring? Homepage metadata?
 - persistent `data_dirs` + chown? extra templates? custom hooks?
@@ -72,10 +73,10 @@ Needed for Docker services:
 - `src/rakkib/data/templates/docker/<id>/docker-compose.yml.tmpl`
 - `src/rakkib/data/templates/docker/<id>/.env.example`
 
-Needed for browser or host HTTP services:
+Needed for browser or host HTTP services in Cloudflare exposure mode:
 - `src/rakkib/data/templates/caddy/routes/<id>.caddy.tmpl` or `<id>-public.caddy.tmpl`
 
-Add only when required: `extra_templates`, `hooks`, `postgres`, `homepage`, `data_dirs`, `chown`, `env_preserve_keys`, `conditional_secrets`, `installed_check`, `health_timeout`, `smoke`
+Add only when required: `internal_access`, `extra_templates`, `hooks`, `postgres`, `homepage`, `data_dirs`, `chown`, `env_preserve_keys`, `conditional_secrets`, `installed_check`, `health_timeout`, `smoke`
 
 ## Template Safety
 
@@ -86,15 +87,20 @@ Add only when required: `extra_templates`, `hooks`, `postgres`, `homepage`, `dat
 5. **`env_preserve_keys`** — add any key written dynamically or unsafe to rotate that should survive re-renders, restarts, and later `pull` runs.
 6. **Unresolved Jinja placeholders are dangerous** because `DebugUndefined` leaves missing `{{PLACEHOLDER}}` text in rendered files. Verify rendered output contains no `{{` or `}}`.
 7. **Read upstream docs** (`docker-compose.yml`, `.env`, install guide) before finalizing templates; compensate for any divergence.
-8. **Verify rendered output**: all inter-container hostnames resolve, no missing vars, service survives `rakkib pull` re-render and `rakkib restart <id>` render drift checks.
+8. **Internal mode port publishing** — browser-facing Docker services should normally avoid hardcoded compose `ports:` and declare `internal_access` instead; Rakkib injects the direct LAN port only when `exposure_mode: internal`.
+9. **Multi-service compose** — if Rakkib cannot infer the service that should receive the direct LAN port, set `internal_access.compose_service` to the compose service name.
+10. **Verify rendered output**: all inter-container hostnames resolve, no missing vars, service survives `rakkib pull` re-render and `rakkib restart <id>` render drift checks.
 
 ## Registry Fields Checklist
 
-`id` · `state_bucket` · `required`/`optional` · `foundation` (explicit bool for foundation services) · `image` · `container_name` · `default_port` · `host_service` · `host_port` · `installed_check` · `health_timeout` · `default_subdomain` · `subdomain_key` · `subdomain_placeholder` · `depends_on` · `caddy` (`template`, `public_template`) · `env_keys` · `secrets` · `conditional_secrets` · `postgres` · `monitoring` (`enabled`, `type`, `target`, `path`, `port`, `interval`, `timeout`, `retries`, `hostname`, `custom_url`, `name`) · `homepage` · `data_dirs` · `chown` · `extra_templates` · `hooks` (`post_render`, `pre_start`, `post_start`, `restart`, `remove`) · `env_preserve_keys` · `smoke` (`path`, `expected_text`, optional `timeout`) · `notes`
+`id` · `state_bucket` · `required`/`optional` · `foundation` (explicit bool for foundation services) · `image` · `container_name` · `default_port` · `host_service` · `host_port` · `installed_check` · `health_timeout` · `default_subdomain` · `subdomain_key` · `subdomain_placeholder` · `depends_on` · `internal_access` (`enabled`, `host_port`, `container_port`, optional `scheme`, `path`, `compose_service`) · `caddy` (`template`, `public_template`) · `env_keys` · `secrets` · `conditional_secrets` · `postgres` · `monitoring` (`enabled`, `type`, `target`, `path`, `port`, `interval`, `timeout`, `retries`, `hostname`, `custom_url`, `name`) · `homepage` · `data_dirs` · `chown` · `extra_templates` · `hooks` (`post_render`, `pre_start`, `post_start`, `restart`, `remove`) · `env_preserve_keys` · `smoke` (`path`, `expected_text`, optional `timeout`) · `notes`
 
 ### Registry Risk Rules
 
 - Browser-facing services with a Caddy route must declare `smoke.path` and `smoke.expected_text`, or the registry notes must clearly mark why the service is beta/unsupported and not smoke-gated.
+- Browser-facing Docker services should declare `internal_access.enabled: true` with a unique direct LAN `host_port`, unless the service is explicitly Cloudflare-only or unsupported in internal mode and that limitation is called out in `notes`.
+- Internal direct LAN ports are bound on `0.0.0.0` in internal mode. Do not expose unsafe admin/control-plane services this way without explicit notes and a deliberate user-facing description.
+- `internal_access.host_port` values must be unique across the registry; `validate_registry_internal_access()` rejects duplicates and missing `host_port`/`container_port` values.
 - Services that mount `/var/run/docker.sock` must be explicitly called out in `notes` and user-facing service descriptions. Default exposure must be deliberate because Docker socket access is host control.
 - GA-supported services should use pinned image tags or digests. Floating tags such as `latest`, `main`, or `release` are acceptable only when the service is explicitly treated as beta/unstable/best-effort in notes/docs.
 - Host services with `host_port: false` need `installed_check` so Rakkib can decide whether they are already installed.
@@ -108,11 +114,13 @@ Validate one new service at a time. Use non-interactive commands whenever possib
 2. Run `rakkib init` when state is missing or intentionally reset.
 3. Deploy only the target service with `rakkib pull --service <id>` or `rakkib add <id> --yes`.
 4. Confirm the container/host service is running.
-5. Run `rakkib smoke <id>` and verify the public URL returns the expected app HTML.
-6. Run `rakkib remove <id> --yes` and confirm cleanup updates state and removes rendered/data/Postgres artifacts declared for that service.
-7. Re-add with `rakkib add <id> --yes` to confirm removal did not leave stale state that breaks redeploy.
-8. If the service declares restart hooks or render-sensitive artifacts, run `rakkib restart <id>`.
-9. Only then move to the next service.
+5. For `exposure_mode: internal`, confirm no Caddy route is rendered, the service compose publishes the registry-declared direct LAN port, and `rakkib smoke <id>` uses the LAN URL.
+6. For `exposure_mode: cloudflare`, confirm the Caddy route is rendered, Cloudflare publishing runs when configured, and `rakkib smoke <id>` uses the public HTTPS URL.
+7. Run `rakkib smoke <id>` and verify the target URL returns the expected app HTML.
+8. Run `rakkib remove <id> --yes` and confirm cleanup updates state and removes rendered/data/Postgres artifacts declared for that service.
+9. Re-add with `rakkib add <id> --yes` to confirm removal did not leave stale state that breaks redeploy.
+10. If the service declares restart hooks or render-sensitive artifacts, run `rakkib restart <id>`.
+11. Only then move to the next service.
 
 Avoid full `rakkib pull` during service-by-service testing unless intentionally validating the whole selected server. Full pull skips already-running selected services, but it still runs global setup and can expose unrelated state on a reused test server.
 
@@ -131,20 +139,23 @@ Avoid full `rakkib pull` during service-by-service testing unless intentionally 
 3. Service discoverable by id in `registry.yaml`
 4. Service appears in `rakkib init` via `03-services.md`
 5. `rakkib add <id>` and checkbox `rakkib add` have valid bucket, dependencies, final-selection sync behavior, and subdomain cleanup for deselected services
-6. All inter-container hostnames are valid after any Rakkib renaming
-7. Every compose `${VAR}` is sourced from `.env.example`, shell runtime, or intentional inline default
-8. Every required `.env.example` value is declared in registry `env_keys`, `secrets`, or `conditional_secrets`, or is intentionally derived from normal state
-9. Dynamic setup values are persisted to `.env` when later re-renders depend on them
-10. Rendered files contain no unresolved `{{...}}` placeholders
-11. Host installer hooks use shared runner or explicitly preserve the noninteractive env
-12. Update Phase 3 service catalog tests when services are added or reordered
-13. Update CLI/web tests when add-sync, deployed snapshots, removal, or `sync-services` behavior changes
-14. Update fixture/snapshot expectations if rendered outputs change materially
-15. Declare `smoke.path` and `smoke.expected_text` for browser-facing services so `rakkib smoke <id>` can verify the public page with a GET request
-16. For app+volume containers, inspect the image runtime user and add registry `chown` for writable persistent directories when needed
-17. Use `rakkib add <id> --yes` for non-interactive add-path validation, then verify deselection/removal through checkbox `rakkib add` and/or `rakkib remove <id> --yes`
-18. After successful pull/add/remove, confirm deployed snapshots match the actual deployed service set
-19. If `install.sh`, `pyproject.toml`, or `src/rakkib/**` changed, update the `runtime` branch only through `scripts/runtime-branch.sh sync --push` after main changes are ready; never hand-edit `runtime`
+6. Browser-facing Docker services declare `internal_access` or clearly explain why internal mode is unsupported in `notes`
+7. `internal_access.host_port` is unique, `container_port` matches the actual app listener, `scheme`/`path` match smoke behavior, and `compose_service` is set for multi-service compose files when inference is ambiguous
+8. Internal-mode rendering skips Caddy routes and injects the direct port only into the intended compose service
+9. All inter-container hostnames are valid after any Rakkib renaming
+10. Every compose `${VAR}` is sourced from `.env.example`, shell runtime, or intentional inline default
+11. Every required `.env.example` value is declared in registry `env_keys`, `secrets`, or `conditional_secrets`, or is intentionally derived from normal state
+12. Dynamic setup values are persisted to `.env` when later re-renders depend on them
+13. Rendered files contain no unresolved `{{...}}` placeholders
+14. Host installer hooks use shared runner or explicitly preserve the noninteractive env
+15. Update Phase 3 service catalog tests when services are added or reordered
+16. Update CLI/web tests when add-sync, deployed snapshots, removal, `sync-services`, internal mode, or direct-port behavior changes
+17. Update fixture/snapshot expectations if rendered outputs change materially
+18. Declare `smoke.path` and `smoke.expected_text` for browser-facing services so `rakkib smoke <id>` can verify the target page with a GET request in both Cloudflare and internal mode when supported
+19. For app+volume containers, inspect the image runtime user and add registry `chown` for writable persistent directories when needed
+20. Use `rakkib add <id> --yes` for non-interactive add-path validation, then verify deselection/removal through checkbox `rakkib add` and/or `rakkib remove <id> --yes`
+21. After successful pull/add/remove, confirm deployed snapshots match the actual deployed service set
+22. If `install.sh`, `pyproject.toml`, or `src/rakkib/**` changed, update the `runtime` branch only through `scripts/runtime-branch.sh sync --push` after main changes are ready; never hand-edit `runtime`
 
 ## Done When
 
