@@ -91,7 +91,7 @@ function rememberCsrfToken(token: string | null | undefined) {
   csrfToken = token?.trim() || null
 }
 
-function csrfHeader() {
+function csrfHeader(): Record<string, string> {
   return csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
 }
 

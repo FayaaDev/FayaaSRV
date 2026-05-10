@@ -153,7 +153,7 @@
       "default_port": 80,
       "category": "Core",
       "name": "caddy",
-      "description": "Reverse proxy. Always installed.",
+      "description": "Reverse proxy. Installed only for Cloudflare exposure.",
       "icon": null
     },
     {
@@ -166,7 +166,7 @@
       "default_port": null,
       "category": "Core",
       "name": "cloudflared",
-      "description": "Cloudflare tunnel. Always installed. Step 3 may pause for guided Cloudflare login approval.",
+      "description": "Cloudflare tunnel. Installed only for Cloudflare exposure. Step 3 may pause for guided Cloudflare login approval.",
       "icon": null
     },
     {
