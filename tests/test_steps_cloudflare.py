@@ -92,6 +92,14 @@ def _subprocess_side_effect(
 
 
 class TestRun:
+    def test_show_qr_uses_ansi_image_renderer_not_hash_ascii(self, capsys):
+        cloudflare._show_qr("https://example.com/setup?token=test-token")
+
+        output = capsys.readouterr().out
+        assert "\033[40m" in output
+        assert "\033[107m" in output
+        assert "#" not in output
+
     def test_run_rejects_missing_zone(self, tmp_path):
         state = _make_state(tmp_path, cloudflare={"zone_in_cloudflare": False})
         with pytest.raises(RuntimeError, match="not active in Cloudflare"):

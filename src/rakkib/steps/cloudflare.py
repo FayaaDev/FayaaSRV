@@ -12,7 +12,6 @@ import pwd
 import re
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -73,7 +72,13 @@ def _show_qr(url: str) -> None:
         )
         qr.add_data(url)
         qr.make(fit=True)
-        qr.print_ascii(tty=sys.stdout.isatty(), invert=True)
+        matrix = qr.get_matrix()
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows else 0
+        black = "\033[40m \033[0m"
+        white = "\033[107m \033[0m"
+        for y in range(rows):
+            print("".join(black if matrix[y][x] else white for x in range(cols)))
     except ImportError:
         pass
 
