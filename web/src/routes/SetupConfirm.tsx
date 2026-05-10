@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiError, fetchSetupPhase, fetchSetupRunStatus, startSetupRun, submitSetupPhase } from '../api/client'
 import type { SetupPhasePayload, SetupRunStatus } from '../api/types'
 import { renderFieldValue } from '../components/FieldRenderer'
+import { HostAuthCard } from '../components/HostAuthCard'
 import { SetupShell } from '../components/SetupShell'
 
 type ConfirmState =
@@ -64,6 +65,7 @@ export function SetupConfirm() {
   const [state, setState] = useState<ConfirmState>({ status: 'loading' })
   const [actionError, setActionError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -107,7 +109,11 @@ export function SetupConfirm() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadToken])
+
+  function handleRefreshRun() {
+    setReloadToken((current) => current + 1)
+  }
 
   async function handleStart() {
     setIsStarting(true)
@@ -161,41 +167,45 @@ export function SetupConfirm() {
 
     const run = state.run
     const entries = state.summary ? deploymentSummaryEntries(state.summary) : []
+    const hostAuthReady = run.host_auth.ok
 
     if (!run.confirmed) {
       return (
-        <section className="setup-deployment-summary" aria-labelledby="setup-confirm-title">
-          <div className="setup-field-header">
-            <div>
-              <p className="section-label">Deployment Summary</p>
-              <h2 id="setup-confirm-title">Proceed with deployment using the above configuration?</h2>
+        <div className="setup-phase-stack">
+          <HostAuthCard hostAuth={run.host_auth} onRefresh={handleRefreshRun} />
+          <section className="setup-deployment-summary" aria-labelledby="setup-confirm-title">
+            <div className="setup-field-header">
+              <div>
+                <p className="section-label">Deployment Summary</p>
+                <h2 id="setup-confirm-title">Proceed with deployment using the above configuration?</h2>
+              </div>
             </div>
-          </div>
-          {entries.length > 0 ? (
-            <div className="setup-summary-grid">
-              {entries.map(([key, value]) => (
-                <div key={key} className="setup-summary-item">
-                  <span>{friendlySummaryLabel(key)}</span>
-                  <strong>{renderFieldValue(value)}</strong>
-                </div>
-              ))}
+            {entries.length > 0 ? (
+              <div className="setup-summary-grid">
+                {entries.map(([key, value]) => (
+                  <div key={key} className="setup-summary-item">
+                    <span>{friendlySummaryLabel(key)}</span>
+                    <strong>{renderFieldValue(value)}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="hero-text">
+                The deployment summary is not available yet. You can edit the final review, or proceed if your saved setup choices are already confirmed.
+              </p>
+            )}
+            {state.summaryError ? <p className="setup-field-error">{state.summaryError}</p> : null}
+            {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
+            <div className="setup-run-actions">
+              <button type="button" className="bridge-button" onClick={() => navigate('/setup/phase/6')}>
+                Edit summary
+              </button>
+              <button type="button" className="bridge-button bridge-button-primary" onClick={handleProceed} disabled={isStarting || !hostAuthReady}>
+                {isStarting ? 'Starting deployment...' : 'Proceed with deployment'}
+              </button>
             </div>
-          ) : (
-            <p className="hero-text">
-              The deployment summary is not available yet. You can edit the final review, or proceed if your saved setup choices are already confirmed.
-            </p>
-          )}
-          {state.summaryError ? <p className="setup-field-error">{state.summaryError}</p> : null}
-          {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
-          <div className="setup-run-actions">
-            <button type="button" className="bridge-button" onClick={() => navigate('/setup/phase/6')}>
-              Edit summary
-            </button>
-            <button type="button" className="bridge-button bridge-button-primary" onClick={handleProceed} disabled={isStarting}>
-              {isStarting ? 'Starting deployment...' : 'Proceed with deployment'}
-            </button>
-          </div>
-        </section>
+          </section>
+        </div>
       )
     }
 
@@ -218,36 +228,39 @@ export function SetupConfirm() {
           : 'Your answers are saved and confirmed. Rakkib can now prepare the machine and bring your services online.'
 
     return (
-      <section className="setup-launch-card" aria-labelledby="setup-confirm-title">
-        <div className="setup-launch-visual" aria-hidden="true">
-          <div className={`setup-launch-ring is-${run.status}`}>
-            <img src="/logo-hero.png" alt="" width="132" height="132" />
+      <div className="setup-phase-stack">
+        <HostAuthCard hostAuth={run.host_auth} onRefresh={handleRefreshRun} />
+        <section className="setup-launch-card" aria-labelledby="setup-confirm-title">
+          <div className="setup-launch-visual" aria-hidden="true">
+            <div className={`setup-launch-ring is-${run.status}`}>
+              <img src="/logo-hero.png" alt="" width="132" height="132" />
+            </div>
           </div>
-        </div>
-        <div className="setup-launch-copy">
-          <p className="section-label">Deployment Summary</p>
-          <h2 id="setup-confirm-title">{title}</h2>
-          <p className="hero-text">{description}</p>
-          {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
-          <div className="setup-run-actions">
-            {run.can_start && run.status !== 'succeeded' ? (
-              <button type="button" className="bridge-button bridge-button-primary" onClick={handleStart} disabled={isStarting}>
-                {isStarting ? 'Starting...' : isFinished ? 'Try again' : 'Launch setup'}
-              </button>
-            ) : null}
-            {run.status === 'succeeded' ? (
-              <button type="button" className="bridge-button bridge-button-primary" onClick={() => navigate('/setup/phase/3')}>
-                Choose services
-              </button>
-            ) : null}
-            {(isRunning || isFinished) ? (
-              <button type="button" className="bridge-button" onClick={() => navigate('/setup/run')}>
-                View progress
-              </button>
-            ) : null}
+          <div className="setup-launch-copy">
+            <p className="section-label">Deployment Summary</p>
+            <h2 id="setup-confirm-title">{title}</h2>
+            <p className="hero-text">{description}</p>
+            {actionError ? <p className="setup-submit-error">{actionError}</p> : null}
+            <div className="setup-run-actions">
+              {run.can_start && run.status !== 'succeeded' ? (
+                <button type="button" className="bridge-button bridge-button-primary" onClick={handleStart} disabled={isStarting}>
+                  {isStarting ? 'Starting...' : isFinished ? 'Try again' : 'Launch setup'}
+                </button>
+              ) : null}
+              {run.status === 'succeeded' ? (
+                <button type="button" className="bridge-button bridge-button-primary" onClick={() => navigate('/setup/phase/3')}>
+                  Choose services
+                </button>
+              ) : null}
+              {(isRunning || isFinished) ? (
+                <button type="button" className="bridge-button" onClick={() => navigate('/setup/run')}>
+                  View progress
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     )
   }
 

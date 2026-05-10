@@ -12,6 +12,7 @@ from click.testing import CliRunner
 
 from rakkib.cli import _build_add_choices, _print_deployed_urls, cli
 from rakkib.state import State
+from rakkib.web.host_auth import HostAuthStatus
 
 
 class TestInit:
@@ -1211,6 +1212,10 @@ class TestWeb:
 
         with (
             patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch(
+                "rakkib.cli.check_host_auth_readiness",
+                return_value=HostAuthStatus(True, "ready", "ready", command=None),
+            ),
             patch("rakkib.cli.prompt_confirm", return_value=True) as mock_prompt,
             patch("rakkib.cli._detect_lan_ip", return_value="192.168.1.50"),
             patch("rakkib.cli._show_qr"),
@@ -1236,6 +1241,10 @@ class TestWeb:
 
         with (
             patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch(
+                "rakkib.cli.check_host_auth_readiness",
+                return_value=HostAuthStatus(True, "ready", "ready", command=None),
+            ),
             patch("rakkib.cli.prompt_confirm", return_value=False),
             patch("rakkib.cli._detect_lan_ip") as mock_detect_lan_ip,
             patch("rakkib.cli._show_qr"),
@@ -1257,6 +1266,10 @@ class TestWeb:
 
         with (
             patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch(
+                "rakkib.cli.check_host_auth_readiness",
+                return_value=HostAuthStatus(True, "ready", "ready", command=None),
+            ),
             patch("rakkib.cli.prompt_confirm") as mock_prompt,
             patch("rakkib.cli._show_qr"),
             patch("uvicorn.run") as mock_run,
@@ -1276,6 +1289,10 @@ class TestWeb:
 
         with (
             patch("rakkib.cli._stdin_is_interactive", return_value=False),
+            patch(
+                "rakkib.cli.check_host_auth_readiness",
+                return_value=HostAuthStatus(True, "ready", "ready", command=None),
+            ),
             patch("rakkib.cli.prompt_confirm") as mock_prompt,
             patch("rakkib.cli._show_qr"),
             patch("uvicorn.run") as mock_run,
@@ -1288,6 +1305,31 @@ class TestWeb:
 
         assert result.exit_code == 0
         mock_prompt.assert_not_called()
+        assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
+
+    def test_web_prompts_for_host_auth_when_blocked(self, tmp_path: Path):
+        runner = CliRunner()
+        blocked = HostAuthStatus(False, "sudo_required", "Run `rakkib auth` first.")
+        ready = HostAuthStatus(True, "ready", "ready", command=None)
+
+        with (
+            patch("rakkib.cli._stdin_is_interactive", return_value=True),
+            patch("rakkib.cli.check_host_auth_readiness", side_effect=[blocked, ready]),
+            patch("rakkib.cli.prompt_confirm", return_value=True) as mock_prompt,
+            patch("rakkib.cli._run_auth_setup", return_value=True) as mock_auth,
+            patch("rakkib.cli._show_qr"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            result = runner.invoke(
+                cli,
+                ["web", "--local", "--no-open", "--no-token"],
+                obj={"repo_dir": tmp_path},
+            )
+
+        assert result.exit_code == 0
+        mock_prompt.assert_called_once_with("Run `rakkib auth` now?", default=True)
+        mock_auth.assert_called_once()
+        assert "Host authorization is ready" in result.output
         assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
 
 

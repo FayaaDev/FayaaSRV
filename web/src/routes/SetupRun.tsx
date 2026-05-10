@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { ApiError, fetchSetupRunStatus, startSetupRun } from '../api/client'
 import type { SetupRunStatus } from '../api/types'
+import { HostAuthCard } from '../components/HostAuthCard'
 import { SetupShell } from '../components/SetupShell'
 
 function progressSteps(run: SetupRunStatus) {
@@ -258,6 +259,7 @@ export function SetupRun() {
     return (
       <div className="setup-phase-stack">
         {run.attention?.type === 'cloudflare_auth' ? <CloudflareAuthPrompt url={run.attention.url} /> : null}
+        <HostAuthCard hostAuth={run.host_auth} onRefresh={handleRefreshActivity} />
 
         <section className="setup-progress-card" aria-labelledby="setup-run-title">
           <div className="setup-progress-visual" aria-hidden="true">

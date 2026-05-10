@@ -17,6 +17,7 @@ from rakkib.steps import load_service_registry
 
 from .answers import PhaseValidationError, apply_phase_answers
 from .auth import AuthManager
+from .host_auth import check_host_auth_readiness
 from .models import WebRuntimeConfig
 from .run import WebRunManager
 
@@ -255,12 +256,14 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
     def serialize_run_state() -> dict[str, object]:
         state = _load_state(state_path)
         snapshot = run_manager.snapshot()
+        host_auth = check_host_auth_readiness()
         ready_to_start = state.resume_phase() >= 7 and state.is_confirmed()
         snapshot["resume_phase"] = state.resume_phase()
         snapshot["confirmed"] = state.is_confirmed()
         snapshot["deployment_succeeded"] = _deployment_succeeded(state)
         snapshot["deployed_urls"] = _deployed_urls(state)
-        snapshot["can_start"] = bool(snapshot["can_start"]) and ready_to_start
+        snapshot["host_auth"] = host_auth.to_dict()
+        snapshot["can_start"] = bool(snapshot["can_start"]) and ready_to_start and host_auth.ok
         return snapshot
 
     @router.get("/health")
@@ -456,6 +459,16 @@ def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: W
                 raise HTTPException(status_code=409, detail="Complete the initial deployment before syncing services from the web dashboard.")
         else:
             raise HTTPException(status_code=422, detail=f"Unknown run mode: {mode}")
+
+        host_auth = check_host_auth_readiness()
+        if not host_auth.ok:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": host_auth.message,
+                    "host_auth": host_auth.to_dict(),
+                },
+            )
 
         try:
             run_manager.start(mode)

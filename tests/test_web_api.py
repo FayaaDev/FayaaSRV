@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from rakkib.state import State
 from rakkib.web.app import create_app
+from rakkib.web.host_auth import HostAuthStatus
 from rakkib.web.models import WebRuntimeConfig
 
 
@@ -90,7 +92,11 @@ def test_logout_revokes_session_and_clears_cookie(tmp_path):
     assert session.status_code == 401
 
 
-def test_run_status_returns_internal_deployed_urls(tmp_path):
+def test_run_status_returns_internal_deployed_urls(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "rakkib.web.api.check_host_auth_readiness",
+        lambda: HostAuthStatus(True, "ready", "ready", command=None),
+    )
     (tmp_path / ".fss-state.yaml").write_text(
         "confirmed: true\n"
         "deployed:\n  exists: true\n"
@@ -106,3 +112,28 @@ def test_run_status_returns_internal_deployed_urls(tmp_path):
 
     assert response.status_code == 200
     assert {item["url"] for item in response.json()["deployed_urls"]} == {"http://192.168.1.50:13000/"}
+
+
+def test_run_status_blocks_start_when_host_auth_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(State, "resume_phase", lambda self: 7)
+    monkeypatch.setattr(
+        "rakkib.web.api.check_host_auth_readiness",
+        lambda: HostAuthStatus(False, "sudo_required", "Run `rakkib auth` first."),
+    )
+    (tmp_path / ".fss-state.yaml").write_text("confirmed: true\n")
+    client = _client(tmp_path)
+    bootstrap = client.post("/api/session/bootstrap", json={"token": "setup-token"})
+
+    status_response = client.get("/api/run")
+    start_response = client.post(
+        "/api/run/start",
+        headers={"X-CSRF-Token": bootstrap.json()["csrf_token"]},
+        json={"mode": "full_setup"},
+    )
+
+    status_payload = status_response.json()
+    assert status_response.status_code == 200
+    assert status_payload["can_start"] is False
+    assert status_payload["host_auth"]["code"] == "sudo_required"
+    assert start_response.status_code == 409
+    assert start_response.json()["detail"]["host_auth"]["command"] == "rakkib auth"

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+from rakkib.docker import DockerError
+from rakkib.web.host_auth import check_host_auth_readiness
 import rakkib.web.run as web_run
 
 
@@ -69,3 +72,51 @@ def test_web_run_manager_cancel_terminates_child_and_persists_status(tmp_path):
     assert snapshot["status"] == "canceled"
     assert snapshot["pid"] is None
     assert snapshot["can_start"] is True
+
+
+def test_host_auth_readiness_requires_sudo_when_not_cached(monkeypatch):
+    monkeypatch.setattr("rakkib.web.host_auth.os.geteuid", lambda: 1000)
+    monkeypatch.setattr("rakkib.web.host_auth.shutil.which", lambda cmd: f"/usr/bin/{cmd}")
+    monkeypatch.setattr(
+        "rakkib.web.host_auth.subprocess.run",
+        lambda *args, **kwargs: MagicMock(returncode=1, stdout="", stderr="sudo required"),
+    )
+
+    status = check_host_auth_readiness()
+
+    assert status.ok is False
+    assert status.code == "sudo_required"
+    assert status.command == "rakkib auth"
+
+
+def test_host_auth_readiness_flags_docker_group_repair(monkeypatch):
+    def fake_docker_run(args, **kwargs):
+        raise DockerError(
+            "permission denied",
+            ["docker", *args],
+            1,
+            stderr="permission denied while trying to connect to /var/run/docker.sock",
+        )
+
+    monkeypatch.setattr("rakkib.web.host_auth.os.geteuid", lambda: 1000)
+    monkeypatch.setattr("rakkib.web.host_auth.shutil.which", lambda cmd: f"/usr/bin/{cmd}")
+    monkeypatch.setattr(
+        "rakkib.web.host_auth.subprocess.run",
+        lambda *args, **kwargs: MagicMock(returncode=0, stdout="", stderr=""),
+    )
+    monkeypatch.setattr("rakkib.web.host_auth.docker_run", fake_docker_run)
+
+    status = check_host_auth_readiness()
+
+    assert status.ok is False
+    assert status.code == "docker_permission"
+    assert status.requires_restart is True
+
+
+def test_host_auth_readiness_allows_root(monkeypatch):
+    monkeypatch.setattr("rakkib.web.host_auth.os.geteuid", lambda: 0)
+
+    status = check_host_auth_readiness()
+
+    assert status.ok is True
+    assert status.command is None

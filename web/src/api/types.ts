@@ -105,6 +105,13 @@ export type SetupRunStatus = {
   log_tail: string[]
   deployed_urls: SetupDeployedUrl[]
   attention: { type: 'cloudflare_auth'; url: string } | null
+  host_auth: {
+    ok: boolean
+    code: string
+    message: string
+    command: string | null
+    requires_restart: boolean
+  }
 }
 
 export type PublicService = {

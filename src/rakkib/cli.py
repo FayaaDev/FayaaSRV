@@ -56,6 +56,7 @@ from rakkib.steps import services as services_step
 from rakkib.steps.cloudflare import _cloudflared_bin, _show_qr
 from rakkib.tui import progress_spinner, prompt_checkbox, prompt_confirm
 from rakkib.util import checkout_dir as _checkout_dir, detect_lan_ip as _detect_lan_ip, resolve_user, web_url as _web_url
+from rakkib.web.host_auth import check_host_auth_readiness
 
 console = Console()
 
@@ -92,6 +93,71 @@ def _resolve_admin_user(state: State, explicit: str | None = None) -> str:
 
 def _stdin_is_interactive() -> bool:
     return sys.stdin.isatty()
+
+
+def _run_auth_setup(ctx: click.Context) -> bool:
+    """Validate sudo and prepare Docker access when possible."""
+    if os.geteuid() == 0:
+        console.print("[green]Already running as root; no sudo validation needed.[/green]")
+        return True
+
+    if shutil.which("sudo") is None:
+        console.print("[red]sudo is required for privileged setup actions on Linux.[/red]")
+        return False
+
+    console.print("[dim]Validating sudo for this terminal. Rakkib will not store your password.[/dim]")
+    result = subprocess.run(["sudo", "-v"], capture_output=True, text=True)
+    if result.returncode != 0:
+        console.print("[red]Sudo validation failed. Run `sudo -v` in your terminal first.[/red]")
+        return False
+    console.print("[green]Sudo is ready for this terminal according to your system sudo policy.[/green]")
+
+    if shutil.which("docker") is None:
+        return True
+
+    repo_dir = ctx.obj["repo_dir"]
+    state_path = repo_dir / ".fss-state.yaml"
+    state = State.load(state_path)
+    user = docker_access_user(state)
+    try:
+        docker_run(["info"])
+        console.print("[green]Docker is already usable by this shell.[/green]")
+        return True
+    except DockerError as exc:
+        if not is_docker_permission_error(exc.stderr or str(exc)):
+            console.print(f"[yellow]Docker is installed but not usable yet:[/yellow] {exc}")
+            return True
+
+    message = prepare_docker_access(user, validate_sudo=False)
+    console.print(f"[dim]{message}[/dim]")
+    if not message.startswith("Docker access was prepared"):
+        console.print("[dim]Manual fallback:[/dim]")
+        console.print(f"[dim]{docker_access_commands(user)}[/dim]")
+        return False
+    console.print(
+        "[green]Docker access is prepared.[/green] "
+        "Open a new shell or run `newgrp docker`, then run `docker info` and `rakkib web`."
+    )
+    return True
+
+
+def _prompt_web_host_auth(ctx: click.Context) -> None:
+    status = check_host_auth_readiness()
+    if status.ok or not _stdin_is_interactive():
+        return
+
+    console.print(f"[yellow]{status.message}[/yellow]")
+    if status.command and prompt_confirm("Run `rakkib auth` now?", default=True):
+        _run_auth_setup(ctx)
+        status = check_host_auth_readiness()
+        if status.ok:
+            console.print("[green]Host authorization is ready for browser deployment.[/green]")
+            return
+        console.print(f"[yellow]{status.message}[/yellow]")
+
+    console.print(
+        "[yellow]Rakkib web will start, but browser deployment will stay blocked until host authorization is ready.[/yellow]"
+    )
 
 
 def _run_steps(state: State, repo_dir: Path) -> bool:
@@ -876,47 +942,8 @@ def uninstall() -> None:
 @click.pass_context
 def auth(ctx: click.Context) -> None:
     """Validate sudo and prepare Docker access when needed."""
-    if os.geteuid() == 0:
-        console.print("[green]Already running as root; no sudo validation needed.[/green]")
-        return
-
-    if shutil.which("sudo") is None:
-        console.print("[red]sudo is required for privileged setup actions on Linux.[/red]")
+    if not _run_auth_setup(ctx):
         ctx.exit(1)
-
-    console.print("[dim]Validating sudo for this terminal. Rakkib will not store your password.[/dim]")
-    result = subprocess.run(["sudo", "-v"], capture_output=True, text=True)
-    if result.returncode != 0:
-        console.print("[red]Sudo validation failed. Run `sudo -v` in your terminal first.[/red]")
-        ctx.exit(1)
-    console.print("[green]Sudo is ready for this terminal according to your system sudo policy.[/green]")
-
-    if shutil.which("docker") is None:
-        return
-
-    repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
-    state = State.load(state_path)
-    user = docker_access_user(state)
-    try:
-        docker_run(["info"])
-        console.print("[green]Docker is already usable by this shell.[/green]")
-        return
-    except DockerError as exc:
-        if not is_docker_permission_error(exc.stderr or str(exc)):
-            console.print(f"[yellow]Docker is installed but not usable yet:[/yellow] {exc}")
-            return
-
-    message = prepare_docker_access(user, validate_sudo=False)
-    console.print(f"[dim]{message}[/dim]")
-    if not message.startswith("Docker access was prepared"):
-        console.print("[dim]Manual fallback:[/dim]")
-        console.print(f"[dim]{docker_access_commands(user)}[/dim]")
-        ctx.exit(1)
-    console.print(
-        "[green]Docker access is prepared.[/green] "
-        "Open a new shell or run `newgrp docker`, then run `docker info` and `rakkib pull`."
-    )
 
 
 @cli.command()
@@ -955,6 +982,8 @@ def web(
 
     if local_only:
         host = "127.0.0.1"
+
+    _prompt_web_host_auth(ctx)
 
     bind_host = host
     if lan and host == "127.0.0.1":
