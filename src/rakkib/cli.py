@@ -6,6 +6,7 @@ Commands: init, pull, update, doctor, status, add, restart, uninstall, privilege
 from __future__ import annotations
 
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from typing import Any
 import click
 from rich.console import Console
 
-from rakkib.docker import DockerError, docker_run, is_docker_permission_error
+from rakkib.docker import DockerError, compose_down, docker_run, is_docker_permission_error
 from rakkib.doctor import (
     attempt_fix_cloudflared,
     attempt_fix_docker,
@@ -343,6 +344,234 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
     _persist_deployed_selection(state)
     state.save(state_path)
     return True
+
+
+def _checkout_dir(repo_dir: Path) -> Path:
+    """Resolve the git checkout root from either the repo root or package dir."""
+    candidates = [repo_dir, repo_dir.parent.parent]
+    for candidate in candidates:
+        if (candidate / ".git").exists():
+            return candidate
+    return repo_dir
+
+
+def _run_best_effort(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, capture_output=True, text=True, check=False, **kwargs)
+
+
+def _remove_path_aggressive(path: Path, *, label: str | None = None) -> bool:
+    """Remove a file, symlink, or directory, falling back to sudo for root-owned paths."""
+    if not path.exists() and not path.is_symlink():
+        return False
+
+    display = label or str(path)
+    try:
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        console.print(f"[green]Removed {display}[/green]")
+        return True
+    except PermissionError:
+        if os.geteuid() != 0 and shutil.which("sudo"):
+            result = _run_best_effort(["sudo", "-n", "rm", "-rf", str(path)])
+            if result.returncode == 0:
+                console.print(f"[green]Removed {display}[/green]")
+                return True
+            detail = (result.stderr or result.stdout or "permission denied").strip()
+            console.print(f"[yellow]Could not remove {display}: {detail}[/yellow]")
+            return False
+        raise
+    except OSError as exc:
+        console.print(f"[yellow]Could not remove {display}: {exc}[/yellow]")
+        return False
+
+
+def _remove_managed_path_blocks(home: Path) -> bool:
+    marker = "# Added by Rakkib: user-local bin on PATH"
+    profiles = [home / ".bashrc", home / ".zshrc", home / ".profile"]
+    removed_any = False
+    for profile in profiles:
+        if not profile.exists():
+            continue
+        content = profile.read_text()
+        if marker not in content:
+            continue
+        lines = content.splitlines()
+        new_lines: list[str] = []
+        skipping = False
+        for line in lines:
+            if line == marker:
+                skipping = True
+                continue
+            if skipping and line == "esac":
+                skipping = False
+                continue
+            if skipping:
+                continue
+            new_lines.append(line)
+        profile.write_text("\n".join(new_lines).rstrip() + "\n")
+        console.print(f"[green]Removed managed PATH block from {profile}[/green]")
+        removed_any = True
+    return removed_any
+
+
+def _remove_rakkib_cron_entries(user: str | None) -> bool:
+    cmd = ["crontab", "-l"] if user is None else ["crontab", "-u", user, "-l"]
+    result = _run_best_effort(cmd)
+    if result.returncode != 0:
+        return False
+
+    lines = result.stdout.splitlines()
+    kept = [line for line in lines if "# RAKKIB:" not in line]
+    if kept == lines:
+        return False
+
+    write_cmd = ["crontab", "-"] if user is None else ["crontab", "-u", user, "-"]
+    write = subprocess.run(write_cmd, input="\n".join(kept) + "\n", text=True, capture_output=True, check=False)
+    if write.returncode == 0:
+        suffix = f" for {user}" if user else ""
+        console.print(f"[green]Removed Rakkib cron entries{suffix}[/green]")
+        return True
+    detail = (write.stderr or write.stdout or "unknown error").strip()
+    console.print(f"[yellow]Could not update crontab: {detail}[/yellow]")
+    return False
+
+
+def _home_for_user(user: str | None) -> Path | None:
+    if not user:
+        return None
+    try:
+        return Path(pwd.getpwnam(user).pw_dir)
+    except KeyError:
+        return None
+
+
+def _cloudflared_homes(state: State, home: Path) -> list[Path]:
+    homes = [home]
+    for user in (state.get("admin_user"), os.environ.get("SUDO_USER")):
+        user_home = _home_for_user(str(user)) if user else None
+        if user_home:
+            homes.append(user_home)
+    if os.geteuid() == 0 or os.environ.get("SUDO_USER"):
+        homes.append(Path("/root"))
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in homes:
+        resolved = candidate.expanduser()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def _remove_cloudflared_artifacts(state: State, home: Path) -> None:
+    for user_home in _cloudflared_homes(state, home):
+        _remove_path_aggressive(user_home / ".cloudflared")
+
+
+def _state_data_root(state: State) -> Path:
+    return Path(state.get("data_root", "/srv"))
+
+
+def _registry_container_names(registry: dict[str, Any]) -> set[str]:
+    names: set[str] = set()
+    for svc in registry.get("services", []):
+        svc_id = str(svc.get("id", "")).strip()
+        if svc_id:
+            names.add(svc_id)
+        container_name = str(svc.get("container_name", "")).strip()
+        if container_name:
+            names.add(container_name)
+    return names
+
+
+def _remove_docker_container(name: str) -> bool:
+    inspect = docker_run(["inspect", name], check=False)
+    if inspect.returncode != 0:
+        return False
+    result = docker_run(["rm", "-f", "-v", name], check=False)
+    if result.returncode == 0:
+        console.print(f"[green]Removed Docker container {name}[/green]")
+        return True
+    detail = (result.stderr or result.stdout or "unknown error").strip()
+    console.print(f"[yellow]Could not remove Docker container {name}: {detail}[/yellow]")
+    return False
+
+
+def _remove_rakkib_docker(state: State, registry: dict[str, Any]) -> None:
+    if shutil.which("docker") is None:
+        console.print("[yellow]Docker not found; skipping Docker container cleanup.[/yellow]")
+        return
+
+    if not state.has("data_root"):
+        console.print("[yellow]No data_root recorded in state; skipping registry Docker container cleanup.[/yellow]")
+        labeled = docker_run(["ps", "-aq", "--filter", "label=com.rakkib"], check=False)
+        if labeled.returncode == 0:
+            for container_id in labeled.stdout.splitlines():
+                if container_id.strip():
+                    _remove_docker_container(container_id.strip())
+        return
+
+    data_root = _state_data_root(state)
+    docker_root = data_root / "docker"
+    if docker_root.exists():
+        for compose_file in sorted(docker_root.glob("*/docker-compose.yml")):
+            compose_dir = compose_file.parent
+            try:
+                compose_down(compose_dir, volumes=True, log_path=data_root / "logs" / f"uninstall-{compose_dir.name}.log")
+                console.print(f"[green]Removed Docker compose project {compose_dir.name}[/green]")
+            except Exception as exc:
+                console.print(f"[yellow]Could not remove Docker compose project {compose_dir.name}: {exc}[/yellow]")
+
+    for name in sorted(_registry_container_names(registry)):
+        _remove_docker_container(name)
+
+    labeled = docker_run(["ps", "-aq", "--filter", "label=com.rakkib"], check=False)
+    if labeled.returncode == 0:
+        for container_id in labeled.stdout.splitlines():
+            if container_id.strip():
+                _remove_docker_container(container_id.strip())
+
+
+def _run_remove_hooks(state: State, registry: dict[str, Any]) -> None:
+    if not state.has("data_root"):
+        return
+
+    data_root = _state_data_root(state)
+    for svc in reversed(registry.get("services", [])):
+        svc_id = svc.get("id")
+        if not svc_id:
+            continue
+        has_artifacts = (data_root / "docker" / svc_id).exists() or (data_root / "data" / svc_id).exists() or bool(svc.get("host_service"))
+        if not has_artifacts:
+            continue
+        try:
+            services_step.remove_single_service(state, str(svc_id))
+        except Exception as exc:
+            console.print(f"[yellow]Best-effort service cleanup for {svc_id} did not fully complete: {exc}[/yellow]")
+
+
+def _remove_data_root(state: State) -> None:
+    data_root = _state_data_root(state)
+    if not state.has("data_root"):
+        console.print("[yellow]No data_root recorded in state; skipping broad data-root removal.[/yellow]")
+        return
+    if str(data_root) in {"/", ""}:
+        console.print("[yellow]Refusing to remove unsafe data_root path.[/yellow]")
+        return
+    _remove_path_aggressive(data_root, label=f"Rakkib data root {data_root}")
+
+
+def _remove_checkout(repo_dir: Path) -> None:
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        console.print("[yellow]Skipping checkout removal under pytest.[/yellow]")
+        return
+    checkout = _checkout_dir(repo_dir)
+    if (checkout / ".git").exists() or (checkout / "pyproject.toml").exists():
+        _remove_path_aggressive(checkout, label=f"Rakkib checkout {checkout}")
 
 
 # ---------------------------------------------------------------------------
@@ -885,54 +1114,55 @@ def restart(ctx: click.Context, service: str | None, restart_all: bool) -> None:
 
 
 @cli.command()
-@click.confirmation_option(prompt="Remove the rakkib CLI shim and PATH entries?")
-def uninstall() -> None:
-    """Remove the user-scoped rakkib command shim and managed PATH blocks."""
-    target = Path.home() / ".local" / "bin" / "rakkib"
-    if target.is_symlink():
-        target.unlink()
-        console.print(f"[green]Removed rakkib CLI shim at {target}[/green]")
-    elif target.exists():
-        console.print(f"[yellow]{target} exists but is not a symlink; not removed[/yellow]")
+@click.confirmation_option(
+    prompt=(
+        "Aggressively remove Rakkib containers, volumes, Cloudflare certificates, "
+        "state, checkout, and the configured data_root directory?"
+    )
+)
+@click.pass_context
+def uninstall(ctx: click.Context) -> None:
+    """Aggressively remove Rakkib-managed host, Docker, Cloudflare, and data-root artifacts."""
+    home = Path.home()
+    repo_dir = Path(ctx.obj["repo_dir"])
+    checkout = _checkout_dir(repo_dir)
+    state_candidates = [repo_dir / ".fss-state.yaml", checkout / ".fss-state.yaml"]
+    state_path = next((path for path in state_candidates if path.exists()), state_candidates[0])
+    state = State.load(state_path)
+    registry = load_service_registry()
+
+    console.print("[bold yellow]Aggressively uninstalling Rakkib...[/bold yellow]")
+
+    _run_remove_hooks(state, registry)
+    _remove_rakkib_docker(state, registry)
+    cron_user = state.get("admin_user") if os.geteuid() == 0 and state.get("admin_user") else None
+    if cron_user:
+        _remove_rakkib_cron_entries(str(cron_user))
+    _remove_rakkib_cron_entries(None)
+    _remove_cloudflared_artifacts(state, home)
+
+    shim = home / ".local" / "bin" / "rakkib"
+    if shim.is_symlink():
+        _remove_path_aggressive(shim, label=f"rakkib CLI shim at {shim}")
+    elif shim.exists():
+        console.print(f"[yellow]{shim} exists but is not a symlink; not removed[/yellow]")
     else:
-        console.print(f"[yellow]No rakkib CLI shim found at {target}[/yellow]")
+        console.print(f"[yellow]No rakkib CLI shim found at {shim}[/yellow]")
 
-    marker = "# Added by Rakkib: user-local bin on PATH"
-    profiles = [
-        Path.home() / ".bashrc",
-        Path.home() / ".zshrc",
-        Path.home() / ".profile",
-    ]
-    removed_any = False
-    for profile in profiles:
-        if not profile.exists():
-            continue
-        content = profile.read_text()
-        if marker not in content:
-            continue
-        lines = content.splitlines()
-        new_lines: list[str] = []
-        skipping = False
-        for line in lines:
-            if line == marker:
-                skipping = True
-                continue
-            if skipping and line == "esac":
-                skipping = False
-                continue
-            if skipping:
-                continue
-            new_lines.append(line)
-        # Preserve single trailing newline
-        profile.write_text("\n".join(new_lines).rstrip() + "\n")
-        console.print(f"[green]Removed managed PATH block from {profile}[/green]")
-        removed_any = True
+    for helper in ("cloudflared-healthcheck.sh",):
+        _remove_path_aggressive(home / ".local" / "bin" / helper)
 
-    if not removed_any:
+    if not _remove_managed_path_blocks(home):
         console.print("[yellow]No managed PATH block found in shell profiles[/yellow]")
 
+    for artifact in (repo_dir / ".rakkib-web-run.log", checkout / ".rakkib-web-run.log", state_path):
+        _remove_path_aggressive(artifact)
+
+    _remove_data_root(state)
+    _remove_checkout(repo_dir)
+
     console.print(
-        "\n[bold]Rakkib CLI shim uninstall is complete.[/bold]\n"
+        "\n[bold]Rakkib aggressive uninstall is complete.[/bold]\n"
         "If this terminal still resolves rakkib, refresh your shell command cache or open a new terminal:\n"
         "  hash -r"
     )

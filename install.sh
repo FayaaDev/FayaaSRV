@@ -326,7 +326,7 @@ If Docker access needs repair for a non-root user, run 'rakkib auth'.
 After it succeeds, open a new shell or run 'newgrp docker', then rerun 'rakkib pull'.
 
 To uninstall:
-  rm -rf ${INSTALL_DIR} ${HOME}/.local/bin/rakkib
+  rakkib uninstall --yes
 
 EOF
 }
