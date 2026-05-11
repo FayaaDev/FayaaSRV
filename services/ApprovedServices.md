@@ -32,9 +32,11 @@ Status meanings:
 | Dashy | `dashy` |
 | Dozzle | `dozzle` |
 | OpenBooks | `openbooks` |
+| DailyTxT | `dailytxt` |
 
 Validation notes:
 - OpenBooks: `rakkib add openbooks --yes`, `rakkib smoke openbooks`, `rakkib remove openbooks --yes`, and re-add passed on the test server using `https://openbooks.vazhs.com/`.
+- DailyTxT: `rakkib add dailytxt --yes`, `rakkib smoke dailytxt`, `rakkib remove dailytxt --yes`, and re-add passed on the test server using `https://dailytxt.vazhs.com/`.
 
 ## Implemented, Pending Testing
 

@@ -15,9 +15,6 @@ Difficulty order:
 - [ ] Grafana (B)
 - [ ] Glances (E)
 
-### Personal And Lifestyle
-- [ ] DailyTxT (B)
-
 ### File Sync And Sharing
 - [ ] Pingvin Share (B)
 
