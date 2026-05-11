@@ -402,7 +402,7 @@ services:
       retries: 3
     smoke:
       path: /
-      expected_text: transfer.sh
+      expected_text: Easy file sharing
     notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
     hooks:
       remove:
