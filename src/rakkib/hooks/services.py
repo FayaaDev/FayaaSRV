@@ -692,7 +692,13 @@ def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) ->
         render_file(sync_script, kuma_data_dir / "sync-monitors.cjs", state)
 
         if container_running("uptime-kuma"):
-            docker_run(["exec", "uptime-kuma", "node", "/app/data/sync-monitors.cjs"])
+            result = docker_run(
+                ["exec", "uptime-kuma", "node", "/app/data/sync-monitors.cjs"],
+                check=False,
+            )
+            if result.returncode != 0:
+                detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+                print(f"Warning: Uptime Kuma monitor sync failed: {detail}")
 
 
 def service_postgres_login_preflight(ctx: HookContext, *legacy_args) -> None:

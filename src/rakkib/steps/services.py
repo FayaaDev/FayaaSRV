@@ -8,6 +8,7 @@ from __future__ import annotations
 from copy import deepcopy
 import functools
 import os
+import pwd
 import socket
 import shutil
 import subprocess
@@ -106,6 +107,36 @@ def _condition_matches(condition: dict, state: State, selected_ids: set[str]) ->
         return False
 
     return True
+
+
+def _ensure_service_runtime_env(state: State) -> None:
+    """Populate common container env values that templates may reference."""
+    if state.get("data_root") is None:
+        state.set("data_root", str(state.data_root))
+    if state.get("docker_net") is None:
+        state.set("docker_net", "caddy_net")
+
+    if state.get("admin_uid") is None or state.get("admin_gid") is None:
+        admin_user = state.get("admin_user") or os.environ.get("SUDO_USER")
+        if admin_user:
+            try:
+                user_info = pwd.getpwnam(str(admin_user))
+                uid = user_info.pw_uid
+                gid = user_info.pw_gid
+            except KeyError:
+                uid = int(os.environ.get("SUDO_UID") or os.getuid())
+                gid = int(os.environ.get("SUDO_GID") or os.getgid())
+        else:
+            uid = int(os.environ.get("SUDO_UID") or os.getuid())
+            gid = int(os.environ.get("SUDO_GID") or os.getgid())
+
+        if state.get("admin_uid") is None:
+            state.set("admin_uid", str(uid))
+        if state.get("admin_gid") is None:
+            state.set("admin_gid", str(gid))
+
+    if state.get("TZ") is None:
+        state.set("TZ", os.environ.get("TZ", "UTC"))
 
 
 def _generate_missing_secrets(state: State) -> None:
@@ -700,6 +731,7 @@ def run(state: State) -> None:
     data_root = state.data_root
     registry = _load_registry()
 
+    _ensure_service_runtime_env(state)
     _generate_missing_secrets(state)
     services = selected_service_defs(state, registry)
 
@@ -724,6 +756,7 @@ def run_single_service(state: State, svc_id: str) -> None:
     if svc_id not in by_id:
         raise ValueError(f"Service {svc_id} not found in registry")
 
+    _ensure_service_runtime_env(state)
     _generate_missing_secrets(state)
     svc = by_id[svc_id]
     _deploy_single_service(state, svc, repo, data_root)

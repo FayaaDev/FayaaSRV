@@ -5,3 +5,4 @@
 - Treat CI runtime deprecation warnings as real maintenance work; update pinned GitHub Actions promptly instead of leaving workflows on deprecated Node runtimes.
 - When a workflow contract changes, update every agent-facing instruction file that repeats that contract (`AGENTS.md`, `CLAUDE.md`, and service-specific variants), not just the first matching doc.
 - When a user specifies selection UX, match the requested default checked state exactly; do not assume pre-checked boxes are more convenient.
+- When asked to validate pending services, continue through the full fix, commit, push, runtime-sync, and bare-metal validation loop unless the user explicitly asks for discovery only.
