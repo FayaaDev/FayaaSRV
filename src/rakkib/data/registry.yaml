@@ -2316,6 +2316,31 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: matter-server
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/matter-js/python-matter-server:stable
+    container_name: matter-server
+    default_port: 5580
+    default_subdomain: null
+    subdomain_key: null
+    subdomain_placeholder: null
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: null
+    data_dirs:
+      - data/matter-server
+    homepage:
+      category: Home Automation
+      name: Matter Server
+      description: Matter controller WebSocket server
+      icon: home-assistant.png
+    notes: "Matter controller WebSocket server. Optional. Uses Docker host networking and apparmor=unconfined for mDNS/IPv6 link-local discovery; no Caddy route is created. Real Matter commissioning requires a flat IPv6-capable LAN with multicast working, suitable Thread border routers for Thread devices, and optional Bluetooth/D-Bus hardware for local commissioning."
+
   - id: ollama-cpu
     state_bucket: selected_services
     required: false
