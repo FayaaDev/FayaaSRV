@@ -22,10 +22,13 @@ Status meanings:
 | CyberChef | `cyberchef` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add cyberchef --yes`, readiness wait, `rakkib smoke cyberchef`, remove, re-add, and re-smoke in Cloudflare mode. |
 | Whoami | `whoami` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add whoami --yes`, readiness wait, `rakkib smoke whoami`, remove, re-add, and re-smoke in Cloudflare mode. |
 | Moodist | `moodist` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add moodist --yes`, readiness wait, `rakkib smoke moodist`, remove, re-add, and re-smoke in Cloudflare mode. |
+| PairDrop | `pairdrop` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add pairdrop --yes`, readiness wait, `rakkib smoke pairdrop`, remove, re-add, and re-smoke in Cloudflare mode. |
 | Draw.io | `drawio` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add drawio --yes`, readiness wait, `rakkib smoke drawio`, remove, re-add, and re-smoke in Cloudflare mode. |
 | Excalidraw | `excalidraw` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add excalidraw --yes`, readiness wait, `rakkib smoke excalidraw`, remove, re-add, and re-smoke in Cloudflare mode. |
 | Whoogle | `whoogle` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add whoogle --yes`, readiness wait, `rakkib smoke whoogle`, remove, re-add, and re-smoke in Cloudflare mode. |
 | PrivateBin | `privatebin` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add privatebin --yes`, readiness wait, `rakkib smoke privatebin`, remove, re-add, and re-smoke in Cloudflare mode. |
+| Homer | `homer` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add homer --yes`, readiness wait, `rakkib smoke homer`, remove, re-add, and re-smoke in Cloudflare mode. |
+| Glance | `glance` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add glance --yes`, readiness wait, `rakkib smoke glance`, remove, re-add, and re-smoke in Cloudflare mode. |
 
 ## Implemented, Pending Testing
 
@@ -37,7 +40,6 @@ Status meanings:
 | n8n | `n8n` | selected_services |
 | Immich | `immich` | selected_services |
 | Jellyfin | `jellyfin` | selected_services |
-| PairDrop | `pairdrop` | selected_services |
 | Hermes Agent | `hermes-agent` | selected_services |
 | Chatpad AI | `chatpad` | selected_services |
 | Lobe Chat | `lobe-chat` | selected_services |
@@ -50,9 +52,7 @@ Status meanings:
 | Flowise | `flowise` | selected_services |
 | Serge | `serge` | selected_services |
 | Anse | `anse` | selected_services |
-| Homer | `homer` | selected_services |
 | Dozzle | `dozzle` | selected_services |
-| Glance | `glance` | selected_services |
 | Dashy | `dashy` | selected_services |
 | Beszel | `beszel` | selected_services |
 | Autoheal | `autoheal` | selected_services |
