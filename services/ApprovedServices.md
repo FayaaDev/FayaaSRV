@@ -31,6 +31,9 @@ Status meanings:
 | Glance | `glance` |
 | Dashy | `dashy` |
 | Dozzle | `dozzle` |
+| Glances | `glances` |
+
+Validation notes: Glances validated on the test server in internal exposure mode with installer-first targeted add, direct LAN port `13042`, no Caddy route, `rakkib smoke glances`, `rakkib remove glances --yes`, and successful re-add.
 | OpenBooks | `openbooks` |
 | DailyTxT | `dailytxt` |
 

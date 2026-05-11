@@ -13,7 +13,6 @@ Difficulty order:
 
 ### Monitoring
 - [ ] Grafana (B)
-- [ ] Glances (E)
 
 ### File Sync And Sharing
 - [ ] Pingvin Share (B)
