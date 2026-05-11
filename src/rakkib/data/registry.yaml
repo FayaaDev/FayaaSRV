@@ -297,6 +297,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: n8n
     notes: "Workflow automation. NEVER rotate N8N_ENCRYPTION_KEY after first run. Uses the upstream n8nio/n8n image."
     hooks:
       pre_start:
@@ -351,6 +354,10 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Immich
+      timeout: 60
     notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
     hooks:
       remove:
@@ -434,6 +441,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Jellyfin
     notes: "Media server. Optional. Self-hosted streaming for movies, TV, music, and photos."
     hooks:
       remove:
@@ -452,6 +462,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13009
+      container_port: 80
     caddy:
       template: filebrowser-public.caddy.tmpl
     data_dirs:
@@ -499,6 +513,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13010
+      container_port: 80
     caddy:
       template: webdav-public.caddy.tmpl
     data_dirs:
@@ -553,6 +571,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13011
+      container_port: 80
     caddy:
       template: it-tools-public.caddy.tmpl
     homepage:
@@ -589,6 +611,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13012
+      container_port: 8080
     caddy:
       template: cyberchef-public.caddy.tmpl
     homepage:
@@ -625,6 +651,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13013
+      container_port: 80
     caddy:
       template: whoami-public.caddy.tmpl
     homepage:
@@ -664,6 +694,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13014
+      container_port: 3000
     caddy:
       template: pairdrop-public.caddy.tmpl
     data_dirs:
@@ -702,6 +736,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13015
+      container_port: 8080
     caddy:
       template: moodist-public.caddy.tmpl
     homepage:
@@ -740,6 +778,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13016
+      container_port: 9119
     caddy:
       template: hermes-agent-public.caddy.tmpl
     data_dirs:
@@ -778,6 +820,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13017
+      container_port: 80
     caddy:
       template: chatpad-public.caddy.tmpl
     homepage:
@@ -817,6 +863,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13018
+      container_port: 3210
     caddy:
       template: lobe-chat-public.caddy.tmpl
     homepage:
@@ -856,6 +906,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13019
+      container_port: 8080
     caddy:
       template: open-webui-public.caddy.tmpl
     data_dirs:
@@ -899,6 +953,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13020
+      container_port: 3000
     caddy:
       template: forgejo-public.caddy.tmpl
     data_dirs:
@@ -951,6 +1009,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13021
+      container_port: 8080
     caddy:
       template: drawio-public.caddy.tmpl
     homepage:
@@ -987,6 +1049,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13022
+      container_port: 80
     caddy:
       template: excalidraw-public.caddy.tmpl
     homepage:
@@ -1037,6 +1103,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /healthz
+      expected_text: ok
     hooks:
       pre_start:
         - openclaw_install
@@ -1117,6 +1186,11 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13023
+      container_port: 80
+      compose_service: cheshire-cat-ai
     caddy:
       template: cheshire-cat-ai-public.caddy.tmpl
     data_dirs:
@@ -1159,6 +1233,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13024
+      container_port: 3000
     caddy:
       template: flowise-public.caddy.tmpl
     data_dirs:
@@ -1199,6 +1277,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13025
+      container_port: 8008
     caddy:
       template: serge-public.caddy.tmpl
     secrets:
@@ -1250,6 +1332,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13026
+      container_port: 3000
     caddy:
       template: anse-public.caddy.tmpl
     secrets:
@@ -1290,6 +1376,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13027
+      container_port: 8080
     caddy:
       template: homer-public.caddy.tmpl
     data_dirs:
@@ -1331,6 +1421,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13028
+      container_port: 8080
     caddy:
       template: dozzle-public.caddy.tmpl
     homepage:
@@ -1416,6 +1510,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13029
+      container_port: 8080
     caddy:
       template: glance-public.caddy.tmpl
     data_dirs:
@@ -1457,6 +1555,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13030
+      container_port: 8080
     caddy:
       template: dashy-public.caddy.tmpl
     data_dirs:
@@ -1501,6 +1603,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13031
+      container_port: 8090
     caddy:
       template: beszel-public.caddy.tmpl
     data_dirs:
@@ -1574,6 +1680,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13032
+      container_port: 80
     caddy:
       template: freshrss-public.caddy.tmpl
     data_dirs:
@@ -1616,6 +1726,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13033
+      container_port: 5006
     caddy:
       template: actual-budget-public.caddy.tmpl
     data_dirs:
@@ -1649,6 +1763,11 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13034
+      container_port: 1200
+      compose_service: rsshub
     caddy:
       template: rsshub-public.caddy.tmpl
     data_dirs:
@@ -1682,6 +1801,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13035
+      container_port: 80
     caddy:
       template: vaultwarden-public.caddy.tmpl
     data_dirs:
@@ -1718,6 +1841,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13036
+      container_port: 3000
     caddy:
       template: adguard-public.caddy.tmpl
     data_dirs:
@@ -1752,6 +1879,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13037
+      container_port: 5000
     caddy:
       template: whoogle-public.caddy.tmpl
     data_dirs:
@@ -1789,6 +1920,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13038
+      container_port: 8080
     caddy:
       template: stirling-pdf-public.caddy.tmpl
     data_dirs:
@@ -1829,6 +1964,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13039
+      container_port: 9000
     caddy:
       template: mealie-public.caddy.tmpl
     data_dirs:
@@ -1869,6 +2008,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13040
+      container_port: 3000
     caddy:
       template: gitea-public.caddy.tmpl
     data_dirs:
@@ -1915,6 +2058,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13041
+      container_port: 8080
     caddy:
       template: privatebin-public.caddy.tmpl
     data_dirs:
