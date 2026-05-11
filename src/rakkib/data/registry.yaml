@@ -610,6 +610,53 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: pingvin-share
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: stonith404/pingvin-share:latest
+    default_port: 3000
+    default_subdomain: pingvin
+    subdomain_key: pingvin-share
+    subdomain_placeholder: PINGVIN_SHARE_SUBDOMAIN
+    env_keys:
+      - ADMIN_UID
+      - ADMIN_GID
+      - PINGVIN_TRUST_PROXY
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13050
+      container_port: 3000
+    caddy:
+      template: pingvin-share-public.caddy.tmpl
+    data_dirs:
+      - data/pingvin-share/data
+      - data/pingvin-share/images
+    homepage:
+      category: File Sharing
+      name: Pingvin Share
+      description: WeTransfer-style file sharing
+      icon: pingvin-share.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Pingvin Share
+      timeout: 60
+    notes: "WeTransfer-style file sharing. Optional. Stores uploads under data/pingvin-share/data; upstream is archived, so treat updates as best-effort."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: it-tools
     state_bucket: selected_services
     required: false

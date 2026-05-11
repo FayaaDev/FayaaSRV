@@ -92,6 +92,11 @@ service_catalog:
       numeric_alias: 50
       subdomain_key: webdav
       default_subdomain: webdav
+    - slug: pingvin-share
+      label: Pingvin Share
+      numeric_alias: 63
+      subdomain_key: pingvin-share
+      default_subdomain: pingvin
     - slug: it-tools
       label: IT-Tools
       numeric_alias: 13
@@ -338,7 +343,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, esphome, notemark, memos, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
+    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, pingvin-share, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, esphome, notemark, memos, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -351,6 +356,7 @@ fields:
       "37": anse
       "12": filebrowser
       "50": webdav
+      "63": pingvin-share
       "13": it-tools
       "14": cyberchef
       "15": drawio
@@ -461,6 +467,7 @@ Media:
 File Sharing:
   [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
   [ ] 12 File Browser  — browser file manager   →  files.<domain>
+  [ ] 63 Pingvin Share — WeTransfer-style sharing →  pingvin.<domain>
 
 AI:
   [ ] 10 OpenClaw      — AI assistant gateway   →  claw.<domain>
@@ -608,6 +615,7 @@ subdomains:
   lobe-chat: lobe
   open-webui: webui
   filebrowser: files
+  pingvin-share: pingvin
   it-tools: tools
   cyberchef: cyberchef
   forgejo: forgejo
@@ -663,6 +671,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.open-webui` -> `{{OPEN_WEBUI_SUBDOMAIN}}`
 - `subdomains.filebrowser` -> `{{FILEBROWSER_SUBDOMAIN}}`
 - `subdomains.webdav` -> `{{WEBDAV_SUBDOMAIN}}`
+- `subdomains.pingvin-share` -> `{{PINGVIN_SHARE_SUBDOMAIN}}`
 - `subdomains.it-tools` -> `{{IT_TOOLS_SUBDOMAIN}}`
 - `subdomains.cyberchef` -> `{{CYBERCHEF_SUBDOMAIN}}`
 - `subdomains.forgejo` -> `{{FORGEJO_SUBDOMAIN}}`
