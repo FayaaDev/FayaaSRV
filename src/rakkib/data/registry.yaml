@@ -1344,6 +1344,53 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: homarr
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/homarr-labs/homarr:latest
+    default_port: 7575
+    default_subdomain: homarr
+    subdomain_key: homarr
+    subdomain_placeholder: HOMARR_SUBDOMAIN
+    env_keys:
+      - HOMARR_SECRET_ENCRYPTION_KEY
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13008
+      container_port: 7575
+    caddy:
+      template: homarr-public.caddy.tmpl
+    data_dirs:
+      - data/homarr/appdata
+    secrets:
+      HOMARR_SECRET_ENCRYPTION_KEY:
+        factory: hex_key
+        length: 64
+    homepage:
+      category: Dashboards
+      name: Homarr
+      description: Modern server dashboard
+      icon: homarr.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Homarr
+    notes: "Modern server dashboard. Optional. Mounts Docker socket read-only for container integrations; Docker socket access can still expose host control, so restrict access at the Caddy or network layer. Uses a generated SECRET_ENCRYPTION_KEY persisted in state."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: glance
     state_bucket: selected_services
     required: false

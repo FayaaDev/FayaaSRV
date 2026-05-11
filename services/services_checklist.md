@@ -11,9 +11,6 @@ Difficulty order:
 
 ## Non-Implemented Services
 
-### Dashboards
-- [ ] Homarr (B)
-
 ### Books And Reading
 - [ ] openbooks (B)
 

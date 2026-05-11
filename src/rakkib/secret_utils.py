@@ -28,6 +28,11 @@ def generate_secret_key(length: int = 50) -> str:
     return "".join(_SYSTEM_RANDOM.choice(ALPHANUMERIC) for _ in range(length))
 
 
+def generate_hex_key(length: int = 64) -> str:
+    """Return a random lowercase hexadecimal secret key."""
+    return os.urandom((length + 1) // 2).hex()[:length]
+
+
 def token_urlsafe(nbytes: int = 32) -> str:
     """Return a URL-safe random token without importing the stdlib secrets module."""
     return base64.urlsafe_b64encode(os.urandom(nbytes)).rstrip(b"=").decode("ascii")
@@ -41,6 +46,7 @@ def compare_digest(a: str | bytes, b: str | bytes) -> bool:
 FACTORIES: dict[str, Callable[..., str]] = {
     "password": generate_password,
     "secret_key": generate_secret_key,
+    "hex_key": generate_hex_key,
 }
 
 

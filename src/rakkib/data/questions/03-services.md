@@ -117,6 +117,11 @@ service_catalog:
       numeric_alias: 18
       subdomain_key: dozzle
       default_subdomain: dozzle
+    - slug: homarr
+      label: Homarr
+      numeric_alias: 53
+      subdomain_key: homarr
+      default_subdomain: homarr
     - slug: glance
       label: Glance
       numeric_alias: 19
@@ -283,7 +288,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, homarr, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -301,6 +306,7 @@ fields:
       "16": excalidraw
       "17": homer
       "18": dozzle
+      "53": homarr
       "19": glance
       "20": dashy
       "21": beszel
@@ -422,6 +428,7 @@ Diagram And Design:
 
 Dashboards:
   [ ] 17 Homer         — static server homepage →  homer.<domain>
+  [ ] 53 Homarr        — modern server dashboard →  homarr.<domain>
   [ ] 19 Glance        — glanceable dashboard    →  glance.<domain>
   [ ] 20 Dashy         — customisable dashboard  →  dashy.<domain>
 
@@ -530,6 +537,7 @@ subdomains:
   drawio: drawio
   excalidraw: excalidraw
   homer: homer
+  homarr: homarr
   dozzle: dozzle
   glance: glance
   dashy: dashy
@@ -575,6 +583,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.drawio` -> `{{DRAWIO_SUBDOMAIN}}`
 - `subdomains.excalidraw` -> `{{EXCALIDRAW_SUBDOMAIN}}`
 - `subdomains.homer` -> `{{HOMER_SUBDOMAIN}}`
+- `subdomains.homarr` -> `{{HOMARR_SUBDOMAIN}}`
 - `subdomains.dozzle` -> `{{DOZZLE_SUBDOMAIN}}`
 - `subdomains.glance` -> `{{GLANCE_SUBDOMAIN}}`
 - `subdomains.dashy` -> `{{DASHY_SUBDOMAIN}}`

@@ -25,16 +25,18 @@ and the agent implements the service in the Rakkib app (registry + templates + h
 ## Branch Rules
 
 - **All commits go to `main`.** Never commit service work directly to `runtime`.
-- After pushing to `main`, regenerate `runtime` with `scripts/runtime-branch.sh sync --push`. The test server installs from `runtime` by default.
+- For every service implementation or service-definition change, commit the completed work to `main`, push `main`, then regenerate `runtime` with `scripts/runtime-branch.sh sync --push` before test-server validation. The test server installs from `runtime` by default.
 - Do not hand-edit `runtime` and do not copy files outside the runtime allowlist.
 
 ## Hard Requirements
 
 1. Mandatory test-server validation for EVERY new service
 
+Service work is not complete until the implementation has been committed, pushed to `main`, synced to `runtime`, and validated on the test server.
+
 Run deployments on the test server (not this machine):
 
-sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
+sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
 
 Validation must follow the service-targeted bare-metal flow:
 - `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
@@ -48,6 +50,8 @@ Do not run `rakkib init` or full `rakkib pull` for normal new-service validation
 - reserve full `rakkib pull` only for explicit whole-server validation; it skips already-running selected services but still runs global setup
 - validate `rakkib remove <service> --yes` cleanup and re-add the service after removal when adding or changing service definitions
 - for services that support `exposure_mode: internal`, confirm Caddy/Cloudflare are skipped, the direct LAN port is published, and smoke uses the LAN URL
+- if validation succeeds, close the related `bd` issue and report exactly that the service is implemented successfully and tested
+- if validation fails, leave the related `bd` issue open, document the issue and failing command/output, and report the blocking issue instead of claiming success
 
 2. Mandatory skill usage
 
