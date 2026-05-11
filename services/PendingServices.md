@@ -11,9 +11,6 @@ Difficulty order:
 
 ## Non-Implemented Services
 
-### Books And Reading
-- [ ] openbooks (B)
-
 ### Monitoring
 - [ ] Grafana (B)
 - [ ] Glances (E)

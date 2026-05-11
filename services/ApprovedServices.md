@@ -31,6 +31,10 @@ Status meanings:
 | Glance | `glance` |
 | Dashy | `dashy` |
 | Dozzle | `dozzle` |
+| OpenBooks | `openbooks` |
+
+Validation notes:
+- OpenBooks: `rakkib add openbooks --yes`, `rakkib smoke openbooks`, `rakkib remove openbooks --yes`, and re-add passed on the test server using `https://openbooks.vazhs.com/`.
 
 ## Implemented, Pending Testing
 
