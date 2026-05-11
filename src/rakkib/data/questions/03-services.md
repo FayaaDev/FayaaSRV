@@ -197,6 +197,11 @@ service_catalog:
       numeric_alias: 30
       subdomain_key: mealie
       default_subdomain: mealie
+    - slug: dailytxt
+      label: DailyTxT
+      numeric_alias: 55
+      subdomain_key: dailytxt
+      default_subdomain: dailytxt
     - slug: gitea
       label: Gitea
       numeric_alias: 31
@@ -298,7 +303,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -332,6 +337,7 @@ fields:
       "28": privatebin
       "29": stirling-pdf
       "30": mealie
+      "55": dailytxt
       "31": gitea
       "32": whoami
       "33": pairdrop
@@ -467,6 +473,7 @@ Search:
 
 Lifestyle:
   [ ] 30 Mealie        — recipe manager         →  mealie.<domain>
+  [ ] 55 DailyTxT      — encrypted diary        →  dailytxt.<domain>
 
 Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
@@ -567,6 +574,7 @@ subdomains:
   adguard: adguard
   whoogle: whoogle
   mealie: mealie
+  dailytxt: dailytxt
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -615,3 +623,4 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.adguard` -> `{{ADGUARD_SUBDOMAIN}}`
 - `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
 - `subdomains.mealie` -> `{{MEALIE_SUBDOMAIN}}`
+- `subdomains.dailytxt` -> `{{DAILYTXT_SUBDOMAIN}}`

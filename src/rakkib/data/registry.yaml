@@ -2081,6 +2081,56 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: dailytxt
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: phitux/dailytxt:2.6.1
+    default_port: 80
+    default_subdomain: dailytxt
+    subdomain_key: dailytxt
+    subdomain_placeholder: DAILYTXT_SUBDOMAIN
+    env_keys:
+      - DAILYTXT_SECRET_TOKEN
+      - DAILYTXT_ADMIN_PASSWORD
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13043
+      container_port: 80
+    caddy:
+      template: dailytxt-public.caddy.tmpl
+    data_dirs:
+      - data/dailytxt
+    secrets:
+      DAILYTXT_SECRET_TOKEN:
+        factory: password
+        length: 48
+      DAILYTXT_ADMIN_PASSWORD:
+        factory: password
+    homepage:
+      category: Lifestyle
+      name: DailyTxT
+      description: Encrypted diary and journal
+      icon: dailytxt.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: DailyTxT
+    notes: "Encrypted diary and journal web app. Optional. Stores encrypted journal data and uploads under data/dailytxt; registration is enabled initially for first-user setup."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: gitea
     state_bucket: selected_services
     required: false
