@@ -1887,6 +1887,49 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: wallos
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: bellamy/wallos:latest
+    default_port: 80
+    default_subdomain: wallos
+    subdomain_key: wallos
+    subdomain_placeholder: WALLOS_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13051
+      container_port: 80
+    caddy:
+      template: wallos-public.caddy.tmpl
+    data_dirs:
+      - data/wallos/db
+      - data/wallos/logos
+    homepage:
+      category: Finance
+      name: Wallos
+      description: Subscription and expense tracker
+      icon: wallos.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Wallos
+    notes: "Personal subscription and expense tracker. Optional. Stores its SQLite database and uploaded logos under data/wallos."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: rsshub
     state_bucket: selected_services
     required: false

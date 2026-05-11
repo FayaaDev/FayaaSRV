@@ -162,6 +162,11 @@ service_catalog:
       numeric_alias: 23
       subdomain_key: actual-budget
       default_subdomain: actual
+    - slug: wallos
+      label: Wallos
+      numeric_alias: 64
+      subdomain_key: wallos
+      default_subdomain: wallos
     - slug: rsshub
       label: RSSHub
       numeric_alias: 24
@@ -308,7 +313,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -335,6 +340,7 @@ fields:
       "22": freshrss
       "57": openbooks
       "23": actual-budget
+      "64": wallos
       "24": rsshub
       "25": vaultwarden
       "49": adguard
@@ -470,6 +476,7 @@ Books:
 
 Finance:
   [ ] 23 Actual Budget — personal finance       →  actual.<domain>
+  [ ] 64 Wallos        — subscriptions tracker  →  wallos.<domain>
 
 Security:
   [ ] 25 Vaultwarden   — password manager       →  vault.<domain>
@@ -577,6 +584,7 @@ subdomains:
   freshrss: freshrss
   openbooks: openbooks
   actual-budget: actual
+  wallos: wallos
   rsshub: rsshub
   vaultwarden: vault
   adguard: adguard
@@ -627,6 +635,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.freshrss` -> `{{FRESHRSS_SUBDOMAIN}}`
 - `subdomains.openbooks` -> `{{OPENBOOKS_SUBDOMAIN}}`
 - `subdomains.actual-budget` -> `{{ACTUAL_BUDGET_SUBDOMAIN}}`
+- `subdomains.wallos` -> `{{WALLOS_SUBDOMAIN}}`
 - `subdomains.rsshub` -> `{{RSSHUB_SUBDOMAIN}}`
 - `subdomains.vaultwarden` -> `{{VAULTWARDEN_SUBDOMAIN}}`
 - `subdomains.adguard` -> `{{ADGUARD_SUBDOMAIN}}`
