@@ -19,7 +19,7 @@ Use `bd` for task tracking.
 
 When OpenCode is launched inside `Rakkib/services`, the user can:
 - mention a service name (example: "Vaultwarden", "File Browser"), or
-- reference a list file here (examples: `services_checklist.md`, `batch1.md`, `batchx.md`, `MoreServices/*.md`),
+- reference a list file here (examples: `services_checklist.md`, `MoreServices/*.md`),
 and the agent implements the service in the Rakkib app (registry + templates + hooks + verification updates).
 
 ## Branch Rules

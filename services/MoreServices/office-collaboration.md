@@ -5,7 +5,6 @@ Cal.com | https://github.com/calcom/cal.com | Scheduling infrastructure for abso
 Grist | https://github.com/gristlabs/grist-core | Grist is the evolution of spreadsheets.
 Kanboard | https://github.com/kanboard/kanboard | Open Source Kanban Board
 Kimai | https://github.com/kimai/kimai | Open source time-tracker
-NocoDB | https://github.com/nocodb/nocodb | Open Source Airtable Alternative
 Odoo | https://github.com/odoo/odoo | Open-source business management software with modular applications for streamlined operations.
 Peppermint | https://github.com/Peppermint-Lab/peppermint | An open source ticket management & help desk solution.
 Planka | https://github.com/plankanban/planka | Free open source kanban board for workgroups.

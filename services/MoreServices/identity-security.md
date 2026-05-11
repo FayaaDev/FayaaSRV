@@ -1,6 +1,5 @@
 # Identity And Security Services
 
-Adguard | https://github.com/AdguardTeam | World's most advanced adblocker!
 Adguard Home Sync | https://github.com/bakito/adguardhome-sync | Synchronize AdGuard Home config to replicas
 Authentik | https://github.com/goauthentik/authentik | The authentication glue you need.
 Crowdsec | https://github.com/crowdsecurity/crowdsec | Participative security solution offering crowdsourced protection against malicious IPs and access to the most advanced real-world CTI.

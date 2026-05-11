@@ -36,6 +36,28 @@ class TestWriteCrontab:
         cron_step._write_crontab(["line1"], user="admin")
         assert mock_run.call_args[0][0] == ["crontab", "-u", "admin", "-"]
 
+    @patch("rakkib.steps.cron._cron_spool_diagnostics", return_value="cron spool diagnostic")
+    @patch("rakkib.steps.cron.subprocess.run")
+    def test_failed_write_includes_actionable_diagnostics(
+        self,
+        mock_run: MagicMock,
+        mock_diagnostics: MagicMock,
+    ):
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stderr="/var/spool/cron/: mkstemp: Operation not permitted\n",
+            stdout="",
+        )
+
+        with pytest.raises(RuntimeError) as excinfo:
+            cron_step._write_crontab(["line1"], user="root")
+
+        message = str(excinfo.value)
+        assert "crontab -u root -" in message
+        assert "mkstemp: Operation not permitted" in message
+        assert "cron spool diagnostic" in message
+        mock_diagnostics.assert_called_once_with()
+
 
 class TestInstallCronEntry:
     def test_adds_new_entry(self):

@@ -1,7 +1,6 @@
 # DNS And Network Services
 
 Cloudflare DDNS | https://github.com/joshuaavalon/docker-cloudflare | Update DNS records on Cloudflare.
-Cloudflared | https://github.com/WisdomSky/Cloudflared-web | Cloudflare Tunnels in a Web UI
 DDNS Updater | https://github.com/qdm12/ddns-updater | Program to keep DNS A and/or AAAA records updated for multiple DNS providers.
 Duck DNS | https://github.com/linuxserver/docker-duckdns | Duck DNS is a free Dynamic DNS service
 gandi-livedns | https://github.com/jbbodart/gandi-livedns | Update your Gandi DNS zone records with your WAN IP

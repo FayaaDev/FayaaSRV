@@ -12,8 +12,6 @@ Hoarder | https://github.com/hoarder-app/hoarder | Self-hostable bookmark-everyt
 Joplin Server | https://github.com/laurent22/joplin | Note taking and to-do application with synchronisation
 Kiwix Server | https://github.com/kiwix/kiwix-tools/ | Kiwix Server is a web server for hosting .zim files
 Linkwarden | https://github.com/linkwarden/linkwarden | A self-hosted, open-source collaborative bookmark manager
-Memos | https://github.com/usememos/memos | Memo hub for knowledge management and collaboration.
-Notemark | https://github.com/enchant97/note-mark/ | Lighting fast web-based Markdown notes app.
 Obsidian LiveSync | https://github.com/vrtmrz/self-hosted-livesync-server | LiveSync couchdb backend for Obsidian
 Outline | https://github.com/outline/outline | A home for all your docs
 Paperless-ngx | https://github.com/paperless-ngx/paperless-ngx | Document Management System (DMS)
