@@ -18,9 +18,6 @@ Difficulty order:
 - [ ] Memos (B)
 - [ ] Notemark (B)
 
-### Finance
-- [ ] Wallos (B)
-
 ### AI
 - [ ] SpaceAgent (B)
 

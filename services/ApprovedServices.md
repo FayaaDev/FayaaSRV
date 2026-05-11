@@ -38,6 +38,7 @@ Validation notes: Glances validated on the test server in internal exposure mode
 Validation notes: Grafana validated on the test server in internal exposure mode with installer-first targeted add, direct LAN port `13045`, no Caddy route, `rakkib smoke grafana`, `rakkib remove grafana --yes`, and successful re-add.
 | OpenBooks | `openbooks` |
 | DailyTxT | `dailytxt` |
+| Wallos | `wallos` |
 
 Validation notes:
 - OpenBooks: `rakkib add openbooks --yes`, `rakkib smoke openbooks`, `rakkib remove openbooks --yes`, and re-add passed on the test server using `https://openbooks.vazhs.com/`.
