@@ -1,4 +1,4 @@
-# Rakkib Service Implementation Checklist
+# Pending Services
 
 This checklist tracks services that are not yet implemented in `src/rakkib/data/registry.yaml`.
 

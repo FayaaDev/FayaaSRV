@@ -19,7 +19,7 @@ Use `bd` for task tracking.
 
 When OpenCode is launched inside `Rakkib/services`, the user can:
 - mention a service name (example: "Vaultwarden", "File Browser"), or
-- reference a list file here (examples: `services_checklist.md`, `MoreServices/*.md`),
+- reference a list file here (examples: `PendingServices.md`, `MoreServices/*.md`),
 and the agent implements the service in the Rakkib app (registry + templates + hooks + verification updates).
 
 ## Branch Rules
@@ -33,6 +33,11 @@ and the agent implements the service in the Rakkib app (registry + templates + h
 1. Mandatory test-server validation for EVERY new service
 
 Service work is not complete until the implementation has been committed, pushed to `main`, synced to `runtime`, and validated on the test server.
+
+Before implementing a service, check `PendingServices.md` and `ApprovedServices.md`:
+- if the service is in `PendingServices.md`, implement and test it, then remove it from `PendingServices.md` after successful validation
+- if the service is already in `ApprovedServices.md` as `Implemented and tested`, do not reimplement it unless the user asks for a change
+- if the service is in `ApprovedServices.md` as `Implemented, pending testing`, validate it before changing its status
 
 Run deployments on the test server (not this machine):
 
@@ -50,6 +55,7 @@ Do not run `rakkib init` or full `rakkib pull` for normal new-service validation
 - reserve full `rakkib pull` only for explicit whole-server validation; it skips already-running selected services but still runs global setup
 - validate `rakkib remove <service> --yes` cleanup and re-add the service after removal when adding or changing service definitions
 - for services that support `exposure_mode: internal`, confirm Caddy/Cloudflare are skipped, the direct LAN port is published, and smoke uses the LAN URL
+- after successful validation, mark the service in `ApprovedServices.md` as `Implemented and tested` with concise validation notes
 - if validation succeeds, close the related `bd` issue and report exactly that the service is implemented successfully and tested
 - if validation fails, leave the related `bd` issue open, document the issue and failing command/output, and report the blocking issue instead of claiming success
 
@@ -92,5 +98,5 @@ Do not hand-roll the workflow; the skill is the contract for registry fields, te
 
 ## How To Handle User Requests
 
-- If the user gives a service name: locate it in `services_checklist.md`, `batch1.md`, `batchx.md`, or `MoreServices/*.md`; if it is not there, add it to the most appropriate list.
+- If the user gives a service name: locate it in `PendingServices.md`, `ApprovedServices.md`, `batch1.md`, `batchx.md`, or `MoreServices/*.md`; if it is not there, add it to the most appropriate list.
 - If the name is missing/ambiguous: ask for the upstream repo URL and whether it needs Postgres.

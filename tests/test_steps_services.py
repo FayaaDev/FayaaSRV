@@ -462,6 +462,31 @@ class TestRunSingleService:
         mock_reload.assert_called_once()
         mock_sync.assert_called_once()
 
+    def test_runtime_env_defaults_render_for_service_env(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("TZ", raising=False)
+        data_root = tmp_path / "srv"
+        state = State(
+            {
+                "exposure_mode": "internal",
+                "data_root": str(data_root),
+                "docker_net": "caddy_net",
+                "selected_services": ["pairdrop"],
+            }
+        )
+
+        with (
+            patch("rakkib.steps.services.compose_up"),
+            patch("rakkib.steps.services.health_check", return_value=True),
+            patch("rakkib.steps.services.sync_shared_artifacts"),
+        ):
+            services_step.run_single_service(state, "pairdrop")
+
+        env_text = (data_root / "docker" / "pairdrop" / ".env").read_text()
+        assert "ADMIN_UID=" in env_text
+        assert "ADMIN_GID=" in env_text
+        assert "TZ=UTC" in env_text
+        assert "{{" not in env_text
+
     @patch("rakkib.steps.services._repo_dir")
     def test_raises_for_unknown_service(self, mock_repo, fake_repo, tmp_path):
         mock_repo.return_value = fake_repo

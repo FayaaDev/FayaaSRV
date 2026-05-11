@@ -12,11 +12,22 @@
   - `bd update <id> --notes "..." --acceptance "..." --priority 1 --json`
 - Close when done: `bd close <id> --reason "Done" --json`
 
+## Follow these THREE rules. Treat them as your bible. 
+
+## Rule 1 — Think Before Coding.
+No silent assumptions. State what you're assuming. Surface tradeoffs. Ask before guessing. Push back when a simpler approach exists.
+
+## Rule 2 — Simplicity First.
+Minimum code that solves the problem. No speculative features. No abstractions for single-use code. If a senior engineer would call it overcomplicated — simplify.
+
+## Rule 3 — Surgical Changes.
+Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor what isn't broken. Match existing style.
+
 ## This project boots new servers
 
 Assume the target machine is **bare metal** — only `curl`, `git`, and `python3` may be present. The `install.sh` script is the sole entry point. It must bring up everything else (venv, pip, rakkib CLI) without pre-existing tooling.
 
-sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
+sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
 
 - Bare-metal install and runtime validation happen on the test server, not the dev workstation. Do not treat local tests as a substitute for fresh-server validation.
 - Local developer regression baseline after Python changes: run `python3 -m py_compile <changed-python-files>` and the relevant pytest target through the project venv, usually `.venv/bin/python -m pytest <target>`.

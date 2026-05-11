@@ -2,6 +2,20 @@
 
 This is the checklist for adding any new service to Rakkib.
 
+## Service Tracking Flow
+
+1. Check `PendingServices.md` first.
+
+If the requested service is listed there, use that entry as the implementation source and remove it only after the service is fully implemented and test-server validated.
+
+2. Check `ApprovedServices.md` before implementing.
+
+If the service is already marked `Implemented and tested`, do not reimplement it unless the user explicitly asks for changes. If it is marked `Implemented, pending testing`, prioritize validation and update its status only after the test-server flow passes.
+
+3. Implement, test, then approve.
+
+After successful implementation, commit to `main`, push `main`, sync `runtime`, validate on the test server, then move or update the service in `ApprovedServices.md` as `Implemented and tested` with concise validation notes.
+
 ## Non-Negotiables
 
 1. Use the `rakkib-add-service` skill
@@ -12,7 +26,7 @@ Follow the workflow in `.opencode/skills/rakkib-add-service/SKILL.md`.
 
 All newly added services MUST be deployed and verified here:
 
-`sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153`
+`sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153`
 
 Minimum validation steps:
 1. `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
@@ -28,6 +42,8 @@ Do not run `rakkib init` or full `rakkib pull` for normal new-service validation
 6. Move to the next service only after the public or internal HTML smoke check passes
 
 Do not treat local runs as proof.
+
+After test-server validation passes, update `ApprovedServices.md` in the same work item. Services must not be marked approved before add, smoke, remove, re-add, and any applicable internal-mode checks pass.
 
 ## Required Implementation Shape
 

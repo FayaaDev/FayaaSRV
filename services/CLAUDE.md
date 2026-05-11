@@ -6,7 +6,7 @@ This folder is where service names/lists get turned into real, deployable Rakkib
 
 When OpenCode is launched inside `Rakkib/services`, the user can:
 - mention a service name (example: "Vaultwarden", "File Browser"), or
-- reference a list file here (examples: `services_checklist.md`, `batch1.md`, `batchx.md`, `MoreServices/*.md`),
+- reference a list file here (examples: `PendingServices.md`, `batch1.md`, `batchx.md`, `MoreServices/*.md`),
 and the agent implements the service in the Rakkib app (registry + templates + hooks + verification updates).
 
 ## Branch Rules
@@ -75,5 +75,5 @@ Do not hand-roll the workflow; the skill is the contract for registry fields, te
 
 ## How To Handle User Requests
 
-- If the user gives a service name: locate it in `services_checklist.md`, `batch1.md`, `batchx.md`, or `MoreServices/*.md`; if it is not there, add it to the most appropriate list.
+- If the user gives a service name: locate it in `PendingServices.md`, `ApprovedServices.md`, `batch1.md`, `batchx.md`, or `MoreServices/*.md`; if it is not there, add it to the most appropriate list.
 - If the name is missing/ambiguous: ask for the upstream repo URL and whether it needs Postgres.
