@@ -57,6 +57,11 @@ service_catalog:
       numeric_alias: 9
       subdomain_key: jellyfin
       default_subdomain: jellyfin
+    - slug: plex
+      label: Plex
+      numeric_alias: 60
+      subdomain_key: plex
+      default_subdomain: plex
     - slug: openclaw
       label: OpenClaw
       numeric_alias: 10
@@ -318,12 +323,13 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
+    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
     numeric_aliases:
       "6": n8n
       "7": immich
       "8": transfer
       "9": jellyfin
+      "60": plex
       "10": openclaw
       "47": claude
       "48": codex
@@ -432,6 +438,7 @@ Automation:
 Media:
   [ ] 7  Immich        — photo library          →  immich.<domain>
   [ ] 9  Jellyfin      — media server           →  jellyfin.<domain>
+  [ ] 60 Plex          — media server; bridge networking →  plex.<domain>
 
 File Sharing:
   [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
@@ -565,6 +572,7 @@ subdomains:
   immich: immich
   transfer: transfer
   jellyfin: jellyfin
+  plex: plex
   openclaw: claw
   anse: anse
   cheshire-cat-ai: cat
@@ -615,6 +623,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
 - `subdomains.transfer` -> `{{TRANSFER_SUBDOMAIN}}`
 - `subdomains.jellyfin` -> `{{JELLYFIN_SUBDOMAIN}}`
+- `subdomains.plex` -> `{{PLEX_SUBDOMAIN}}`
 - `subdomains.openclaw` -> `{{OPENCLAW_SUBDOMAIN}}`
 - `subdomains.anse` -> `{{ANSE_SUBDOMAIN}}`
 - `subdomains.cheshire-cat-ai` -> `{{CHESHIRE_CAT_AI_SUBDOMAIN}}`

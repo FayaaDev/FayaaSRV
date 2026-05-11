@@ -452,6 +452,55 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: plex
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: lscr.io/linuxserver/plex:latest
+    default_port: 32400
+    default_subdomain: plex
+    subdomain_key: plex
+    subdomain_placeholder: PLEX_SUBDOMAIN
+    env_keys:
+      - ADMIN_UID
+      - ADMIN_GID
+      - TZ
+      - PLEX_CLAIM
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13049
+      container_port: 32400
+      path: /web/index.html
+    caddy:
+      template: plex-public.caddy.tmpl
+    data_dirs:
+      - data/plex/config
+      - data/plex/media
+    homepage:
+      category: Media
+      name: Plex
+      description: Personal media server
+      icon: plex.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /web/index.html
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /web/index.html
+      expected_text: Plex
+      timeout: 60
+    notes: "Personal media server. Optional. Best-effort linuxserver.io image using bridge networking, not host networking; DLNA/GDM discovery and remote-access auto-mapping may be limited. Set PLEX_CLAIM before first start if the server must be claimed automatically. Media is stored under data/plex/media by default. No privileged hardware transcoding devices are mapped by default; add /dev/dri or GPU runtime support manually if accepted."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: filebrowser
     state_bucket: selected_services
     required: false
