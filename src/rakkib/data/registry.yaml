@@ -1350,6 +1350,7 @@ services:
     optional: true
     image: ghcr.io/homarr-labs/homarr:latest
     default_port: 7575
+    health_timeout: 180
     default_subdomain: homarr
     subdomain_key: homarr
     subdomain_placeholder: HOMARR_SUBDOMAIN
@@ -1386,6 +1387,7 @@ services:
     smoke:
       path: /
       expected_text: Homarr
+      timeout: 30
     notes: "Modern server dashboard. Optional. Mounts Docker socket read-only for container integrations; Docker socket access can still expose host control, so restrict access at the Caddy or network layer. Uses a generated SECRET_ENCRYPTION_KEY persisted in state."
     hooks:
       remove:
