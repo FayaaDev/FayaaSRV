@@ -137,6 +137,11 @@ service_catalog:
       numeric_alias: 21
       subdomain_key: beszel
       default_subdomain: beszel
+    - slug: glances
+      label: Glances
+      numeric_alias: 58
+      subdomain_key: glances
+      default_subdomain: glances
     - slug: freshrss
       label: FreshRSS
       numeric_alias: 22
@@ -293,7 +298,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, homarr, glance, dashy, beszel, freshrss, openbooks, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -315,6 +320,7 @@ fields:
       "19": glance
       "20": dashy
       "21": beszel
+      "58": glances
       "22": freshrss
       "57": openbooks
       "23": actual-budget
@@ -441,6 +447,7 @@ Dashboards:
 Monitoring:
   [ ] 18 Dozzle        — container log viewer   →  dozzle.<domain>
   [ ] 21 Beszel        — server monitoring hub  →  beszel.<domain>
+  [ ] 58 Glances       — host metrics; Docker socket →  glances.<domain>
 
 News:
   [ ] 22 FreshRSS      — RSS feed reader        →  freshrss.<domain>
@@ -551,6 +558,7 @@ subdomains:
   glance: glance
   dashy: dashy
   beszel: beszel
+  glances: glances
   freshrss: freshrss
   openbooks: openbooks
   actual-budget: actual
@@ -598,6 +606,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.glance` -> `{{GLANCE_SUBDOMAIN}}`
 - `subdomains.dashy` -> `{{DASHY_SUBDOMAIN}}`
 - `subdomains.beszel` -> `{{BESZEL_SUBDOMAIN}}`
+- `subdomains.glances` -> `{{GLANCES_SUBDOMAIN}}`
 - `subdomains.freshrss` -> `{{FRESHRSS_SUBDOMAIN}}`
 - `subdomains.openbooks` -> `{{OPENBOOKS_SUBDOMAIN}}`
 - `subdomains.actual-budget` -> `{{ACTUAL_BUDGET_SUBDOMAIN}}`

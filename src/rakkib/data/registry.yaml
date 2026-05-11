@@ -1630,6 +1630,47 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: glances
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: nicolargo/glances:latest-full
+    default_port: 61208
+    default_subdomain: glances
+    subdomain_key: glances
+    subdomain_placeholder: GLANCES_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13042
+      container_port: 61208
+    caddy:
+      template: glances-public.caddy.tmpl
+    homepage:
+      category: Monitoring
+      name: Glances
+      description: Host and container metrics dashboard
+      icon: glances.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Glances
+      timeout: 60
+    notes: "Host and container metrics dashboard. Optional. Runs with host PID access and mounts the Docker socket read-only; Docker socket access can still expose host control, so restrict access at the Caddy or network layer."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: autoheal
     state_bucket: selected_services
     required: false
