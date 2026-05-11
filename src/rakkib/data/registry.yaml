@@ -1716,6 +1716,49 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: openbooks
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: evanbuss/openbooks:4.5.0
+    default_port: 80
+    default_subdomain: openbooks
+    subdomain_key: openbooks
+    subdomain_placeholder: OPENBOOKS_SUBDOMAIN
+    env_keys:
+      - OPENBOOKS_IRC_NAME
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13044
+      container_port: 80
+    caddy:
+      template: openbooks-public.caddy.tmpl
+    data_dirs:
+      - data/openbooks/books
+    homepage:
+      category: Books
+      name: OpenBooks
+      description: Search and download ebooks
+      icon: books.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: OpenBooks
+    notes: "Search and download ebooks from IRC Highway. Optional. Persists downloaded books under data/openbooks/books."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: actual-budget
     state_bucket: selected_services
     required: false
