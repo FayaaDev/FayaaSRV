@@ -2390,6 +2390,49 @@ services:
       icon: home-assistant.png
     notes: "Matter controller WebSocket server. Optional. Uses Docker host networking and apparmor=unconfined for mDNS/IPv6 link-local discovery; no Caddy route is created. Real Matter commissioning requires a flat IPv6-capable LAN with multicast working, suitable Thread border routers for Thread devices, and optional Bluetooth/D-Bus hardware for local commissioning."
 
+  - id: esphome
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/esphome/esphome:stable
+    default_port: 6052
+    default_subdomain: esphome
+    subdomain_key: esphome
+    subdomain_placeholder: ESPHOME_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13047
+      container_port: 6052
+    caddy:
+      template: esphome-public.caddy.tmpl
+    data_dirs:
+      - data/esphome/config
+    homepage:
+      category: Home Automation
+      name: ESPHome
+      description: ESP device firmware dashboard
+      icon: esphome.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: ESPHome
+      timeout: 120
+    notes: "ESPHome dashboard for building and managing ESP device firmware. Optional. Runs without host networking or device mounts by default; LAN discovery, USB serial flashing, and direct hardware access may require deliberate host networking or device passthrough changes, which can expose host network/device control risks."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: ollama-cpu
     state_bucket: selected_services
     required: false

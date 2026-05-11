@@ -217,6 +217,11 @@ service_catalog:
       numeric_alias: 55
       subdomain_key: dailytxt
       default_subdomain: dailytxt
+    - slug: esphome
+      label: ESPHome
+      numeric_alias: 62
+      subdomain_key: esphome
+      default_subdomain: esphome
     - slug: gitea
       label: Gitea
       numeric_alias: 31
@@ -323,7 +328,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
+    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, esphome, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -361,6 +366,7 @@ fields:
       "29": stirling-pdf
       "30": mealie
       "55": dailytxt
+      "62": esphome
       "31": gitea
       "32": whoami
       "33": pairdrop
@@ -497,6 +503,7 @@ Security:
 
 Home Automation:
   [ ] 65 Matter Server — Matter controller WebSocket; host network
+  [ ] 62 ESPHome       — ESP firmware dashboard; LAN/USB features may need host/device access →  esphome.<domain>
 
 Search:
   [ ] 26 Whoogle       — privacy search         →  whoogle.<domain>
@@ -608,6 +615,7 @@ subdomains:
   whoogle: whoogle
   mealie: mealie
   dailytxt: dailytxt
+  esphome: esphome
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -660,3 +668,4 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
 - `subdomains.mealie` -> `{{MEALIE_SUBDOMAIN}}`
 - `subdomains.dailytxt` -> `{{DAILYTXT_SUBDOMAIN}}`
+- `subdomains.esphome` -> `{{ESPHOME_SUBDOMAIN}}`
