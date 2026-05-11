@@ -8,29 +8,29 @@ Status meanings:
 
 ## Implemented And Tested
 
-| Service | Registry ID | Notes |
-| --- | --- | --- |
-| Homarr | `homarr` | Tested on the bare-metal server with `rakkib add homarr --yes`, `rakkib smoke homarr`, remove, re-add, Cloudflare mode, and internal LAN mode on `13008`. |
-| NocoDB | `nocodb` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add nocodb --yes`, readiness wait, `rakkib smoke nocodb`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Homepage | `homepage` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add homepage --yes`, readiness wait, `rakkib smoke homepage`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Uptime Kuma | `uptime-kuma` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add uptime-kuma --yes`, readiness wait, `rakkib smoke uptime-kuma`, monitor sync, remove, re-add, and re-smoke in Cloudflare mode. |
-| Dockge | `dockge` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add dockge --yes`, readiness wait, `rakkib smoke dockge`, remove, re-add, and re-smoke in Cloudflare mode. |
-| transfer.sh | `transfer` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add transfer --yes`, readiness wait, `rakkib smoke transfer`, remove, re-add, and re-smoke in Cloudflare mode. |
-| File Browser | `filebrowser` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add filebrowser --yes`, readiness wait, `rakkib smoke filebrowser`, remove, re-add, and re-smoke in Cloudflare mode. |
-| WebDAV | `webdav` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add webdav --yes`, readiness wait, `rakkib smoke webdav`, remove, re-add, and re-smoke in Cloudflare mode. |
-| IT-Tools | `it-tools` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add it-tools --yes`, readiness wait, `rakkib smoke it-tools`, remove, re-add, and re-smoke in Cloudflare mode. |
-| CyberChef | `cyberchef` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add cyberchef --yes`, readiness wait, `rakkib smoke cyberchef`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Whoami | `whoami` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add whoami --yes`, readiness wait, `rakkib smoke whoami`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Moodist | `moodist` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add moodist --yes`, readiness wait, `rakkib smoke moodist`, remove, re-add, and re-smoke in Cloudflare mode. |
-| PairDrop | `pairdrop` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add pairdrop --yes`, readiness wait, `rakkib smoke pairdrop`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Draw.io | `drawio` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add drawio --yes`, readiness wait, `rakkib smoke drawio`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Excalidraw | `excalidraw` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add excalidraw --yes`, readiness wait, `rakkib smoke excalidraw`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Whoogle | `whoogle` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add whoogle --yes`, readiness wait, `rakkib smoke whoogle`, remove, re-add, and re-smoke in Cloudflare mode. |
-| PrivateBin | `privatebin` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add privatebin --yes`, readiness wait, `rakkib smoke privatebin`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Homer | `homer` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add homer --yes`, readiness wait, `rakkib smoke homer`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Glance | `glance` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add glance --yes`, readiness wait, `rakkib smoke glance`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Dashy | `dashy` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add dashy --yes`, readiness wait, `rakkib smoke dashy`, remove, re-add, and re-smoke in Cloudflare mode. |
-| Dozzle | `dozzle` | Tested on the bare-metal server with installer-first runtime sync, `rakkib add dozzle --yes`, readiness wait, `rakkib smoke dozzle`, remove, re-add, and re-smoke in Cloudflare mode. |
+| Service | Registry ID |
+| --- | --- |
+| Homarr | `homarr` |
+| NocoDB | `nocodb` |
+| Homepage | `homepage` |
+| Uptime Kuma | `uptime-kuma` |
+| Dockge | `dockge` |
+| transfer.sh | `transfer` |
+| File Browser | `filebrowser` |
+| WebDAV | `webdav` |
+| IT-Tools | `it-tools` |
+| CyberChef | `cyberchef` |
+| Whoami | `whoami` |
+| Moodist | `moodist` |
+| PairDrop | `pairdrop` |
+| Draw.io | `drawio` |
+| Excalidraw | `excalidraw` |
+| Whoogle | `whoogle` |
+| PrivateBin | `privatebin` |
+| Homer | `homer` |
+| Glance | `glance` |
+| Dashy | `dashy` |
+| Dozzle | `dozzle` |
 
 ## Implemented, Pending Testing
 
