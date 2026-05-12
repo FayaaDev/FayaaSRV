@@ -34,6 +34,12 @@ and the agent implements the service in the Rakkib app (registry + templates + h
 
 Service work is not complete until the implementation has been committed, pushed to `main`, synced to `runtime`, and validated on the test server.
 
+Use the dedicated project subagents for test-server validation:
+- `RakkibTester1`, `RakkibTester2`, and `RakkibTester3` are the only agents that should run the test-server validation workflow.
+- Assign exactly one service/bead to one tester agent at a time; do not run multiple validations concurrently on the resource-limited test server.
+- Tester agents validate only. They must not edit source files, update approval docs, close beads, commit, or push. The primary agent reviews their evidence, then performs any required repository updates and bead closure.
+- If a tester reports high load, memory pressure, swap exhaustion, another active validation, or a failing command, stop and document the blocker instead of marking the service complete.
+
 Before implementing a service, check `PendingServices.md` and `ApprovedServices.md`:
 - if the service is in `PendingServices.md`, implement and test it, then remove it from `PendingServices.md` after successful validation
 - if the service is already in `ApprovedServices.md` as `Implemented and tested`, do not reimplement it unless the user asks for a change
@@ -42,6 +48,8 @@ Before implementing a service, check `PendingServices.md` and `ApprovedServices.
 Run deployments on the test server (not this machine):
 
 sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153 'set -euo pipefail; /root/.local/bin/rakkib --help | sed -n "1,220p"'
+
+When delegating validation, feed the selected `RakkibTester` subagent the target bead/service, the command above, and the validation checklist below. Do not ask a beads-task-agent to run service validation.
 
 Validation must follow the service-targeted bare-metal flow:
 - `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`

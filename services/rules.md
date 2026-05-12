@@ -28,6 +28,12 @@ All newly added services MUST be deployed and verified here:
 
 `sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153`
 
+Use the dedicated project subagents for this validation work:
+- `RakkibTester1`, `RakkibTester2`, and `RakkibTester3` run test-server validation.
+- Assign one service/bead to one tester at a time. The test server is resource-limited; do not run concurrent validations.
+- Tester agents are validation-only. They must report command evidence and blockers, but must not edit files, update `ApprovedServices.md`, close beads, commit, or push.
+- The primary agent is responsible for interpreting tester output, updating repository files, closing beads, committing, and pushing after validation passes.
+
 Minimum validation steps:
 1. `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
 2. `rakkib add <service> --yes` or `rakkib add --service <service> --yes`
