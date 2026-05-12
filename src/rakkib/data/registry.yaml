@@ -2142,6 +2142,50 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: gladys-assistant
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: gladysassistant/gladys:v4
+    default_port: 80
+    health_timeout: 180
+    default_subdomain: gladys
+    subdomain_key: gladys-assistant
+    subdomain_placeholder: GLADYS_ASSISTANT_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13046
+      container_port: 80
+    caddy:
+      template: gladys-assistant-public.caddy.tmpl
+    data_dirs:
+      - data/gladys-assistant
+    homepage:
+      category: Home Automation
+      name: Gladys Assistant
+      description: Smart home dashboard and automation
+      icon: gladys-assistant.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Gladys
+      timeout: 120
+    notes: "Smart home dashboard and automation platform. Optional. Runs privileged and mounts /var/run/docker.sock, /dev, and /run/udev so integrations can discover/control local devices and Docker; this can expose host control, so restrict access at the Caddy or network layer. Rakkib uses bridged networking instead of upstream host networking to avoid binding host port 80."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: whoogle
     state_bucket: selected_services
     required: false
@@ -2502,31 +2546,6 @@ services:
       remove:
         - cloudflare_dns_delete
 
-  - id: matter-server
-    state_bucket: selected_services
-    required: false
-    optional: true
-    image: ghcr.io/matter-js/python-matter-server:stable
-    container_name: matter-server
-    default_port: 5580
-    default_subdomain: null
-    subdomain_key: null
-    subdomain_placeholder: null
-    env_keys: []
-    depends_on: []
-    host_service: false
-    host_port: false
-    caddy:
-      template: null
-    data_dirs:
-      - data/matter-server
-    homepage:
-      category: Home Automation
-      name: Matter Server
-      description: Matter controller WebSocket server
-      icon: home-assistant.png
-    notes: "Matter controller WebSocket server. Optional. Uses Docker host networking and apparmor=unconfined for mDNS/IPv6 link-local discovery; no Caddy route is created. Real Matter commissioning requires a flat IPv6-capable LAN with multicast working, suitable Thread border routers for Thread devices, and optional Bluetooth/D-Bus hardware for local commissioning."
-
   - id: esphome
     state_bucket: selected_services
     required: false
@@ -2570,6 +2589,31 @@ services:
     hooks:
       remove:
         - cloudflare_dns_delete
+
+  - id: matter-server
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/matter-js/python-matter-server:stable
+    container_name: matter-server
+    default_port: 5580
+    default_subdomain: null
+    subdomain_key: null
+    subdomain_placeholder: null
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: null
+    data_dirs:
+      - data/matter-server
+    homepage:
+      category: Home Automation
+      name: Matter Server
+      description: Matter controller WebSocket server
+      icon: home-assistant.png
+    notes: "Matter controller WebSocket server. Optional. Uses Docker host networking and apparmor=unconfined for mDNS/IPv6 link-local discovery; no Caddy route is created. Real Matter commissioning requires a flat IPv6-capable LAN with multicast working, suitable Thread border routers for Thread devices, and optional Bluetooth/D-Bus hardware for local commissioning."
 
   - id: ollama-cpu
     state_bucket: selected_services

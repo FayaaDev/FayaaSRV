@@ -5,7 +5,8 @@
   - `git clone git@github.com:FayaaDev/Rakkib.git`
   - `cd Rakkib`
 - Make sure `.beads/config.yaml` contains:
-  - `sync.remote: "https://doltremoteapi.dolthub.com/fayaadev/fayaalink"`
+  - `sync.remote: "git+ssh://git@github.com/FayaaDev/Rakkib.git"`
+- Beads uses the embedded Dolt database at `.beads/embeddeddolt/Rakkib`.
 - Bootstrap the local Beads database from the shared remote:
   - `bd bootstrap --yes`
 - Restart the local Beads Dolt server if needed:

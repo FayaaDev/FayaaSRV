@@ -192,6 +192,11 @@ service_catalog:
       numeric_alias: 49
       subdomain_key: adguard
       default_subdomain: adguard
+    - slug: gladys-assistant
+      label: Gladys Assistant
+      numeric_alias: 65
+      subdomain_key: gladys-assistant
+      default_subdomain: gladys
     - slug: whoogle
       label: Whoogle
       numeric_alias: 26
@@ -319,7 +324,7 @@ service_catalog:
       default_subdomain: null
     - slug: matter-server
       label: Matter Server
-      numeric_alias: 65
+      numeric_alias: 66
       subdomain_key: null
       default_subdomain: null
   host_addons:
@@ -343,7 +348,7 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, pingvin-share, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, esphome, notemark, memos, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
+    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, pingvin-share, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, gladys-assistant, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, notemark, memos, esphome, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
     numeric_aliases:
       "6": n8n
       "7": immich
@@ -376,15 +381,16 @@ fields:
       "24": rsshub
       "25": vaultwarden
       "49": adguard
+      "65": gladys-assistant
       "26": whoogle
       "27": forgejo
       "28": privatebin
       "29": stirling-pdf
       "30": mealie
       "55": dailytxt
-      "62": esphome
       "59": notemark
       "67": memos
+      "62": esphome
       "31": gitea
       "32": whoami
       "33": pairdrop
@@ -401,7 +407,7 @@ fields:
       "46": open-webui
       "51": autoheal
       "52": watchtower
-      "65": matter-server
+      "66": matter-server
     records:
       - selected_services
   - id: host_addons
@@ -521,8 +527,9 @@ Security:
   [ ] 49 AdGuard Home   — network ad blocking    →  adguard.<domain>
 
 Home Automation:
-  [ ] 65 Matter Server — Matter controller WebSocket; host network
   [ ] 62 ESPHome       — ESP firmware dashboard; LAN/USB features may need host/device access →  esphome.<domain>
+  [ ] 65 Gladys Assistant — smart home automation; privileged device/Docker access →  gladys.<domain>
+  [ ] 66 Matter Server — Matter controller WebSocket; host network
 
 Search:
   [ ] 26 Whoogle       — privacy search         →  whoogle.<domain>
@@ -636,12 +643,13 @@ subdomains:
   rsshub: rsshub
   vaultwarden: vault
   adguard: adguard
+  gladys-assistant: gladys
   whoogle: whoogle
   mealie: mealie
   dailytxt: dailytxt
-  esphome: esphome
   notemark: notemark
   memos: memos
+  esphome: esphome
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -692,9 +700,10 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.rsshub` -> `{{RSSHUB_SUBDOMAIN}}`
 - `subdomains.vaultwarden` -> `{{VAULTWARDEN_SUBDOMAIN}}`
 - `subdomains.adguard` -> `{{ADGUARD_SUBDOMAIN}}`
+- `subdomains.gladys-assistant` -> `{{GLADYS_ASSISTANT_SUBDOMAIN}}`
 - `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
 - `subdomains.mealie` -> `{{MEALIE_SUBDOMAIN}}`
 - `subdomains.dailytxt` -> `{{DAILYTXT_SUBDOMAIN}}`
-- `subdomains.esphome` -> `{{ESPHOME_SUBDOMAIN}}`
 - `subdomains.notemark` -> `{{NOTEMARK_SUBDOMAIN}}`
 - `subdomains.memos` -> `{{MEMOS_SUBDOMAIN}}`
+- `subdomains.esphome` -> `{{ESPHOME_SUBDOMAIN}}`
