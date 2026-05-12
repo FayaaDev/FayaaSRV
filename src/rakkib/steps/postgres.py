@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from rakkib.docker import DockerError, docker_run
+from rakkib.docker import DockerError, create_network, docker_run
 from rakkib.postgres_sql import postgres_identifier, postgres_literal
 from rakkib.render import render_file, render_text
 from rakkib.secret_utils import ensure_secrets
@@ -197,6 +197,7 @@ def run(state: State) -> None:
     )
 
     # 5. Start PostgreSQL.
+    create_network(str(state.get("docker_net", "caddy_net")))
     try:
         docker_run(["compose", "up", "-d"], cwd=postgres_dir, progress_message="Starting PostgreSQL...")
     except DockerError as exc:

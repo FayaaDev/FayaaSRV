@@ -11,6 +11,12 @@ from rakkib.state import State
 from rakkib.steps import postgres
 
 
+@pytest.fixture(autouse=True)
+def mock_create_network():
+    with patch("rakkib.steps.postgres.create_network") as mocked:
+        yield mocked
+
+
 def _make_state(tmp_path: Path) -> State:
     return State(
         {
@@ -30,7 +36,7 @@ def _make_state(tmp_path: Path) -> State:
     )
 
 
-def test_postgres_run_renders_env_and_compose(tmp_path):
+def test_postgres_run_renders_env_and_compose(tmp_path, mock_create_network):
     state = _make_state(tmp_path)
 
     with patch("rakkib.steps.postgres._wait_for_healthy"):
@@ -43,6 +49,7 @@ def test_postgres_run_renders_env_and_compose(tmp_path):
     postgres_dir = tmp_path / "docker" / "postgres"
     assert (postgres_dir / ".env").exists()
     assert (postgres_dir / "docker-compose.yml").exists()
+    mock_create_network.assert_called_once_with("caddy_net")
 
 
 def test_postgres_run_generates_init_sql(tmp_path):
