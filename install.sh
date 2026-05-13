@@ -234,7 +234,17 @@ prepare_repo() {
     else
       git -C "$INSTALL_DIR" switch -c "$BRANCH" "origin/${BRANCH}"
     fi
-    git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+    case "$UPDATE_MODE" in
+      reset)
+        git -C "$INSTALL_DIR" reset --hard "origin/${BRANCH}"
+        ;;
+      skip)
+        git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+        ;;
+      *)
+        die "invalid RAKKIB_UPDATE_MODE '${UPDATE_MODE}'. Use 'reset' or 'skip'."
+        ;;
+    esac
     return 0
   fi
 
