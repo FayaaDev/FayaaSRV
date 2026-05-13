@@ -11,6 +11,9 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    data_dirs:
+      - data/caddy/data
+      - data/caddy/config
     notes: "Reverse proxy. Installed only for Cloudflare exposure."
 
   - id: cloudflared
@@ -29,6 +32,8 @@ services:
       - ADMIN_GID
     depends_on: []
     host_service: false
+    data_dirs:
+      - data/cloudflared
     notes: "Cloudflare tunnel. Installed only for Cloudflare exposure. Step 3 may pause for guided Cloudflare login approval."
 
   - id: postgres
@@ -44,6 +49,8 @@ services:
     depends_on: []
     host_service: false
     host_port: true
+    data_dirs:
+      - data/postgres/data
     secrets:
       POSTGRES_PASSWORD:
         factory: password
@@ -84,6 +91,8 @@ services:
       db: nocodb_db
       password_key: NOCODB_DB_PASS
       display_name: NocoDB
+    data_dirs:
+      - data/nocodb
     homepage:
       category: Infrastructure
       name: NocoDB
@@ -97,6 +106,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: NocoDB
     notes: "No-code database UI. Foundation bundle service."
     hooks:
       pre_start:
@@ -131,6 +143,9 @@ services:
         - homepage_services_yaml
       remove:
         - cloudflare_dns_delete
+    smoke:
+      path: /
+      expected_text: Homepage
     notes: "Service dashboard. Foundation bundle service. services.yaml generated from selected service list."
 
   - id: uptime-kuma
@@ -143,9 +158,7 @@ services:
     default_subdomain: status
     subdomain_key: uptime-kuma
     subdomain_placeholder: UPTIME_KUMA_SUBDOMAIN
-    env_keys:
-      - UPTIME_KUMA_ADMIN_USER
-      - UPTIME_KUMA_ADMIN_PASS
+    env_keys: []
     depends_on: []
     host_service: false
     host_port: false
@@ -160,6 +173,8 @@ services:
         value: admin
       UPTIME_KUMA_ADMIN_PASS:
         factory: password
+    data_dirs:
+      - data/uptime-kuma
     homepage:
       category: Infrastructure
       name: Uptime Kuma
@@ -173,6 +188,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Uptime Kuma
     notes: "Uptime monitoring. Foundation bundle service."
     hooks:
       remove:
@@ -198,6 +216,8 @@ services:
       container_port: 5001
     caddy:
       template: dockge-public.caddy.tmpl
+    data_dirs:
+      - data/dockge
     homepage:
       category: Infrastructure
       name: Dockge
@@ -211,6 +231,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Dockge
     notes: "Docker Compose manager UI. Foundation bundle service. Mounts the stacks directory."
     hooks:
       remove:
@@ -274,6 +297,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: n8n
     notes: "Workflow automation. NEVER rotate N8N_ENCRYPTION_KEY after first run. Uses the upstream n8nio/n8n image."
     hooks:
       pre_start:
@@ -328,6 +354,10 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Immich
+      timeout: 60
     notes: "Photo and video library. Optional. CPU-only v1 install using Immich's dedicated Postgres and Valkey services."
     hooks:
       remove:
@@ -370,6 +400,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Easy file sharing
     notes: "Self-hosted transfer.sh file sharing. Optional. Public unauthenticated upload endpoint by design; use only when the owner accepts the abuse risk. Stores uploads on the local filesystem."
     hooks:
       remove:
@@ -394,6 +427,10 @@ services:
       container_port: 8096
     caddy:
       template: jellyfin-public.caddy.tmpl
+    data_dirs:
+      - data/jellyfin/config
+      - data/jellyfin/cache
+      - data/jellyfin/media
     homepage:
       category: Media
       name: Jellyfin
@@ -407,7 +444,59 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /
+      expected_text: Jellyfin
     notes: "Media server. Optional. Self-hosted streaming for movies, TV, music, and photos."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: plex
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: lscr.io/linuxserver/plex:latest
+    default_port: 32400
+    default_subdomain: plex
+    subdomain_key: plex
+    subdomain_placeholder: PLEX_SUBDOMAIN
+    env_keys:
+      - ADMIN_UID
+      - ADMIN_GID
+      - TZ
+      - PLEX_CLAIM
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13049
+      container_port: 32400
+      path: /web/index.html
+    caddy:
+      template: plex-public.caddy.tmpl
+    data_dirs:
+      - data/plex/config
+      - data/plex/media
+    homepage:
+      category: Media
+      name: Plex
+      description: Personal media server
+      icon: plex.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /web/index.html
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /web/index.html
+      expected_text: Plex
+      timeout: 60
+    notes: "Personal media server. Optional. Best-effort linuxserver.io image using bridge networking, not host networking; DLNA/GDM discovery and remote-access auto-mapping may be limited. Set PLEX_CLAIM before first start if the server must be claimed automatically. Media is stored under data/plex/media by default. No privileged hardware transcoding devices are mapped by default; add /dev/dri or GPU runtime support manually if accepted."
     hooks:
       remove:
         - cloudflare_dns_delete
@@ -425,6 +514,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13009
+      container_port: 80
     caddy:
       template: filebrowser-public.caddy.tmpl
     data_dirs:
@@ -472,6 +565,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13010
+      container_port: 80
     caddy:
       template: webdav-public.caddy.tmpl
     data_dirs:
@@ -513,6 +610,53 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: pingvin-share
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: stonith404/pingvin-share:latest
+    default_port: 3000
+    default_subdomain: pingvin
+    subdomain_key: pingvin-share
+    subdomain_placeholder: PINGVIN_SHARE_SUBDOMAIN
+    env_keys:
+      - ADMIN_UID
+      - ADMIN_GID
+      - PINGVIN_TRUST_PROXY
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13050
+      container_port: 3000
+    caddy:
+      template: pingvin-share-public.caddy.tmpl
+    data_dirs:
+      - data/pingvin-share/data
+      - data/pingvin-share/images
+    homepage:
+      category: File Sharing
+      name: Pingvin Share
+      description: WeTransfer-style file sharing
+      icon: pingvin-share.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Pingvin Share
+      timeout: 60
+    notes: "WeTransfer-style file sharing. Optional. Stores uploads under data/pingvin-share/data; upstream is archived, so treat updates as best-effort."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: it-tools
     state_bucket: selected_services
     required: false
@@ -526,6 +670,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13011
+      container_port: 80
     caddy:
       template: it-tools-public.caddy.tmpl
     homepage:
@@ -562,6 +710,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13012
+      container_port: 8080
     caddy:
       template: cyberchef-public.caddy.tmpl
     homepage:
@@ -598,6 +750,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13013
+      container_port: 80
     caddy:
       template: whoami-public.caddy.tmpl
     homepage:
@@ -637,6 +793,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13014
+      container_port: 3000
     caddy:
       template: pairdrop-public.caddy.tmpl
     data_dirs:
@@ -675,6 +835,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13015
+      container_port: 8080
     caddy:
       template: moodist-public.caddy.tmpl
     homepage:
@@ -707,12 +871,15 @@ services:
     default_subdomain: hermes
     subdomain_key: hermes-agent
     subdomain_placeholder: HERMES_AGENT_SUBDOMAIN
-    env_keys:
-      - ADMIN_UID
-      - ADMIN_GID
+    env_keys: []
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13016
+      container_port: 9119
+      compose_service: hermes-agent-dashboard
     caddy:
       template: hermes-agent-public.caddy.tmpl
     data_dirs:
@@ -751,6 +918,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13017
+      container_port: 80
     caddy:
       template: chatpad-public.caddy.tmpl
     homepage:
@@ -790,6 +961,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13018
+      container_port: 3210
     caddy:
       template: lobe-chat-public.caddy.tmpl
     homepage:
@@ -829,6 +1004,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13019
+      container_port: 8080
     caddy:
       template: open-webui-public.caddy.tmpl
     data_dirs:
@@ -850,6 +1029,7 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    health_timeout: 300
     smoke:
       path: /
       expected_text: Open WebUI
@@ -872,6 +1052,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13020
+      container_port: 3000
     caddy:
       template: forgejo-public.caddy.tmpl
     data_dirs:
@@ -924,6 +1108,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13021
+      container_port: 8080
     caddy:
       template: drawio-public.caddy.tmpl
     homepage:
@@ -960,6 +1148,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13022
+      container_port: 80
     caddy:
       template: excalidraw-public.caddy.tmpl
     homepage:
@@ -995,6 +1187,10 @@ services:
     subdomain_placeholder: OPENCLAW_SUBDOMAIN
     env_keys: []
     depends_on: []
+    internal_access:
+      enabled: true
+      host_port: 18789
+      container_port: 18789
     caddy:
       template: openclaw-public.caddy.tmpl
     homepage:
@@ -1010,6 +1206,9 @@ services:
       interval: 60
       timeout: 10
       retries: 3
+    smoke:
+      path: /healthz
+      expected_text: ok
     hooks:
       pre_start:
         - openclaw_install
@@ -1090,6 +1289,11 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13023
+      container_port: 80
+      compose_service: cheshire-cat-ai
     caddy:
       template: cheshire-cat-ai-public.caddy.tmpl
     data_dirs:
@@ -1112,7 +1316,7 @@ services:
       retries: 3
     smoke:
       path: /admin
-      expected_text: Cheshire Cat
+      expected_text: Login
     notes: "AI agent microservice with an admin UI and REST API. Public root redirects to /admin and ships with a Qdrant sidecar for RAG. Optional."
     hooks:
       remove:
@@ -1132,6 +1336,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13024
+      container_port: 3000
     caddy:
       template: flowise-public.caddy.tmpl
     data_dirs:
@@ -1172,6 +1380,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13025
+      container_port: 8008
     caddy:
       template: serge-public.caddy.tmpl
     secrets:
@@ -1223,6 +1435,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13026
+      container_port: 3000
     caddy:
       template: anse-public.caddy.tmpl
     secrets:
@@ -1263,6 +1479,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13027
+      container_port: 8080
     caddy:
       template: homer-public.caddy.tmpl
     data_dirs:
@@ -1304,6 +1524,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13028
+      container_port: 8080
     caddy:
       template: dozzle-public.caddy.tmpl
     homepage:
@@ -1327,6 +1551,105 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: grafana
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: grafana/grafana:12.1.1
+    default_port: 3000
+    default_subdomain: grafana
+    subdomain_key: grafana
+    subdomain_placeholder: GRAFANA_SUBDOMAIN
+    env_keys:
+      - GRAFANA_ADMIN_PASSWORD
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13045
+      container_port: 3000
+    caddy:
+      template: grafana-public.caddy.tmpl
+    data_dirs:
+      - data/grafana
+    chown:
+      uid: 472
+      gid: 472
+    secrets:
+      GRAFANA_ADMIN_PASSWORD:
+        factory: password
+    homepage:
+      category: Monitoring
+      name: Grafana
+      description: Metrics dashboards and visualisation
+      icon: grafana.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Grafana
+      timeout: 60
+    notes: "Metrics dashboard and visualisation platform. Optional. Uses local SQLite storage under data/grafana; log in as admin with the generated GRAFANA_ADMIN_PASSWORD."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: homarr
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/homarr-labs/homarr:latest
+    default_port: 7575
+    health_timeout: 180
+    default_subdomain: homarr
+    subdomain_key: homarr
+    subdomain_placeholder: HOMARR_SUBDOMAIN
+    env_keys:
+      - HOMARR_SECRET_ENCRYPTION_KEY
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13008
+      container_port: 7575
+    caddy:
+      template: homarr-public.caddy.tmpl
+    data_dirs:
+      - data/homarr/appdata
+    secrets:
+      HOMARR_SECRET_ENCRYPTION_KEY:
+        factory: hex_key
+        length: 64
+    homepage:
+      category: Dashboards
+      name: Homarr
+      description: Modern server dashboard
+      icon: homarr.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Homarr
+      timeout: 30
+    notes: "Modern server dashboard. Optional. Mounts Docker socket read-only for container integrations; Docker socket access can still expose host control, so restrict access at the Caddy or network layer. Uses a generated SECRET_ENCRYPTION_KEY persisted in state."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: glance
     state_bucket: selected_services
     required: false
@@ -1340,6 +1663,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13029
+      container_port: 8080
     caddy:
       template: glance-public.caddy.tmpl
     data_dirs:
@@ -1381,6 +1708,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13030
+      container_port: 8080
     caddy:
       template: dashy-public.caddy.tmpl
     data_dirs:
@@ -1425,6 +1756,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13031
+      container_port: 8090
     caddy:
       template: beszel-public.caddy.tmpl
     data_dirs:
@@ -1441,6 +1776,47 @@ services:
       path: /
       expected_text: Beszel
     notes: "Lightweight server monitoring hub. Optional. Agents connect separately; hub listens on 8090."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: glances
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: nicolargo/glances:latest-full
+    default_port: 61208
+    default_subdomain: glances
+    subdomain_key: glances
+    subdomain_placeholder: GLANCES_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13042
+      container_port: 61208
+    caddy:
+      template: glances-public.caddy.tmpl
+    homepage:
+      category: Monitoring
+      name: Glances
+      description: Host and container metrics dashboard
+      icon: glances.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Glances
+      timeout: 60
+    notes: "Host and container metrics dashboard. Optional. Runs with host PID access and mounts the Docker socket read-only; Docker socket access can still expose host control, so restrict access at the Caddy or network layer."
     hooks:
       remove:
         - cloudflare_dns_delete
@@ -1498,6 +1874,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13032
+      container_port: 80
     caddy:
       template: freshrss-public.caddy.tmpl
     data_dirs:
@@ -1527,6 +1907,49 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: openbooks
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: evanbuss/openbooks:4.5.0
+    default_port: 80
+    default_subdomain: openbooks
+    subdomain_key: openbooks
+    subdomain_placeholder: OPENBOOKS_SUBDOMAIN
+    env_keys:
+      - OPENBOOKS_IRC_NAME
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13044
+      container_port: 80
+    caddy:
+      template: openbooks-public.caddy.tmpl
+    data_dirs:
+      - data/openbooks/books
+    homepage:
+      category: Books
+      name: OpenBooks
+      description: Search and download ebooks
+      icon: books.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: OpenBooks
+    notes: "Search and download ebooks from IRC Highway. Optional. Persists downloaded books under data/openbooks/books."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: actual-budget
     state_bucket: selected_services
     required: false
@@ -1540,6 +1963,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13033
+      container_port: 5006
     caddy:
       template: actual-budget-public.caddy.tmpl
     data_dirs:
@@ -1560,6 +1987,49 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: wallos
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: bellamy/wallos:latest
+    default_port: 80
+    default_subdomain: wallos
+    subdomain_key: wallos
+    subdomain_placeholder: WALLOS_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13051
+      container_port: 80
+    caddy:
+      template: wallos-public.caddy.tmpl
+    data_dirs:
+      - data/wallos/db
+      - data/wallos/logos
+    homepage:
+      category: Finance
+      name: Wallos
+      description: Subscription and expense tracker
+      icon: wallos.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Wallos
+    notes: "Personal subscription and expense tracker. Optional. Stores its SQLite database and uploaded logos under data/wallos."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: rsshub
     state_bucket: selected_services
     required: false
@@ -1573,6 +2043,11 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13034
+      container_port: 1200
+      compose_service: rsshub
     caddy:
       template: rsshub-public.caddy.tmpl
     data_dirs:
@@ -1606,6 +2081,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13035
+      container_port: 80
     caddy:
       template: vaultwarden-public.caddy.tmpl
     data_dirs:
@@ -1642,6 +2121,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13036
+      container_port: 3000
     caddy:
       template: adguard-public.caddy.tmpl
     data_dirs:
@@ -1663,6 +2146,50 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: gladys-assistant
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: gladysassistant/gladys:v4
+    default_port: 80
+    health_timeout: 180
+    default_subdomain: gladys
+    subdomain_key: gladys-assistant
+    subdomain_placeholder: GLADYS_ASSISTANT_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13046
+      container_port: 80
+    caddy:
+      template: gladys-assistant-public.caddy.tmpl
+    data_dirs:
+      - data/gladys-assistant
+    homepage:
+      category: Home Automation
+      name: Gladys Assistant
+      description: Smart home dashboard and automation
+      icon: gladys-assistant.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Gladys
+      timeout: 120
+    notes: "Smart home dashboard and automation platform. Optional. Runs privileged and mounts /var/run/docker.sock, /dev, and /run/udev so integrations can discover/control local devices and Docker; this can expose host control, so restrict access at the Caddy or network layer. Rakkib uses bridged networking instead of upstream host networking to avoid binding host port 80."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: whoogle
     state_bucket: selected_services
     required: false
@@ -1676,6 +2203,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13037
+      container_port: 5000
     caddy:
       template: whoogle-public.caddy.tmpl
     data_dirs:
@@ -1713,6 +2244,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13038
+      container_port: 8080
     caddy:
       template: stirling-pdf-public.caddy.tmpl
     data_dirs:
@@ -1753,6 +2288,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13039
+      container_port: 9000
     caddy:
       template: mealie-public.caddy.tmpl
     data_dirs:
@@ -1779,6 +2318,146 @@ services:
       remove:
         - cloudflare_dns_delete
 
+  - id: dailytxt
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: phitux/dailytxt:2.6.1
+    default_port: 80
+    default_subdomain: dailytxt
+    subdomain_key: dailytxt
+    subdomain_placeholder: DAILYTXT_SUBDOMAIN
+    env_keys:
+      - DAILYTXT_SECRET_TOKEN
+      - DAILYTXT_ADMIN_PASSWORD
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13043
+      container_port: 80
+    caddy:
+      template: dailytxt-public.caddy.tmpl
+    data_dirs:
+      - data/dailytxt
+    secrets:
+      DAILYTXT_SECRET_TOKEN:
+        factory: password
+        length: 48
+      DAILYTXT_ADMIN_PASSWORD:
+        factory: password
+    homepage:
+      category: Lifestyle
+      name: DailyTxT
+      description: Encrypted diary and journal
+      icon: dailytxt.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: DailyTxT
+    notes: "Encrypted diary and journal web app. Optional. Stores encrypted journal data and uploads under data/dailytxt; registration is enabled initially for first-user setup."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: notemark
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/enchant97/note-mark-aio:0.19.4
+    default_port: 8080
+    default_subdomain: notemark
+    subdomain_key: notemark
+    subdomain_placeholder: NOTEMARK_SUBDOMAIN
+    env_keys:
+      - NOTEMARK_JWT_SECRET
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13048
+      container_port: 8080
+    caddy:
+      template: notemark-public.caddy.tmpl
+    data_dirs:
+      - data/notemark
+    secrets:
+      NOTEMARK_JWT_SECRET:
+        factory: password
+        length: 48
+    homepage:
+      category: Documents
+      name: Note Mark
+      description: Markdown notes app
+      icon: markdown.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Note Mark
+      timeout: 60
+    notes: "Fast web-based Markdown notes app. Optional. Stores SQLite database, notes, and uploaded assets under data/notemark. Internal signups are enabled initially for first-user setup."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: memos
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: neosmemo/memos:stable
+    default_port: 5230
+    default_subdomain: memos
+    subdomain_key: memos
+    subdomain_placeholder: MEMOS_SUBDOMAIN
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13052
+      container_port: 5230
+    caddy:
+      template: memos-public.caddy.tmpl
+    data_dirs:
+      - data/memos
+    homepage:
+      category: Documents
+      name: Memos
+      description: Lightweight note-taking
+      icon: memos.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: Memos
+    notes: "Self-hosted note-taking app. Optional. Stores SQLite database and uploaded assets under data/memos."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
   - id: gitea
     state_bucket: selected_services
     required: false
@@ -1793,6 +2472,10 @@ services:
     depends_on: [postgres]
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13040
+      container_port: 3000
     caddy:
       template: gitea-public.caddy.tmpl
     data_dirs:
@@ -1839,6 +2522,10 @@ services:
     depends_on: []
     host_service: false
     host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13041
+      container_port: 8080
     caddy:
       template: privatebin-public.caddy.tmpl
     data_dirs:
@@ -1862,6 +2549,75 @@ services:
     hooks:
       remove:
         - cloudflare_dns_delete
+
+  - id: esphome
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/esphome/esphome:stable
+    default_port: 6052
+    default_subdomain: esphome
+    subdomain_key: esphome
+    subdomain_placeholder: ESPHOME_SUBDOMAIN
+    env_keys:
+      - TZ
+    depends_on: []
+    host_service: false
+    host_port: false
+    internal_access:
+      enabled: true
+      host_port: 13047
+      container_port: 6052
+    caddy:
+      template: esphome-public.caddy.tmpl
+    data_dirs:
+      - data/esphome/config
+    homepage:
+      category: Home Automation
+      name: ESPHome
+      description: ESP device firmware dashboard
+      icon: esphome.png
+    monitoring:
+      enabled: true
+      type: http
+      target: public_url
+      path: /
+      interval: 60
+      timeout: 10
+      retries: 3
+    smoke:
+      path: /
+      expected_text: ESPHome
+      timeout: 120
+    notes: "ESPHome dashboard for building and managing ESP device firmware. Optional. Runs without host networking or device mounts by default; LAN discovery, USB serial flashing, and direct hardware access may require deliberate host networking or device passthrough changes, which can expose host network/device control risks."
+    hooks:
+      remove:
+        - cloudflare_dns_delete
+
+  - id: matter-server
+    state_bucket: selected_services
+    required: false
+    optional: true
+    image: ghcr.io/matter-js/python-matter-server:stable
+    container_name: matter-server
+    default_port: 5580
+    default_subdomain: null
+    subdomain_key: null
+    subdomain_placeholder: null
+    env_keys: []
+    depends_on: []
+    host_service: false
+    host_port: false
+    caddy:
+      template: null
+    data_dirs:
+      - data/matter-server
+    homepage:
+      category: Home Automation
+      name: Matter Server
+      description: Matter controller WebSocket server
+      icon: home-assistant.png
+    notes: "Matter controller WebSocket server. Optional. Uses Docker host networking and apparmor=unconfined for mDNS/IPv6 link-local discovery; no Caddy route is created. Real Matter commissioning requires a flat IPv6-capable LAN with multicast working, suitable Thread border routers for Thread devices, and optional Bluetooth/D-Bus hardware for local commissioning."
 
   - id: ollama-cpu
     state_bucket: selected_services

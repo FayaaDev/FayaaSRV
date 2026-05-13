@@ -15,6 +15,15 @@ DEFAULT_STATE_FILE = ".fss-state.yaml"
 _UNSET = object()
 
 
+def default_state_path(repo_dir: Path | str) -> Path:
+    """Return the canonical deployment state path for a Rakkib checkout."""
+    repo_dir = Path(repo_dir)
+    for candidate in (repo_dir, repo_dir.parent.parent):
+        if (candidate / ".git").exists():
+            return candidate / DEFAULT_STATE_FILE
+    return repo_dir / DEFAULT_STATE_FILE
+
+
 class StateBucket(str, Enum):
     """Registry state buckets used for service selection."""
 

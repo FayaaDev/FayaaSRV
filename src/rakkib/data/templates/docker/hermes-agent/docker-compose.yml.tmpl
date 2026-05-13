@@ -5,9 +5,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - HERMES_UID=${ADMIN_UID}
-      - HERMES_GID=${ADMIN_GID}
     volumes:
       - {{DATA_ROOT}}/data/hermes-agent:/opt/data
     networks:
@@ -20,9 +17,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - HERMES_UID=${ADMIN_UID}
-      - HERMES_GID=${ADMIN_GID}
     volumes:
       - {{DATA_ROOT}}/data/hermes-agent:/opt/data
     depends_on:

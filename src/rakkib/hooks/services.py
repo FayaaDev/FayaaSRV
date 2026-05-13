@@ -130,6 +130,12 @@ def claude_uninstall(ctx: HookContext, *legacy_args) -> None:
     # Installer sets up a `claude` launcher. If it exists, try the built-in uninstall.
     _run_as_service_user(ctx.state, ["bash", "-lc", "command -v claude"], check=False)
     _run_as_service_user(ctx.state, ["bash", "-lc", "claude uninstall"], check=False, timeout=300)
+    _run_as_service_user(
+        ctx.state,
+        ["bash", "-lc", "rm -f ~/.local/bin/claude && rm -rf ~/.local/share/claude ~/.claude"],
+        check=False,
+        timeout=120,
+    )
 
 
 def codex_install(ctx: HookContext, *legacy_args) -> None:
@@ -148,15 +154,57 @@ def codex_uninstall(ctx: HookContext, *legacy_args) -> None:
     if not shutil.which("npm"):
         return
     _run_as_service_user(ctx.state, ["bash", "-lc", "npm uninstall -g @openai/codex"], check=False, timeout=600)
+    _run_as_service_user(
+        ctx.state,
+        ["bash", "-lc", "rm -f ~/.local/bin/codex && rm -rf ~/.local/lib/node_modules/@openai/codex"],
+        check=False,
+        timeout=120,
+    )
 
 
 def _write_text_if_changed(path: Path, content: str) -> bool:
+    _ensure_writable_output(path)
     existing = path.read_text() if path.exists() else None
     if existing == content:
         return False
-    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     return True
+
+
+def _sudo_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["sudo", "-n", *command], capture_output=True, text=True)
+
+
+def _repair_ownership(path: Path) -> None:
+    uid = os.geteuid()
+    gid = os.getegid()
+    command = ["chown", "-R", f"{uid}:{gid}", str(path)]
+
+    if os.geteuid() == 0:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        return
+
+    result = _sudo_run(command)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "permission denied"
+        raise RuntimeError(
+            f"Cannot write generated service artifact {path}: {detail}. "
+            "Run `rakkib auth` in the terminal that started the web session, then retry."
+        )
+
+
+def _ensure_writable_output(path: Path) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        _repair_ownership(path.parent)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not os.access(path.parent, os.W_OK | os.X_OK):
+        _repair_ownership(path.parent)
+
+    if path.exists() and not os.access(path, os.W_OK):
+        _repair_ownership(path)
 
 
 def _restart_service(data_root: Path, svc_id: str) -> None:
@@ -652,10 +700,17 @@ def sync_shared_artifacts(state, repo: Path, data_root: Path, registry: dict) ->
         _write_text_if_changed(kuma_data_dir / "rakkib-monitors.json", payload)
 
         sync_script = repo / "templates" / "docker" / "uptime-kuma" / "sync-monitors.cjs.tmpl"
+        _ensure_writable_output(kuma_data_dir / "sync-monitors.cjs")
         render_file(sync_script, kuma_data_dir / "sync-monitors.cjs", state)
 
         if container_running("uptime-kuma"):
-            docker_run(["exec", "uptime-kuma", "node", "/app/data/sync-monitors.cjs"])
+            result = docker_run(
+                ["exec", "uptime-kuma", "node", "/app/data/sync-monitors.cjs"],
+                check=False,
+            )
+            if result.returncode != 0:
+                detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+                print(f"Warning: Uptime Kuma monitor sync failed: {detail}")
 
 
 def service_postgres_login_preflight(ctx: HookContext, *legacy_args) -> None:

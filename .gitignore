@@ -13,7 +13,7 @@
 # Local env files
 .env
 docs/cloudflarePermissionFix.md
-
+sshviasshkey.md
 # Python
 __pycache__/
 *.py[cod]
@@ -23,3 +23,7 @@ build/
 .venv/
 MagicMock/
 .DS_Store
+
+# Editor swap files
+*.swp
+*.swo

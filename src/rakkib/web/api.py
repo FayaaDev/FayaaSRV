@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.service_catalog import deployed_service_urls
-from rakkib.state import DEFAULT_STATE_FILE, State
+from rakkib.state import State, default_state_path
 from rakkib.steps import load_service_registry
 
 from .answers import PhaseValidationError, apply_phase_answers
@@ -251,7 +251,7 @@ def _serialize_field(field: FieldDef, state: State) -> dict[str, object]:
 def build_api_router(auth: AuthManager, config: WebRuntimeConfig, run_manager: WebRunManager) -> APIRouter:
     """Create the minimal API router for the current web phase."""
     router = APIRouter()
-    state_path = config.repo_dir / DEFAULT_STATE_FILE
+    state_path = default_state_path(config.repo_dir)
 
     def serialize_run_state() -> dict[str, object]:
         state = _load_state(state_path)

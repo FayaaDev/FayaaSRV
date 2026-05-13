@@ -57,6 +57,11 @@ service_catalog:
       numeric_alias: 9
       subdomain_key: jellyfin
       default_subdomain: jellyfin
+    - slug: plex
+      label: Plex
+      numeric_alias: 60
+      subdomain_key: plex
+      default_subdomain: plex
     - slug: openclaw
       label: OpenClaw
       numeric_alias: 10
@@ -87,6 +92,11 @@ service_catalog:
       numeric_alias: 50
       subdomain_key: webdav
       default_subdomain: webdav
+    - slug: pingvin-share
+      label: Pingvin Share
+      numeric_alias: 63
+      subdomain_key: pingvin-share
+      default_subdomain: pingvin
     - slug: it-tools
       label: IT-Tools
       numeric_alias: 13
@@ -117,6 +127,16 @@ service_catalog:
       numeric_alias: 18
       subdomain_key: dozzle
       default_subdomain: dozzle
+    - slug: grafana
+      label: Grafana
+      numeric_alias: 54
+      subdomain_key: grafana
+      default_subdomain: grafana
+    - slug: homarr
+      label: Homarr
+      numeric_alias: 53
+      subdomain_key: homarr
+      default_subdomain: homarr
     - slug: glance
       label: Glance
       numeric_alias: 19
@@ -132,16 +152,31 @@ service_catalog:
       numeric_alias: 21
       subdomain_key: beszel
       default_subdomain: beszel
+    - slug: glances
+      label: Glances
+      numeric_alias: 58
+      subdomain_key: glances
+      default_subdomain: glances
     - slug: freshrss
       label: FreshRSS
       numeric_alias: 22
       subdomain_key: freshrss
       default_subdomain: freshrss
+    - slug: openbooks
+      label: OpenBooks
+      numeric_alias: 57
+      subdomain_key: openbooks
+      default_subdomain: openbooks
     - slug: actual-budget
       label: Actual Budget
       numeric_alias: 23
       subdomain_key: actual-budget
       default_subdomain: actual
+    - slug: wallos
+      label: Wallos
+      numeric_alias: 64
+      subdomain_key: wallos
+      default_subdomain: wallos
     - slug: rsshub
       label: RSSHub
       numeric_alias: 24
@@ -157,6 +192,11 @@ service_catalog:
       numeric_alias: 49
       subdomain_key: adguard
       default_subdomain: adguard
+    - slug: gladys-assistant
+      label: Gladys Assistant
+      numeric_alias: 65
+      subdomain_key: gladys-assistant
+      default_subdomain: gladys
     - slug: whoogle
       label: Whoogle
       numeric_alias: 26
@@ -182,6 +222,26 @@ service_catalog:
       numeric_alias: 30
       subdomain_key: mealie
       default_subdomain: mealie
+    - slug: dailytxt
+      label: DailyTxT
+      numeric_alias: 55
+      subdomain_key: dailytxt
+      default_subdomain: dailytxt
+    - slug: esphome
+      label: ESPHome
+      numeric_alias: 62
+      subdomain_key: esphome
+      default_subdomain: esphome
+    - slug: notemark
+      label: Note Mark
+      numeric_alias: 59
+      subdomain_key: notemark
+      default_subdomain: notemark
+    - slug: memos
+      label: Memos
+      numeric_alias: 67
+      subdomain_key: memos
+      default_subdomain: memos
     - slug: gitea
       label: Gitea
       numeric_alias: 31
@@ -262,6 +322,11 @@ service_catalog:
       numeric_alias: 52
       subdomain_key: null
       default_subdomain: null
+    - slug: matter-server
+      label: Matter Server
+      numeric_alias: 66
+      subdomain_key: null
+      default_subdomain: null
   host_addons:
     - slug: vergo_terminal
       label: VErgo Terminal
@@ -283,37 +348,49 @@ fields:
     type: multi_select
     selection_mode: add_to_empty
     prompt: "Service categories: type service slugs to add (e.g. `n8n immich filebrowser`); numeric aliases like `6 8 12` are also accepted, or press Enter to skip all:"
-    canonical_values: [n8n, immich, transfer, jellyfin, openclaw, claude, codex, anse, filebrowser, webdav, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, glance, dashy, beszel, freshrss, actual-budget, rsshub, vaultwarden, adguard, whoogle, forgejo, privatebin, stirling-pdf, mealie, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower]
+    canonical_values: [n8n, immich, transfer, jellyfin, plex, openclaw, claude, codex, anse, filebrowser, webdav, pingvin-share, it-tools, cyberchef, drawio, excalidraw, homer, dozzle, grafana, homarr, glance, dashy, beszel, glances, freshrss, openbooks, actual-budget, wallos, rsshub, vaultwarden, adguard, gladys-assistant, whoogle, forgejo, privatebin, stirling-pdf, mealie, dailytxt, notemark, memos, esphome, gitea, whoami, pairdrop, moodist, hermes-agent, cheshire-cat-ai, flowise, serge, chatpad, lobe-chat, open-webui, ollama-cpu, ollama-amd, ollama-nvidia, autoheal, watchtower, matter-server]
     numeric_aliases:
       "6": n8n
       "7": immich
       "8": transfer
       "9": jellyfin
+      "60": plex
       "10": openclaw
       "47": claude
       "48": codex
       "37": anse
       "12": filebrowser
       "50": webdav
+      "63": pingvin-share
       "13": it-tools
       "14": cyberchef
       "15": drawio
       "16": excalidraw
       "17": homer
       "18": dozzle
+      "54": grafana
+      "53": homarr
       "19": glance
       "20": dashy
       "21": beszel
+      "58": glances
       "22": freshrss
+      "57": openbooks
       "23": actual-budget
+      "64": wallos
       "24": rsshub
       "25": vaultwarden
       "49": adguard
+      "65": gladys-assistant
       "26": whoogle
       "27": forgejo
       "28": privatebin
       "29": stirling-pdf
       "30": mealie
+      "55": dailytxt
+      "59": notemark
+      "67": memos
+      "62": esphome
       "31": gitea
       "32": whoami
       "33": pairdrop
@@ -330,6 +407,7 @@ fields:
       "46": open-webui
       "51": autoheal
       "52": watchtower
+      "66": matter-server
     records:
       - selected_services
   - id: host_addons
@@ -390,10 +468,12 @@ Automation:
 Media:
   [ ] 7  Immich        — photo library          →  immich.<domain>
   [ ] 9  Jellyfin      — media server           →  jellyfin.<domain>
+  [ ] 60 Plex          — media server; bridge networking →  plex.<domain>
 
 File Sharing:
   [ ] 8  transfer.sh   — public file sharing    →  transfer.<domain>
   [ ] 12 File Browser  — browser file manager   →  files.<domain>
+  [ ] 63 Pingvin Share — WeTransfer-style sharing →  pingvin.<domain>
 
 AI:
   [ ] 10 OpenClaw      — AI assistant gateway   →  claw.<domain>
@@ -422,28 +502,45 @@ Diagram And Design:
 
 Dashboards:
   [ ] 17 Homer         — static server homepage →  homer.<domain>
+  [ ] 53 Homarr        — modern server dashboard →  homarr.<domain>
   [ ] 19 Glance        — glanceable dashboard    →  glance.<domain>
   [ ] 20 Dashy         — customisable dashboard  →  dashy.<domain>
 
 Monitoring:
   [ ] 18 Dozzle        — container log viewer   →  dozzle.<domain>
+  [ ] 54 Grafana       — metrics dashboards     →  grafana.<domain>
   [ ] 21 Beszel        — server monitoring hub  →  beszel.<domain>
+  [ ] 58 Glances       — host metrics; Docker socket →  glances.<domain>
 
 News:
   [ ] 22 FreshRSS      — RSS feed reader        →  freshrss.<domain>
 
+Books:
+  [ ] 57 OpenBooks     — ebook search/download  →  openbooks.<domain>
+
 Finance:
   [ ] 23 Actual Budget — personal finance       →  actual.<domain>
+  [ ] 64 Wallos        — subscriptions tracker  →  wallos.<domain>
 
 Security:
   [ ] 25 Vaultwarden   — password manager       →  vault.<domain>
   [ ] 49 AdGuard Home   — network ad blocking    →  adguard.<domain>
+
+Home Automation:
+  [ ] 62 ESPHome       — ESP firmware dashboard; LAN/USB features may need host/device access →  esphome.<domain>
+  [ ] 65 Gladys Assistant — smart home automation; privileged device/Docker access →  gladys.<domain>
+  [ ] 66 Matter Server — Matter controller WebSocket; host network
 
 Search:
   [ ] 26 Whoogle       — privacy search         →  whoogle.<domain>
 
 Lifestyle:
   [ ] 30 Mealie        — recipe manager         →  mealie.<domain>
+  [ ] 55 DailyTxT      — encrypted diary        →  dailytxt.<domain>
+
+Documents:
+  [ ] 59 Note Mark     — Markdown notes app     →  notemark.<domain>
+  [ ] 67 Memos         — note-taking app        →  memos.<domain>
 
 Host Addons:
   [ ] 11 VErgo Terminal — zsh, prompt, completions, CLI UX
@@ -512,6 +609,7 @@ subdomains:
   immich: immich
   transfer: transfer
   jellyfin: jellyfin
+  plex: plex
   openclaw: claw
   anse: anse
   cheshire-cat-ai: cat
@@ -524,23 +622,34 @@ subdomains:
   lobe-chat: lobe
   open-webui: webui
   filebrowser: files
+  pingvin-share: pingvin
   it-tools: tools
   cyberchef: cyberchef
   forgejo: forgejo
   drawio: drawio
   excalidraw: excalidraw
   homer: homer
+  homarr: homarr
+  grafana: grafana
   dozzle: dozzle
   glance: glance
   dashy: dashy
   beszel: beszel
+  glances: glances
   freshrss: freshrss
+  openbooks: openbooks
   actual-budget: actual
+  wallos: wallos
   rsshub: rsshub
   vaultwarden: vault
   adguard: adguard
+  gladys-assistant: gladys
   whoogle: whoogle
   mealie: mealie
+  dailytxt: dailytxt
+  notemark: notemark
+  memos: memos
+  esphome: esphome
 ```
 
 Record only subdomains for services that are actually selected (foundation or optional).
@@ -556,6 +665,7 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.immich` -> `{{IMMICH_SUBDOMAIN}}`
 - `subdomains.transfer` -> `{{TRANSFER_SUBDOMAIN}}`
 - `subdomains.jellyfin` -> `{{JELLYFIN_SUBDOMAIN}}`
+- `subdomains.plex` -> `{{PLEX_SUBDOMAIN}}`
 - `subdomains.openclaw` -> `{{OPENCLAW_SUBDOMAIN}}`
 - `subdomains.anse` -> `{{ANSE_SUBDOMAIN}}`
 - `subdomains.cheshire-cat-ai` -> `{{CHESHIRE_CAT_AI_SUBDOMAIN}}`
@@ -569,20 +679,31 @@ During rendering, flatten these values into service placeholders:
 - `subdomains.open-webui` -> `{{OPEN_WEBUI_SUBDOMAIN}}`
 - `subdomains.filebrowser` -> `{{FILEBROWSER_SUBDOMAIN}}`
 - `subdomains.webdav` -> `{{WEBDAV_SUBDOMAIN}}`
+- `subdomains.pingvin-share` -> `{{PINGVIN_SHARE_SUBDOMAIN}}`
 - `subdomains.it-tools` -> `{{IT_TOOLS_SUBDOMAIN}}`
 - `subdomains.cyberchef` -> `{{CYBERCHEF_SUBDOMAIN}}`
 - `subdomains.forgejo` -> `{{FORGEJO_SUBDOMAIN}}`
 - `subdomains.drawio` -> `{{DRAWIO_SUBDOMAIN}}`
 - `subdomains.excalidraw` -> `{{EXCALIDRAW_SUBDOMAIN}}`
 - `subdomains.homer` -> `{{HOMER_SUBDOMAIN}}`
+- `subdomains.homarr` -> `{{HOMARR_SUBDOMAIN}}`
+- `subdomains.grafana` -> `{{GRAFANA_SUBDOMAIN}}`
 - `subdomains.dozzle` -> `{{DOZZLE_SUBDOMAIN}}`
 - `subdomains.glance` -> `{{GLANCE_SUBDOMAIN}}`
 - `subdomains.dashy` -> `{{DASHY_SUBDOMAIN}}`
 - `subdomains.beszel` -> `{{BESZEL_SUBDOMAIN}}`
+- `subdomains.glances` -> `{{GLANCES_SUBDOMAIN}}`
 - `subdomains.freshrss` -> `{{FRESHRSS_SUBDOMAIN}}`
+- `subdomains.openbooks` -> `{{OPENBOOKS_SUBDOMAIN}}`
 - `subdomains.actual-budget` -> `{{ACTUAL_BUDGET_SUBDOMAIN}}`
+- `subdomains.wallos` -> `{{WALLOS_SUBDOMAIN}}`
 - `subdomains.rsshub` -> `{{RSSHUB_SUBDOMAIN}}`
 - `subdomains.vaultwarden` -> `{{VAULTWARDEN_SUBDOMAIN}}`
 - `subdomains.adguard` -> `{{ADGUARD_SUBDOMAIN}}`
+- `subdomains.gladys-assistant` -> `{{GLADYS_ASSISTANT_SUBDOMAIN}}`
 - `subdomains.whoogle` -> `{{WHOOGLE_SUBDOMAIN}}`
 - `subdomains.mealie` -> `{{MEALIE_SUBDOMAIN}}`
+- `subdomains.dailytxt` -> `{{DAILYTXT_SUBDOMAIN}}`
+- `subdomains.notemark` -> `{{NOTEMARK_SUBDOMAIN}}`
+- `subdomains.memos` -> `{{MEMOS_SUBDOMAIN}}`
+- `subdomains.esphome` -> `{{ESPHOME_SUBDOMAIN}}`

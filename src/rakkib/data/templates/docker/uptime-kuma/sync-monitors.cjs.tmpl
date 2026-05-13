@@ -4,62 +4,6 @@ const { io } = require("socket.io-client");
 const CONFIG_PATH = process.env.RAKKIB_MONITORS_FILE || "/app/data/rakkib-monitors.json";
 const SERVER_URL = process.env.RAKKIB_UPTIME_KUMA_URL || "http://127.0.0.1:3001";
 
-const monitorDefaults = {
-    type: "http",
-    name: "",
-    parent: null,
-    url: "https://",
-    method: "GET",
-    protocol: null,
-    location: "world",
-    ipFamily: null,
-    interval: 60,
-    retryInterval: 60,
-    resendInterval: 0,
-    maxretries: 0,
-    retryOnlyOnStatusCodeFailure: false,
-    notificationIDList: {},
-    ignoreTls: false,
-    upsideDown: false,
-    expiryNotification: false,
-    domainExpiryNotification: false,
-    maxredirects: 10,
-    accepted_statuscodes: ["200-299"],
-    saveResponse: false,
-    saveErrorResponse: true,
-    responseMaxLength: 1024,
-    dns_resolve_type: "A",
-    dns_resolve_server: "",
-    docker_container: "",
-    docker_host: null,
-    proxyId: null,
-    basic_auth_user: "",
-    basic_auth_pass: "",
-    mqttUsername: "",
-    mqttPassword: "",
-    mqttTopic: "",
-    mqttWebsocketPath: "",
-    mqttSuccessMessage: "",
-    mqttCheckType: "keyword",
-    authMethod: null,
-    oauth_auth_method: "client_secret_basic",
-    httpBodyEncoding: "json",
-    kafkaProducerBrokers: [],
-    kafkaProducerSaslOptions: {
-        mechanism: "None",
-    },
-    cacheBust: false,
-    kafkaProducerSsl: false,
-    kafkaProducerAllowAutoTopicCreation: false,
-    gamedigGivenPortOnly: true,
-    remote_browser: null,
-    rabbitmqNodes: [],
-    rabbitmqUsername: "",
-    rabbitmqPassword: "",
-    conditions: [],
-    system_service_name: "",
-};
-
 function loadConfig() {
     return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 }
@@ -111,7 +55,7 @@ function parseManagedServiceId(prefix, description) {
 }
 
 function buildMonitorPayload(spec, prefix, existing = null) {
-    const payload = existing ? { ...existing } : { ...monitorDefaults };
+    const payload = {};
     payload.name = spec.name;
     payload.description = managedDescription(prefix, spec.service_id);
     payload.interval = spec.interval;

@@ -7,9 +7,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 import functools
+import os
+import pwd
 import socket
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Callable
@@ -23,6 +26,7 @@ from rakkib.docker import (
     compose_up,
     container_publishes_port,
     container_running,
+    create_network,
     docker_run,
     health_check,
 )
@@ -43,7 +47,7 @@ from rakkib.postgres_sql import (
 )
 from rakkib.render import render_file
 from rakkib.service_catalog import caddy_enabled, cloudflare_enabled, service_url, validate_registry_internal_access
-from rakkib.secrets import FACTORIES
+from rakkib.secret_utils import FACTORIES
 from rakkib.state import State
 from rakkib.steps import VerificationResult, selected_service_defs
 from rakkib.tui import progress_spinner
@@ -107,6 +111,36 @@ def _condition_matches(condition: dict, state: State, selected_ids: set[str]) ->
     return True
 
 
+def _ensure_service_runtime_env(state: State) -> None:
+    """Populate common container env values that templates may reference."""
+    if state.get("data_root") is None:
+        state.set("data_root", str(state.data_root))
+    if state.get("docker_net") is None:
+        state.set("docker_net", "caddy_net")
+
+    if state.get("admin_uid") is None or state.get("admin_gid") is None:
+        admin_user = state.get("admin_user") or os.environ.get("SUDO_USER")
+        if admin_user:
+            try:
+                user_info = pwd.getpwnam(str(admin_user))
+                uid = user_info.pw_uid
+                gid = user_info.pw_gid
+            except KeyError:
+                uid = int(os.environ.get("SUDO_UID") or os.getuid())
+                gid = int(os.environ.get("SUDO_GID") or os.getgid())
+        else:
+            uid = int(os.environ.get("SUDO_UID") or os.getuid())
+            gid = int(os.environ.get("SUDO_GID") or os.getgid())
+
+        if state.get("admin_uid") is None:
+            state.set("admin_uid", str(uid))
+        if state.get("admin_gid") is None:
+            state.set("admin_gid", str(gid))
+
+    if state.get("TZ") is None:
+        state.set("TZ", os.environ.get("TZ", "UTC"))
+
+
 def _generate_missing_secrets(state: State) -> None:
     """Generate secrets that are not yet present in state.
 
@@ -159,6 +193,7 @@ def _render_env_example(
 
     _preserve_env_keys_from_file(state, dst_path, preserve_keys)
 
+    _ensure_writable_output(dst_path)
     render_file(tmpl_path, dst_path, state)
     dst_path.chmod(0o600)
 
@@ -319,9 +354,59 @@ def _publish_cloudflare_service(state: State, svc: dict) -> None:
     cloudflare.publish_service(state, svc)
 
 
+def _sudo_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a non-interactive sudo command for host path repairs."""
+    return subprocess.run(["sudo", "-n", *command], capture_output=True, text=True)
+
+
+def _chown_path(path: Path, uid: int, gid: int, *, recursive: bool) -> None:
+    args = ["chown"]
+    if recursive:
+        args.append("-R")
+    args.extend([f"{uid}:{gid}", str(path)])
+
+    if os.geteuid() == 0:
+        subprocess.run(args, check=True, capture_output=True, text=True)
+        return
+
+    result = _sudo_run(args)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "permission denied"
+        raise RuntimeError(
+            f"Cannot repair ownership for {path}: {detail}. "
+            "Run `rakkib auth` in the terminal that started the web session, then retry."
+        )
+
+
+def _ensure_writable_dir(path: Path) -> None:
+    """Create a service data dir and repair stale root-owned bind mounts."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        parent = path.parent
+        result = _sudo_run(["mkdir", "-p", str(path)])
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "permission denied"
+            raise RuntimeError(
+                f"Cannot create service data directory {path}: {detail}. "
+                f"Ensure {parent} is writable or run `rakkib auth`, then retry."
+            )
+
+    if os.access(path, os.W_OK | os.X_OK):
+        return
+
+    _chown_path(path, os.geteuid(), os.getegid(), recursive=True)
+
+
+def _ensure_writable_output(path: Path) -> None:
+    _ensure_writable_dir(path.parent)
+    if path.exists() and not os.access(path, os.W_OK):
+        _chown_path(path, os.geteuid(), os.getegid(), recursive=False)
+
+
 def _prepare_service_data(state: State, svc: dict, data_root: Path) -> None:
     for relative_dir in svc.get("data_dirs", []):
-        (data_root / relative_dir).mkdir(parents=True, exist_ok=True)
+        _ensure_writable_dir(data_root / relative_dir)
 
     chown = svc.get("chown")
     if not chown or state.get("platform", "linux") != "linux":
@@ -330,21 +415,7 @@ def _prepare_service_data(state: State, svc: dict, data_root: Path) -> None:
     service_data_root = data_root / "data" / svc["id"]
     if not service_data_root.exists():
         return
-
-    result = subprocess.run(
-        [
-            "sudo",
-            "-n",
-            "chown",
-            "-R",
-            f"{chown['uid']}:{chown['gid']}",
-            str(service_data_root),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
+    _chown_path(service_data_root, int(chown["uid"]), int(chown["gid"]), recursive=True)
 
 
 def _render_extra_templates(state: State, svc: dict, repo: Path, data_root: Path) -> None:
@@ -355,7 +426,7 @@ def _render_extra_templates(state: State, svc: dict, repo: Path, data_root: Path
             raise FileNotFoundError(
                 f"Service {svc['id']} references missing extra_templates source: {src}"
             )
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        _ensure_writable_output(dst)
         render_file(src, dst, state)
 
 
@@ -559,6 +630,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
         return
 
     svc_dir = data_root / "docker" / svc_id
+    _ensure_writable_dir(svc_dir)
 
     _prepare_service_data(state, svc, data_root)
     _ensure_internal_port_available(state, svc, data_root)
@@ -576,12 +648,14 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     compose_tmpl = repo / "templates" / "docker" / svc_id / "docker-compose.yml.tmpl"
     if compose_tmpl.exists():
         compose_path = svc_dir / "docker-compose.yml"
+        _ensure_writable_output(compose_path)
         render_file(compose_tmpl, compose_path, state)
         _apply_internal_access_ports(state, svc, compose_path)
 
     _render_extra_templates(state, svc, repo, data_root)
 
     # --- Start service ---------------------------------------------------
+    create_network(str(state.get("docker_net", "caddy_net")))
     try:
         compose_up(svc_dir, log_path=log_path)
     except DockerError as exc:
@@ -660,6 +734,7 @@ def run(state: State) -> None:
     data_root = state.data_root
     registry = _load_registry()
 
+    _ensure_service_runtime_env(state)
     _generate_missing_secrets(state)
     services = selected_service_defs(state, registry)
 
@@ -684,6 +759,7 @@ def run_single_service(state: State, svc_id: str) -> None:
     if svc_id not in by_id:
         raise ValueError(f"Service {svc_id} not found in registry")
 
+    _ensure_service_runtime_env(state)
     _generate_missing_secrets(state)
     svc = by_id[svc_id]
     _deploy_single_service(state, svc, repo, data_root)
@@ -710,16 +786,24 @@ def smoke_check(state: State, svc_id: str) -> VerificationResult:
     if not url:
         return VerificationResult.failure("services", f"No user-facing URL recorded for {svc_id}")
 
-    timeout = str(smoke.get("timeout", 20))
-    result = subprocess.run(
-        ["curl", "-fsSL", "--max-time", timeout, url],
-        capture_output=True,
-        text=True,
-        timeout=int(timeout) + 5,
-    )
-    if result.returncode != 0:
-        detail = result.stderr.strip() or result.stdout.strip() or "curl failed"
-        return VerificationResult.failure("services", f"Smoke check failed for {svc_id} at {url}: {detail}")
+    timeout = int(smoke.get("timeout", 20))
+    deadline = time.monotonic() + timeout
+    result: subprocess.CompletedProcess[str] | None = None
+    while True:
+        remaining = max(1, int(deadline - time.monotonic()))
+        attempt_timeout = str(min(10, remaining))
+        result = subprocess.run(
+            ["curl", "-fsSL", "--max-time", attempt_timeout, url],
+            capture_output=True,
+            text=True,
+            timeout=int(attempt_timeout) + 5,
+        )
+        if result.returncode == 0:
+            break
+        if time.monotonic() >= deadline:
+            detail = result.stderr.strip() or result.stdout.strip() or "curl failed"
+            return VerificationResult.failure("services", f"Smoke check failed for {svc_id} at {url}: {detail}")
+        time.sleep(2)
 
     expected = smoke.get("expected_text")
     if expected and expected not in result.stdout:

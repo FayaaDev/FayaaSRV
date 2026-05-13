@@ -167,7 +167,9 @@ def health_check(
             elif status == "healthy":
                 return True
             elif status == "unhealthy":
-                return False
+                # Some images briefly report unhealthy during first-boot work,
+                # then recover once migrations or model downloads finish.
+                pass
         except DockerError:
             # Container may not exist yet
             pass

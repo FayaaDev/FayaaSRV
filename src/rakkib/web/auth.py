@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 
-from rakkib.secrets import compare_digest, token_urlsafe
+from rakkib.secret_utils import compare_digest, token_urlsafe
 
 SESSION_COOKIE_NAME = "rakkib_session"
 RECOVERY_COMMAND = "rakkib web --lan"

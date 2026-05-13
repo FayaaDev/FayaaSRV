@@ -14,7 +14,8 @@ import subprocess
 import sys
 import threading
 
-from rakkib.state import DEFAULT_STATE_FILE, State
+from rakkib.state import State, default_state_path
+from rakkib.util import checkout_dir
 
 FULL_SETUP_OPERATION = "full_setup"
 SERVICE_SYNC_OPERATION = "service_sync"
@@ -83,8 +84,8 @@ class WebRunManager:
     """Manage one background `rakkib pull` process for the web UI."""
 
     def __init__(self, repo_dir: Path | str) -> None:
-        self._repo_dir = Path(repo_dir)
-        self._state_path = self._repo_dir / DEFAULT_STATE_FILE
+        self._repo_dir = checkout_dir(Path(repo_dir))
+        self._state_path = default_state_path(repo_dir)
         self._log_path = self._repo_dir / ".rakkib-web-run.log"
         self._lock = threading.Lock()
         self._process: subprocess.Popen[str] | None = None

@@ -40,7 +40,48 @@ def _crontab_lines(user: str | None = None) -> list[str]:
 def _write_crontab(lines: list[str], user: str | None = None) -> None:
     """Write lines back to crontab."""
     cmd = ["crontab", "-"] if user is None else ["crontab", "-u", user, "-"]
-    subprocess.run(cmd, input="\n".join(lines) + "\n", text=True, check=True)
+    result = subprocess.run(
+        cmd,
+        input="\n".join(lines) + "\n",
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        message = f"Unable to install cron entries with `{' '.join(cmd)}`"
+        details = (result.stderr or result.stdout).strip()
+        if details:
+            message = f"{message}: {details}"
+        diagnostics = _cron_spool_diagnostics()
+        if diagnostics:
+            message = f"{message}\n{diagnostics}"
+        raise RuntimeError(message)
+
+
+def _cron_spool_diagnostics() -> str | None:
+    paths = [Path("/var/spool/cron"), Path("/var/spool/cron/crontabs")]
+    existing = [path for path in paths if path.exists()]
+    if not existing:
+        return None
+
+    result = subprocess.run(
+        ["lsattr", "-d", *[str(path) for path in existing]],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+
+    output = result.stdout.strip()
+    for line in output.splitlines():
+        attrs = line.split(maxsplit=1)[0]
+        if "i" in attrs or "a" in attrs:
+            return (
+                "Cron spool has immutable or append-only attributes, so crontab cannot create "
+                "its temporary file. Audit the current crontab first, then clear them as root "
+                "with `chattr -ia /var/spool/cron /var/spool/cron/crontabs` and rerun Rakkib.\n"
+                f"lsattr output:\n{output}"
+            )
+    return None
 
 
 def _install_cron_entry(

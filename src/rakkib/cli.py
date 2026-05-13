@@ -33,7 +33,7 @@ from rakkib.doctor import (
     to_json,
 )
 from rakkib.interview import run_interview
-from rakkib.secrets import token_urlsafe
+from rakkib.secret_utils import token_urlsafe
 from rakkib.service_catalog import caddy_enabled, cloudflare_enabled, deployed_service_urls
 from rakkib.services_cli import (
     apply_planned_subdomains as _apply_planned_subdomains,
@@ -50,7 +50,7 @@ from rakkib.services_cli import (
     summarize_service_diff as _summarize_service_diff,
     validate_selection_dependencies as _validate_service_dependencies,
 )
-from rakkib.state import State
+from rakkib.state import State, default_state_path
 from rakkib.steps import STEP_MODULES, VerificationResult, load_service_registry, selected_service_defs
 from rakkib.steps import postgres as postgres_step
 from rakkib.steps import services as services_step
@@ -117,7 +117,7 @@ def _run_auth_setup(ctx: click.Context) -> bool:
         return True
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
     user = docker_access_user(state)
     try:
@@ -344,15 +344,6 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
     _persist_deployed_selection(state)
     state.save(state_path)
     return True
-
-
-def _checkout_dir(repo_dir: Path) -> Path:
-    """Resolve the git checkout root from either the repo root or package dir."""
-    candidates = [repo_dir, repo_dir.parent.parent]
-    for candidate in candidates:
-        if (candidate / ".git").exists():
-            return candidate
-    return repo_dir
 
 
 def _run_best_effort(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
@@ -599,7 +590,7 @@ def init(ctx: click.Context) -> None:
     console.print("[bold green]Rakkib init[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     state = run_interview(state, questions_dir=repo_dir / "data" / "questions")
@@ -623,7 +614,7 @@ def pull(ctx: click.Context, service: str | None) -> None:
     console.print("[bold green]Rakkib pull[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     if not state.is_confirmed():
@@ -716,7 +707,7 @@ def update(ctx: click.Context) -> None:
 def doctor(ctx: click.Context, json_output: bool, interactive: bool) -> None:
     """Run host diagnostics."""
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     checks = run_checks(state)
@@ -777,7 +768,7 @@ def doctor(ctx: click.Context, json_output: bool, interactive: bool) -> None:
 def status(ctx: click.Context) -> None:
     """Print deployment status and resume point."""
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     if not state.is_confirmed():
@@ -822,6 +813,12 @@ def status(ctx: click.Context) -> None:
         else:
             console.print(f"  [cyan]{svc_id}[/cyan]")
 
+    host_addons = state.get("host_addons", []) or []
+    if host_addons:
+        console.rule("[bold]Host Add-ons[/bold]")
+        for addon in host_addons:
+            console.print(f"  [cyan]{addon}[/cyan]")
+
     # Available services
     console.rule("[bold]Available Services[/bold]")
     available = [
@@ -855,8 +852,13 @@ def add(ctx: click.Context, service: str | None, service_option: str | None, yes
     service = service_option or service
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
+    if not state.is_confirmed() and state.get("exposure_mode") is None and not state.get("cloudflare"):
+        state.set("exposure_mode", "internal")
+    services_step._ensure_service_runtime_env(state)
+    if not ensure_prereqs(state, console=console, cloudflared_bin=_cloudflared_bin()):
+        ctx.exit(1)
 
     registry = services_step._load_registry()
     old_selected = set(state.get("foundation_services", []) or [])
@@ -961,7 +963,7 @@ def sync_services(ctx: click.Context) -> None:
     console.print("[bold green]Rakkib sync-services[/bold green]")
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     if not _sync_services_to_state_selection(state, state_path):
@@ -977,7 +979,7 @@ def sync_services(ctx: click.Context) -> None:
 def smoke(ctx: click.Context, service: str) -> None:
     """Fetch a deployed service URL and verify its registry smoke marker."""
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     result = services_step.smoke_check(state, service)
@@ -999,7 +1001,7 @@ def remove(ctx: click.Context, service: str, yes: bool) -> None:
     This is a non-interactive alternative to deselecting a service via `rakkib add`.
     """
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     registry = load_service_registry()
@@ -1037,7 +1039,8 @@ def remove(ctx: click.Context, service: str, yes: bool) -> None:
     state.save(state_path)
 
     data_root = state.data_root
-    services_step._reload_caddy(data_root)
+    if caddy_enabled(state) and (data_root / "docker" / "caddy" / "docker-compose.yml").exists():
+        services_step._reload_caddy(data_root)
     services_step.sync_shared_artifacts(state, services_step._repo_dir(), data_root, registry)
 
     console.print(f"[bold green]Removed {service}.[/bold green]")
@@ -1059,7 +1062,7 @@ def restart(ctx: click.Context, service: str | None, restart_all: bool) -> None:
         ctx.exit(1)
 
     repo_dir = ctx.obj["repo_dir"]
-    state_path = repo_dir / ".fss-state.yaml"
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
 
     if restart_all:
@@ -1126,8 +1129,7 @@ def uninstall(ctx: click.Context) -> None:
     home = Path.home()
     repo_dir = Path(ctx.obj["repo_dir"])
     checkout = _checkout_dir(repo_dir)
-    state_candidates = [repo_dir / ".fss-state.yaml", checkout / ".fss-state.yaml"]
-    state_path = next((path for path in state_candidates if path.exists()), state_candidates[0])
+    state_path = default_state_path(repo_dir)
     state = State.load(state_path)
     registry = load_service_registry()
 
