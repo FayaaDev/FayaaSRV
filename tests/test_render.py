@@ -211,6 +211,20 @@ def test_rendered_forgejo_env_uses_internal_url_without_public_domain(tmp_path):
     assert "FORGEJO__server__ROOT_URL=http://192.0.2.10:13020/" in rendered
 
 
+def test_rendered_cheshire_cat_env_uses_internal_url_without_public_domain(tmp_path):
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "docker" / "cheshire-cat-ai" / ".env.example"
+    dst = tmp_path / "cheshire.env"
+
+    state = State({"exposure_mode": "internal", "lan_ip": "192.0.2.10"})
+    render_file(src, dst, state)
+
+    rendered = dst.read_text()
+    assert "CCAT_CORE_HOST=192.0.2.10" in rendered
+    assert "CCAT_CORE_USE_SECURE_PROTOCOLS=false" in rendered
+    assert "CCAT_HTTPS_PROXY_MODE=false" in rendered
+    assert "CCAT_CORS_ALLOWED_ORIGINS=http://192.0.2.10:13023" in rendered
+
+
 def test_flatten_state_deeply_nested():
     state = State({"a": {"b": {"c": "deep"}}})
     flat = flatten_state(state)
