@@ -63,6 +63,8 @@ Status meanings:
 | Stirling-PDF | `stirling-pdf` |
 | Mealie | `mealie` |
 | Gitea | `gitea` |
+| Caddy | `caddy` |
+| Cloudflared | `cloudflared` |
 Validation notes:
 - OpenBooks: `rakkib add openbooks --yes`, `rakkib smoke openbooks`, `rakkib remove openbooks --yes`, and re-add passed on the test server using `https://openbooks.vazhs.com/`.
 - DailyTxT: `rakkib add dailytxt --yes`, `rakkib smoke dailytxt`, `rakkib remove dailytxt --yes`, and re-add passed on the test server using `https://dailytxt.vazhs.com/`.
@@ -93,10 +95,9 @@ Validation notes:
 - Stirling-PDF: installer-first `rakkib add stirling-pdf --yes`, internal LAN smoke, `rakkib remove stirling-pdf --yes` cleanup, re-add, and final smoke passed on the test server using `http://174.138.183.153:13038/`.
 - Mealie: installer-first `rakkib add mealie --yes`, internal LAN smoke, `rakkib remove mealie --yes` cleanup, re-add, and final smoke passed on the test server using `http://174.138.183.153:13039/`.
 - Gitea: installer-first `rakkib add gitea --yes`, internal LAN smoke, `rakkib remove gitea --yes` cleanup including Postgres DB/role removal, re-add, and final smoke passed on the test server using `http://174.138.183.153:13040/` after fixing internal server URL rendering.
+- Caddy: manually verified by the user as working well on the test server after the remaining service batch validation.
+- Cloudflared: manually verified by the user as working well on the test server after the remaining service batch validation.
 
 ## Implemented, Pending Testing
 
-| Service | Registry ID | Bucket |
-| --- | --- | --- |
-| Caddy | `caddy` | always |
-| Cloudflared | `cloudflared` | always |
+No services currently pending testing.
