@@ -39,12 +39,14 @@ Status meanings:
 | n8n | `n8n` |
 | FreshRSS | `freshrss` |
 | Vaultwarden | `vaultwarden` |
+| Immich | `immich` |
 Validation notes:
 - OpenBooks: `rakkib add openbooks --yes`, `rakkib smoke openbooks`, `rakkib remove openbooks --yes`, and re-add passed on the test server using `https://openbooks.vazhs.com/`.
 - DailyTxT: `rakkib add dailytxt --yes`, `rakkib smoke dailytxt`, `rakkib remove dailytxt --yes`, and re-add passed on the test server using `https://dailytxt.vazhs.com/`.
 - n8n: installer-first `rakkib add n8n --yes`, internal LAN smoke, `rakkib remove n8n --yes` cleanup, re-add, and final smoke passed on the test server using `http://174.138.183.153:13004/`.
 - FreshRSS: installer-first `rakkib add freshrss --yes`, internal LAN smoke, `rakkib remove freshrss --yes` cleanup, re-add, and final smoke passed on the test server using `http://174.138.183.153:13032/`.
 - Vaultwarden: installer-first `rakkib add vaultwarden --yes`, internal LAN smoke, `rakkib remove vaultwarden --yes` cleanup, re-add, and final smoke passed on the test server using `http://174.138.183.153:13035/`.
+- Immich: installer-first `rakkib add immich --yes`, internal LAN smoke, `rakkib remove immich --yes` cleanup, re-add, and final smoke passed on the rebuilt test server using `http://174.138.183.153:13005/`; service leaves the small test server under heavy memory/swap pressure.
 
 ## Implemented, Pending Testing
 
@@ -53,7 +55,6 @@ Validation notes:
 | Caddy | `caddy` | always |
 | Cloudflared | `cloudflared` | always |
 | PostgreSQL | `postgres` | always |
-| Immich | `immich` | selected_services |
 | Jellyfin | `jellyfin` | selected_services |
 | Hermes Agent | `hermes-agent` | selected_services |
 | Chatpad AI | `chatpad` | selected_services |
