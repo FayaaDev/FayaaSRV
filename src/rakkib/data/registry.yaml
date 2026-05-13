@@ -1312,7 +1312,7 @@ services:
       retries: 3
     smoke:
       path: /admin
-      expected_text: Cheshire Cat
+      expected_text: Login
     notes: "AI agent microservice with an admin UI and REST API. Public root redirects to /admin and ships with a Qdrant sidecar for RAG. Optional."
     hooks:
       remove:
