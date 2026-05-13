@@ -150,8 +150,20 @@ class TestHealthCheck:
     @patch("rakkib.docker.time")
     def test_unhealthy(self, mock_time: MagicMock, mock_run: MagicMock):
         mock_run.return_value = MagicMock(stdout="unhealthy\n")
-        mock_time.monotonic.side_effect = [0, 1, 2]
+        mock_time.monotonic.side_effect = [0, 5, 10, 15]
+        mock_time.sleep = MagicMock()
         assert health_check("mycontainer", timeout=10) is False
+
+    @patch("rakkib.docker._run")
+    @patch("rakkib.docker.time")
+    def test_unhealthy_then_healthy(self, mock_time: MagicMock, mock_run: MagicMock):
+        mock_run.side_effect = [
+            MagicMock(stdout="unhealthy\n"),
+            MagicMock(stdout="healthy\n"),
+        ]
+        mock_time.monotonic.side_effect = [0, 1, 2, 3]
+        mock_time.sleep = MagicMock()
+        assert health_check("mycontainer", timeout=10) is True
 
     @patch("rakkib.docker._run")
     @patch("rakkib.docker.container_running")
