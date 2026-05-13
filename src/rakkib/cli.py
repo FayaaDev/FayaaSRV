@@ -1039,7 +1039,8 @@ def remove(ctx: click.Context, service: str, yes: bool) -> None:
     state.save(state_path)
 
     data_root = state.data_root
-    services_step._reload_caddy(data_root)
+    if caddy_enabled(state) and (data_root / "docker" / "caddy" / "docker-compose.yml").exists():
+        services_step._reload_caddy(data_root)
     services_step.sync_shared_artifacts(state, services_step._repo_dir(), data_root, registry)
 
     console.print(f"[bold green]Removed {service}.[/bold green]")
