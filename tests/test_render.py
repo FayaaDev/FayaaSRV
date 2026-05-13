@@ -176,6 +176,17 @@ def test_rendered_vaultwarden_env_uses_internal_url_without_domain(tmp_path):
     assert "ADMIN_TOKEN=vaultwarden-admin-token" in rendered
 
 
+def test_rendered_beszel_env_uses_internal_url_without_domain(tmp_path):
+    src = REPO_ROOT / "src" / "rakkib" / "data" / "templates" / "docker" / "beszel" / ".env.example"
+    dst = tmp_path / "beszel.env"
+
+    state = State({"exposure_mode": "internal", "lan_ip": "192.0.2.10"})
+    render_file(src, dst, state)
+
+    rendered = dst.read_text()
+    assert "APP_URL=http://192.0.2.10:13031" in rendered
+
+
 def test_flatten_state_deeply_nested():
     state = State({"a": {"b": {"c": "deep"}}})
     flat = flatten_state(state)
