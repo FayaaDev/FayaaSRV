@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import platform
+import shlex
 import shutil
 import struct
 import subprocess
@@ -21,7 +22,7 @@ from typing import Any, Callable
 from rakkib.docker import DockerError, docker_run, is_docker_permission_error
 from rakkib.service_catalog import cloudflare_enabled
 from rakkib.state import State
-from rakkib.tui import progress_spinner
+from rakkib.tui import progress_spinner, prompt_confirm
 from rakkib.util import resolve_user
 
 
@@ -407,11 +408,35 @@ def prepare_docker_access(user: str, *, validate_sudo: bool = True) -> str:
     return f"Docker access was prepared for user {user}."
 
 
+def _docker_group_rerun_command() -> list[str] | None:
+    if sys.platform != "linux" or not sys.stdin.isatty():
+        return None
+    if shutil.which("sg") is None or not sys.argv:
+        return None
+    return ["sg", "docker", "-c", shlex.join(sys.argv)]
+
+
+def _offer_docker_group_rerun(console) -> None:
+    command = _docker_group_rerun_command()
+    if command is None:
+        return
+    if not prompt_confirm("Re-run this Rakkib command in a docker-group subshell now?", default=True):
+        return
+    console.print("[dim]Re-running current command with docker group access...[/dim]")
+    try:
+        os.execvp(command[0], command)
+    except OSError as exc:
+        console.print(f"[yellow]Could not re-run with sg docker: {exc}[/yellow]")
+
+
 def handle_docker_permission_denied(console, user: str) -> bool:
     console.print(
         "[bold red]Docker is installed, but this shell cannot access /var/run/docker.sock.[/bold red]"
     )
-    console.print(f"[dim]{prepare_docker_access(user)}[/dim]")
+    repair_message = prepare_docker_access(user)
+    console.print(f"[dim]{repair_message}[/dim]")
+    if repair_message.startswith("Docker access was prepared"):
+        _offer_docker_group_rerun(console)
     console.print(
         "[yellow]Open a new shell or run `newgrp docker`, then verify with `docker info` "
         "and rerun `rakkib pull`.[/yellow]"
