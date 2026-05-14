@@ -23,6 +23,7 @@ from rakkib.service_catalog import (
     validate_subdomain_label,
     validate_subdomain_map,
 )
+from rakkib.services_cli import append_resource_warning
 from rakkib.steps import load_service_registry
 from rakkib.tui import prompt_checkbox, prompt_confirm, prompt_password, prompt_select, prompt_text
 
@@ -161,6 +162,7 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
     optional_items = catalog.get("optional_services", [])
     host_items = catalog.get("host_addons", [])
     registry = load_service_registry()
+    by_id = {svc["id"]: svc for svc in registry.get("services", [])}
 
     choices: list[Choice] = []
 
@@ -175,7 +177,8 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
         for item in foundation_items:
             slug = item["slug"]
             label = item.get("label", slug)
-            choices.append(Choice(title=f"  {label}", value=slug, checked=True))
+            svc = by_id.get(slug, {"id": slug})
+            choices.append(Choice(title=f"  {append_resource_warning(label, svc)}", value=slug, checked=True))
 
     optional_groups: dict[str, list[dict[str, Any]]] = {}
     for item in optional_items:
@@ -194,14 +197,16 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
         for item in items:
             slug = item["slug"]
             label = item.get("label", slug)
-            choices.append(Choice(title=f"  {label}", value=slug, checked=False))
+            svc = by_id.get(slug, {"id": slug})
+            choices.append(Choice(title=f"  {append_resource_warning(label, svc)}", value=slug, checked=False))
 
     if host_items:
         choices.append(Choice(title="━━ Host Addons ━━", value="__header_host__", disabled=True))
         for item in host_items:
             slug = item["slug"]
             label = item.get("label", slug)
-            choices.append(Choice(title=f"  {label}", value=slug, checked=False))
+            svc = by_id.get(slug, {"id": slug})
+            choices.append(Choice(title=f"  {append_resource_warning(label, svc)}", value=slug, checked=False))
 
     console.print("\n[bold]=== Service Selection ===[/bold]\n")
 

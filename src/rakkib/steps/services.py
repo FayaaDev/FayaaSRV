@@ -232,6 +232,142 @@ def _read_text_if_exists(path: Path) -> str | None:
     return path.read_text()
 
 
+def _available_ram_mb() -> int | None:
+    meminfo = Path("/proc/meminfo")
+    if meminfo.exists():
+        try:
+            for line in meminfo.read_text().splitlines():
+                if line.startswith("MemAvailable:"):
+                    parts = line.split()
+                    return int(parts[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            pass
+    return None
+
+
+def _format_ram_label(value_mb: int) -> str:
+    if value_mb % 1024 == 0:
+        return f"{value_mb // 1024} GB"
+    return f"{value_mb / 1024:.1f} GB"
+
+
+def _resource_disk_probe_path(state: State, svc: dict) -> Path:
+    if not svc.get("host_service"):
+        for candidate in (Path("/var/lib/containerd"), Path("/var/lib/docker")):
+            if candidate.exists():
+                return candidate
+    return state.data_root
+
+
+def _disk_probe_status(probe: Path) -> tuple[int, str] | None:
+    candidate = probe
+    while not candidate.exists() and candidate != Path("/"):
+        candidate = candidate.parent
+
+    try:
+        result = subprocess.run(
+            ["df", "-Pk", str(candidate)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        lines = result.stdout.strip().splitlines()
+        if len(lines) >= 2:
+            parts = lines[1].split()
+            free_kb = int(parts[3])
+            mount_point = parts[5]
+            return free_kb // 1024 // 1024, mount_point
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError, IndexError):
+        pass
+
+    return None
+
+
+def _resource_disk_scope_label(probe: Path, mount_point: str | None = None) -> str:
+    label = f"the filesystem backing {probe}"
+    if probe in (Path("/var/lib/containerd"), Path("/var/lib/docker")):
+        label += " (Docker image storage)"
+    if mount_point:
+        label += f" mounted at {mount_point}"
+    return label
+
+
+def _warn_service_resource_recommendations(
+    svc: dict,
+    requirements: dict,
+    available_ram_mb: int | None,
+    free_disk_gb: int | None,
+    disk_scope: str,
+) -> None:
+    warnings: list[str] = []
+
+    recommended_ram = requirements.get("recommended_ram_mb")
+    if recommended_ram is not None and available_ram_mb is not None and available_ram_mb < int(recommended_ram):
+        warnings.append(
+            f"recommends {_format_ram_label(int(recommended_ram))} RAM available, current host has {_format_ram_label(available_ram_mb)}"
+        )
+
+    recommended_disk = requirements.get("recommended_disk_gb")
+    if recommended_disk is not None and free_disk_gb is not None and free_disk_gb < int(recommended_disk):
+        warnings.append(
+            f"recommends {int(recommended_disk)} GB free on {disk_scope}, current host has {free_disk_gb} GB"
+        )
+
+    if not warnings:
+        return
+
+    install_warning = str(requirements.get("install_warning") or "").strip()
+    message = f"Service '{svc['id']}' is resource-heavy: {'; '.join(warnings)}."
+    if install_warning:
+        message += f" {install_warning}"
+    console.print(f"[yellow]Warning:[/yellow] {message}")
+
+
+def _enforce_service_resource_requirements(state: State, svc: dict) -> None:
+    requirements = svc.get("resource_requirements") or {}
+    if not requirements:
+        return
+
+    available_ram_mb = _available_ram_mb()
+    disk_probe = _resource_disk_probe_path(state, svc)
+    disk_status = _disk_probe_status(disk_probe)
+    free_disk_gb = disk_status[0] if disk_status is not None else None
+    mount_point = disk_status[1] if disk_status is not None else None
+    disk_scope = _resource_disk_scope_label(disk_probe, mount_point)
+
+    failures: list[str] = []
+
+    min_ram = requirements.get("min_ram_mb")
+    if min_ram is not None and available_ram_mb is not None and available_ram_mb < int(min_ram):
+        failures.append(
+            f"needs at least {_format_ram_label(int(min_ram))} RAM available, current host has {_format_ram_label(available_ram_mb)}"
+        )
+
+    min_disk = requirements.get("min_disk_gb")
+    if min_disk is not None and free_disk_gb is not None and free_disk_gb < int(min_disk):
+        failures.append(
+            f"needs at least {int(min_disk)} GB free on {disk_scope}, current host has {free_disk_gb} GB"
+        )
+
+    if failures:
+        install_warning = str(requirements.get("install_warning") or "").strip()
+        message = (
+            f"Service '{svc['id']}' cannot start installation because it does not meet the minimum resource requirements: "
+            + "; ".join(failures)
+            + "."
+        )
+        if install_warning:
+            message += f" {install_warning}"
+        if disk_probe in (Path("/var/lib/containerd"), Path("/var/lib/docker")):
+            message += (
+                " Free space must exist on the filesystem that stores Docker images and extracted layers; "
+                "increasing the VM disk alone is not enough until that filesystem is expanded."
+            )
+        raise RuntimeError(message)
+
+    _warn_service_resource_recommendations(svc, requirements, available_ram_mb, free_disk_gb, disk_scope)
+
+
 def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path) -> dict[str, bool]:
     """Return whether current templates would change a service's rendered artifacts."""
     svc_id = svc["id"]
@@ -294,8 +430,11 @@ def _service_render_changes(state: State, svc: dict, repo: Path, data_root: Path
     }
 
 
-def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path, *, validate: bool = True) -> None:
-    """Render the appropriate Caddy route template for a service."""
+def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path, *, validate: bool = True) -> bool:
+    """Render the appropriate Caddy route template for a service.
+
+    Returns True when the rendered fragment changed on disk.
+    """
     svc_id = svc["id"]
     routes_dir = data_root / "docker" / "caddy" / "routes"
     routes_dir.mkdir(parents=True, exist_ok=True)
@@ -304,7 +443,7 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path, *,
     tmpl_name = caddy.get("template")
 
     if tmpl_name is None:
-        return
+        return False
     if "/" in tmpl_name or "\\" in tmpl_name or ".." in Path(tmpl_name).parts:
         raise ValueError(f"Invalid caddy.template for service {svc_id}: {tmpl_name!r}")
 
@@ -313,9 +452,11 @@ def _render_caddy_route(state: State, svc: dict, repo: Path, data_root: Path, *,
         raise FileNotFoundError(f"Service {svc_id} references missing caddy.template: {tmpl_path}")
 
     route_path = routes_dir / f"{svc_id}.caddy"
+    before = _read_text_if_exists(route_path)
     render_file(tmpl_path, route_path, state)
     if validate:
         _validate_caddy_fragment(route_path, svc_id)
+    return before != route_path.read_text()
 
 
 def _validate_caddy_fragment(route_path: Path, svc_id: str) -> None:
@@ -532,8 +673,15 @@ def _reload_caddy(data_root: Path) -> None:
     if fmt_result.returncode == 0 and fmt_result.stdout.strip():
         caddyfile.write_text(fmt_result.stdout)
 
-    # The Caddyfile has `admin off` so `caddy reload` (which needs the admin
-    # API) will always fail. Restart the container instead.
+    reload_result = docker_run(
+        ["compose", "exec", "caddy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile"],
+        cwd=caddy_dir,
+        check=False,
+        progress_message="Reloading Caddy...",
+    )
+    if reload_result.returncode == 0:
+        return
+
     docker_run(
         ["compose", "restart", "caddy"],
         cwd=caddy_dir,
@@ -618,14 +766,19 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     hooks = svc.get("hooks") or {}
     console.print(f"[dim]Deploying {svc_id}... log: {log_path}[/dim]")
 
+    _enforce_service_resource_requirements(state, svc)
+
+    route_changed = False
     if caddy_enabled(state):
-        _render_caddy_route(state, svc, repo, data_root)
+        route_changed = _render_caddy_route(state, svc, repo, data_root)
 
     _run_named_hooks(hooks.get("post_render", []), POST_RENDER_HOOKS, state, svc, repo, data_root, log_path, registry)
     _run_named_hooks(hooks.get("pre_start", []), PRE_START_HOOKS, state, svc, repo, data_root, log_path, registry)
 
     if is_host:
         _run_named_hooks(hooks.get("post_start", []), POST_START_HOOKS, state, svc, repo, data_root, log_path, registry)
+        if route_changed:
+            _reload_caddy(data_root)
         _publish_cloudflare_service(state, svc)
         return
 
@@ -667,6 +820,9 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     container_name = svc.get("container_name", svc_id)
     if not health_check(container_name, timeout=int(svc.get("health_timeout", 120))):
         raise RuntimeError(f"Service '{svc_id}' did not become healthy. Log: {log_path}.")
+
+    if route_changed:
+        _reload_caddy(data_root)
 
     _run_named_hooks(hooks.get("post_start", []), POST_START_HOOKS, state, svc, repo, data_root, log_path, registry)
     _publish_cloudflare_service(state, svc)
@@ -744,8 +900,6 @@ def run(state: State) -> None:
             continue
         _deploy_single_service(state, svc, repo, data_root)
 
-    if caddy_enabled(state):
-        _reload_caddy(data_root)
     sync_shared_artifacts(state, repo, data_root, registry)
 
 
@@ -763,8 +917,6 @@ def run_single_service(state: State, svc_id: str) -> None:
     _generate_missing_secrets(state)
     svc = by_id[svc_id]
     _deploy_single_service(state, svc, repo, data_root)
-    if caddy_enabled(state):
-        _reload_caddy(data_root)
     sync_shared_artifacts(state, repo, data_root, registry)
 
 
@@ -857,9 +1009,8 @@ def restart_service(state: State, svc_id: str) -> None:
             progress_message=f"Restarting {svc_id}...",
         )
 
-    if changes["route"] and caddy_enabled(state):
-        if not changes["service"]:
-            _render_caddy_route(state, svc, repo, data_root)
+    if changes["route"] and caddy_enabled(state) and not changes["service"]:
+        _render_caddy_route(state, svc, repo, data_root)
         _reload_caddy(data_root)
 
 

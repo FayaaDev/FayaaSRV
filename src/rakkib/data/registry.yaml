@@ -1182,6 +1182,12 @@ services:
     state_bucket: selected_services
     required: false
     optional: true
+    resource_requirements:
+      min_ram_mb: 4096
+      recommended_ram_mb: 8192
+      min_disk_gb: 12
+      recommended_disk_gb: 25
+      install_warning: "Pulls a very large upstream image; free space is required on Docker's root filesystem during extraction."
     image: nousresearch/hermes-agent:latest
     default_port: 9119
     default_subdomain: hermes

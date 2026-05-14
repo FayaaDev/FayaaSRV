@@ -37,7 +37,38 @@ class PickerOptions:
 def service_label(svc: dict[str, Any]) -> str:
     notes = str(svc.get("notes", "")).strip()
     summary = notes.split(".", 1)[0].strip()
-    return f"{svc['id']} - {summary}" if summary else svc["id"]
+    base = f"{svc['id']} - {summary}" if summary else svc["id"]
+    return append_resource_warning(base, svc)
+
+
+def _format_ram_label(value_mb: int) -> str:
+    if value_mb % 1024 == 0:
+        return f"{value_mb // 1024} GB RAM"
+    return f"{value_mb / 1024:.1f} GB RAM"
+
+
+def resource_warning_suffix(svc: dict[str, Any]) -> str:
+    requirements = svc.get("resource_requirements") or {}
+    if not requirements:
+        return ""
+
+    ram_target = requirements.get("recommended_ram_mb") or requirements.get("min_ram_mb")
+    disk_target = requirements.get("recommended_disk_gb") or requirements.get("min_disk_gb")
+    if ram_target is None and disk_target is None:
+        return ""
+
+    parts: list[str] = []
+    if ram_target is not None:
+        parts.append(_format_ram_label(int(ram_target)))
+    if disk_target is not None:
+        parts.append(f"{int(disk_target)} GB disk")
+
+    qualifier = "recommended" if requirements.get("recommended_ram_mb") or requirements.get("recommended_disk_gb") else "minimum"
+    return f" [heavy: {', '.join(parts)} {qualifier}]"
+
+
+def append_resource_warning(label: str, svc: dict[str, Any]) -> str:
+    return f"{label}{resource_warning_suffix(svc)}"
 
 
 def service_selection_category(svc: dict[str, Any]) -> str:
