@@ -346,6 +346,7 @@ class TestAttemptFixDocker:
         assert "only supported on Linux" in msg
 
     @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.os.geteuid", return_value=0)
     @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("subprocess.run")
@@ -354,6 +355,7 @@ class TestAttemptFixDocker:
         mock_run: MagicMock,
         _cmd: MagicMock,
         mock_wait: MagicMock,
+        _geteuid: MagicMock,
         _system: MagicMock,
     ):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
@@ -362,8 +364,10 @@ class TestAttemptFixDocker:
         mock_wait.assert_called_once()
         assert mock_run.call_args_list[0].kwargs["env"]["DEBIAN_FRONTEND"] == "noninteractive"
         assert mock_run.call_args_list[0].kwargs["env"]["NEEDRESTART_MODE"] == "a"
+        assert mock_run.call_args_list[0].args[0] == ["sh", "-c", "curl -fsSL https://get.docker.com | sh"]
 
     @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.os.geteuid", return_value=0)
     @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("subprocess.run")
@@ -372,6 +376,7 @@ class TestAttemptFixDocker:
         mock_run: MagicMock,
         _cmd: MagicMock,
         _wait: MagicMock,
+        _geteuid: MagicMock,
         _system: MagicMock,
     ):
         mock_run.return_value = MagicMock(returncode=1, stderr="network error")
@@ -383,6 +388,7 @@ class TestAttemptFixDocker:
         "rakkib.doctor.wait_for_apt_locks",
         return_value="Timed out waiting for apt/dpkg locks",
     )
+    @patch("rakkib.doctor.os.geteuid", return_value=0)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("subprocess.run")
     def test_apt_lock_timeout_skips_get_docker(
@@ -390,6 +396,7 @@ class TestAttemptFixDocker:
         mock_run: MagicMock,
         _cmd: MagicMock,
         _wait: MagicMock,
+        _geteuid: MagicMock,
         _system: MagicMock,
     ):
         msg = attempt_fix_docker()
@@ -401,6 +408,56 @@ class TestAttemptFixDocker:
     def test_no_curl(self, _cmd: MagicMock, _system: MagicMock):
         msg = attempt_fix_docker()
         assert "curl is required" in msg
+
+    @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.os.geteuid", return_value=1000)
+    @patch("rakkib.doctor._command_exists", side_effect=lambda cmd: True if cmd == "curl" else False)
+    @patch("subprocess.run")
+    def test_non_root_without_cached_sudo_fails_fast(
+        self,
+        mock_run: MagicMock,
+        _cmd: MagicMock,
+        _geteuid: MagicMock,
+        _system: MagicMock,
+    ):
+        mock_run.return_value = MagicMock(returncode=1, stderr="sudo: a password is required")
+        msg = attempt_fix_docker()
+        assert "rakkib auth" in msg
+        mock_run.assert_called_once_with(["sudo", "-n", "true"], capture_output=True, text=True)
+
+    @patch("platform.system", return_value="Linux")
+    @patch("rakkib.doctor.os.geteuid", return_value=1000)
+    @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
+    @patch("rakkib.doctor._command_exists", return_value=True)
+    @patch("subprocess.run")
+    def test_non_root_with_cached_sudo_wraps_installer(
+        self,
+        mock_run: MagicMock,
+        _cmd: MagicMock,
+        _wait: MagicMock,
+        _geteuid: MagicMock,
+        _system: MagicMock,
+    ):
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+        msg = attempt_fix_docker()
+        assert "get.docker.com" in msg
+        assert mock_run.call_args_list[1].args[0] == [
+            "sudo",
+            "-n",
+            "env",
+            "DEBIAN_FRONTEND=noninteractive",
+            "APT_LISTCHANGES_FRONTEND=none",
+            "NEEDRESTART_MODE=a",
+            "NEEDRESTART_SUSPEND=1",
+            "UCF_FORCE_CONFFOLD=1",
+            "sh",
+            "-c",
+            "curl -fsSL https://get.docker.com | sh",
+        ]
 
 
 class TestWaitForAptLocks:
