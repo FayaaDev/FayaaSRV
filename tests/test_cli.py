@@ -40,81 +40,7 @@ class TestInit:
 
         assert result.exit_code == 0
         assert "Rakkib init" in result.output
-        mock_run.assert_called_once()
-
-    def test_init_agent_option_accepted(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        questions_dir = repo_dir / "questions"
-        questions_dir.mkdir()
-
-        (questions_dir / "01-platform.md").write_text(
-            "## AgentSchema\n```yaml\nschema_version: 1\nphase: 1\nfields:\n"
-            "  - id: platform\n    type: single_select\n    prompt: Platform?\n"
-            "    canonical_values: [linux, mac]\n    records: [platform]\n```\n"
-        )
-
-        with patch("rakkib.cli.run_interview") as mock_run:
-            mock_run.return_value = State({"platform": "linux", "confirmed": False})
-            result = runner.invoke(
-                cli,
-                ["init", "--agent", "claude"],
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        assert "not yet implemented" not in result.output
-        mock_run.assert_called_once()
-
-    def test_init_no_agent_option_accepted(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        questions_dir = repo_dir / "questions"
-        questions_dir.mkdir()
-
-        (questions_dir / "01-platform.md").write_text(
-            "## AgentSchema\n```yaml\nschema_version: 1\nphase: 1\nfields:\n"
-            "  - id: platform\n    type: single_select\n    prompt: Platform?\n"
-            "    canonical_values: [linux, mac]\n    records: [platform]\n```\n"
-        )
-
-        with patch("rakkib.cli.run_interview") as mock_run:
-            mock_run.return_value = State({"platform": "linux", "confirmed": False})
-            result = runner.invoke(
-                cli,
-                ["init", "--no-agent"],
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        assert "not yet implemented" not in result.output
-        mock_run.assert_called_once()
-
-    def test_init_print_prompt_accepted(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        questions_dir = repo_dir / "questions"
-        questions_dir.mkdir()
-
-        (questions_dir / "01-platform.md").write_text(
-            "## AgentSchema\n```yaml\nschema_version: 1\nphase: 1\nfields:\n"
-            "  - id: platform\n    type: single_select\n    prompt: Platform?\n"
-            "    canonical_values: [linux, mac]\n    records: [platform]\n```\n"
-        )
-
-        with patch("rakkib.cli.run_interview") as mock_run:
-            mock_run.return_value = State({"platform": "linux", "confirmed": False})
-            result = runner.invoke(
-                cli,
-                ["init", "--print-prompt"],
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        assert "not yet implemented" not in result.output
+        assert "State is not confirmed" in result.output
         mock_run.assert_called_once()
 
     def test_init_confirmed_state_goes_through_interview(self, tmp_path: Path):
@@ -145,59 +71,8 @@ class TestInit:
 
         assert result.exit_code == 0
         mock_interview.assert_called_once()
-        mock_steps.assert_called_once()
-
-    def test_init_resume_without_confirmed_state(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("platform: linux\n")
-
-        result = runner.invoke(
-            cli,
-            ["init", "--resume"],
-            obj={"repo_dir": repo_dir},
-        )
-
-        assert result.exit_code == 0
-        assert "not confirmed" in result.output
-
-    def test_init_step_failure_invokes_handoff(self, tmp_path: Path):
-        runner = CliRunner()
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        questions_dir = repo_dir / "questions"
-        questions_dir.mkdir()
-        state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text("confirmed: true\n")
-
-        (questions_dir / "01-platform.md").write_text(
-            "## AgentSchema\n```yaml\nschema_version: 1\nphase: 1\nfields:\n"
-            "  - id: platform\n    type: single_select\n    prompt: Platform?\n"
-            "    canonical_values: [linux, mac]\n    records: [platform]\n```\n"
-        )
-
-        fake_result = MagicMock(ok=False, step="layout", message="bad", log_path=None)
-        with (
-            patch("rakkib.cli._check_docker", return_value=True),
-            patch("rakkib.steps.layout.verify", return_value=fake_result),
-            patch("rakkib.steps.layout.run") as mock_run,
-            patch("rakkib.cli.handoff") as mock_handoff,
-        ):
-            result = runner.invoke(
-                cli,
-                ["init", "--resume", "--no-agent"],
-                obj={"repo_dir": repo_dir},
-            )
-
-        assert result.exit_code == 0
-        mock_run.assert_called_once()
-        mock_handoff.assert_called_once()
-        call_kwargs = mock_handoff.call_args.kwargs
-        assert call_kwargs["step"] == "layout"
-        assert call_kwargs["message"] == "bad"
-        assert call_kwargs["no_agent"] is True
+        mock_steps.assert_not_called()
+        assert "Run rakkib pull to install" in result.output
 
 
 class TestUninstall:
@@ -303,7 +178,8 @@ class TestUpdate:
         result = runner.invoke(cli, ["update"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 1
-        assert "is not a git checkout" in result.output
+        assert "git checkout" in result.output
+        assert "Reinstall Rakkib" in result.output
 
     def test_update_pull_failure_exits_nonzero(self, tmp_path: Path):
         runner = CliRunner()
@@ -623,12 +499,12 @@ class TestAdd:
             patch("rakkib.cli.prompt_confirm") as mock_confirm,
             patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
             patch("rakkib.steps.postgres.run") as mock_postgres_run,
-            patch("rakkib.steps.services.run") as mock_services_run,
+            patch("rakkib.steps.services.sync_shared_artifacts") as mock_sync_artifacts,
         ):
             mock_reg.return_value = self._make_registry()
             mock_secrets.side_effect = lambda state: call_order.append("secrets")
             mock_postgres_run.side_effect = lambda state: call_order.append("postgres")
-            mock_services_run.side_effect = lambda state: call_order.append("services")
+            mock_sync_artifacts.side_effect = lambda *args, **kwargs: call_order.append("services")
             result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
@@ -637,7 +513,7 @@ class TestAdd:
         mock_confirm.assert_not_called()
         mock_secrets.assert_called_once()
         mock_postgres_run.assert_called_once()
-        mock_services_run.assert_called_once()
+        mock_sync_artifacts.assert_called_once()
         assert call_order == ["secrets", "postgres", "services"]
 
         saved_state = State.load(state_file)
@@ -665,7 +541,7 @@ class TestAdd:
             patch("rakkib.cli.prompt_checkbox", return_value=["homepage"]),
             patch("rakkib.steps.services._generate_missing_secrets"),
             patch("rakkib.steps.postgres.run"),
-            patch("rakkib.steps.services.run"),
+            patch("rakkib.steps.services.sync_shared_artifacts"),
         ):
             mock_reg.return_value = self._make_registry()
             result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
@@ -896,12 +772,12 @@ class TestAdd:
             patch("rakkib.steps.services.remove_single_service") as mock_remove,
             patch("rakkib.steps.services._generate_missing_secrets") as mock_secrets,
             patch("rakkib.steps.postgres.run") as mock_postgres_run,
-            patch("rakkib.steps.services.run") as mock_services_run,
+            patch("rakkib.steps.services.sync_shared_artifacts") as mock_sync_artifacts,
         ):
             mock_reg.return_value = self._make_registry()
             mock_secrets.side_effect = lambda state: call_order.append("secrets")
             mock_postgres_run.side_effect = lambda state: call_order.append("postgres")
-            mock_services_run.side_effect = lambda state: call_order.append("services")
+            mock_sync_artifacts.side_effect = lambda *args, **kwargs: call_order.append("services")
             result = runner.invoke(cli, ["add"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
@@ -909,7 +785,7 @@ class TestAdd:
         assert [call.args[1] for call in mock_remove.call_args_list] == ["n8n"]
         mock_secrets.assert_called_once()
         mock_postgres_run.assert_called_once()
-        mock_services_run.assert_called_once()
+        mock_sync_artifacts.assert_called_once()
         assert call_order == ["secrets", "postgres", "services"]
 
         saved_state = State.load(state_file)
@@ -1117,109 +993,6 @@ class TestPrivileged:
             )
         assert result.exit_code == 0
         mock_chown.assert_called()
-
-
-class TestCheckDocker:
-    def test_docker_missing_aborts(self):
-        with (
-            patch("rakkib.cli.shutil.which", return_value=None),
-            patch("rakkib.cli.attempt_fix_docker", return_value="install failed"),
-        ):
-            from rakkib.cli import _check_docker
-            assert _check_docker() is False
-
-    def test_docker_available_passes(self):
-        info_ok = MagicMock(returncode=0, stderr="")
-        compose_ok = MagicMock(returncode=0, stdout="Docker Compose version v2.24.0", stderr="")
-        with (
-            patch("rakkib.cli.shutil.which", return_value="/usr/bin/docker"),
-            patch("rakkib.cli.subprocess.run", side_effect=[info_ok, compose_ok]),
-        ):
-            from rakkib.cli import _check_docker
-            assert _check_docker() is True
-
-    def test_compose_missing_decline_aborts(self):
-        compose_missing = MagicMock()
-        compose_missing.returncode = 1
-        compose_missing.stdout = ""
-        compose_missing.stderr = "compose not found"
-        info_ok = MagicMock(returncode=0, stderr="")
-        with (
-            patch("rakkib.cli.shutil.which", return_value="/usr/bin/docker"),
-            patch("rakkib.cli.subprocess.run", side_effect=[info_ok, compose_missing, compose_missing]),
-            patch("rakkib.cli.attempt_fix_compose", return_value="compose install failed"),
-        ):
-            from rakkib.cli import _check_docker
-            assert _check_docker() is False
-
-    def test_compose_missing_accept_installs(self):
-        compose_missing = MagicMock()
-        compose_missing.returncode = 1
-        compose_missing.stdout = ""
-        compose_missing.stderr = "compose not found"
-        compose_ok = MagicMock()
-        compose_ok.returncode = 0
-        compose_ok.stdout = "Docker Compose version v2.35.1"
-        compose_ok.stderr = ""
-        info_ok = MagicMock(returncode=0, stderr="")
-        with (
-            patch("rakkib.cli.shutil.which", return_value="/usr/bin/docker"),
-            patch("rakkib.cli.subprocess.run", side_effect=[info_ok, compose_missing, compose_ok]),
-            patch("rakkib.cli.attempt_fix_compose", return_value="docker compose plugin installed successfully."),
-        ):
-            from rakkib.cli import _check_docker
-            assert _check_docker() is True
-
-    def test_docker_permission_denied_repairs_group_access(self):
-        info_denied = MagicMock(
-            returncode=1,
-            stderr="permission denied while trying to connect to /var/run/docker.sock",
-        )
-        sudo_ok = MagicMock(returncode=0, stdout="", stderr="")
-        with (
-            patch("rakkib.cli.shutil.which", return_value="/usr/bin/docker"),
-            patch("rakkib.cli.os.geteuid", return_value=1000),
-            patch("rakkib.cli.getpass.getuser", return_value="ubuntu"),
-            patch("rakkib.cli.sys.stdin.isatty", return_value=True),
-            patch(
-                "rakkib.cli.subprocess.run",
-                side_effect=[info_denied, sudo_ok, sudo_ok, sudo_ok, sudo_ok],
-            ) as mock_run,
-        ):
-            from rakkib.cli import _check_docker
-
-            assert _check_docker() is False
-
-        assert ["sudo", "-n", "usermod", "-aG", "docker", "ubuntu"] in [
-            call.args[0] for call in mock_run.call_args_list
-        ]
-
-    def test_compose_permission_denied_does_not_install_compose(self):
-        info_ok = MagicMock(returncode=0, stderr="")
-        compose_denied = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="permission denied while trying to connect to /var/run/docker.sock",
-        )
-        sudo_ok = MagicMock(returncode=0, stdout="", stderr="")
-        with (
-            patch("rakkib.cli.shutil.which", return_value="/usr/bin/docker"),
-            patch("rakkib.cli.os.geteuid", return_value=1000),
-            patch("rakkib.cli.getpass.getuser", return_value="ubuntu"),
-            patch("rakkib.cli.sys.stdin.isatty", return_value=True),
-            patch(
-                "rakkib.cli.subprocess.run",
-                side_effect=[info_ok, compose_denied, sudo_ok, sudo_ok, sudo_ok, sudo_ok],
-            ),
-            patch("rakkib.cli.attempt_fix_compose") as mock_fix_compose,
-        ):
-            from rakkib.cli import _check_docker
-
-            assert _check_docker() is False
-
-        mock_fix_compose.assert_not_called()
-
-
 class TestPullSnapshots:
     def test_pull_persists_deployed_selection_on_success(self, tmp_path: Path):
         runner = CliRunner()
