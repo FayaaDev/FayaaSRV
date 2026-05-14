@@ -27,6 +27,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = locale
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
+    document.title = translations[locale].metaTitle
+
+    const description = document.querySelector('meta[name="description"]')
+    if (description) {
+      description.setAttribute('content', translations[locale].metaDescription)
+    }
   }, [locale])
 
   const t = useCallback(
