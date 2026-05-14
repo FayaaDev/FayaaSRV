@@ -167,6 +167,17 @@ def _package_manager_env() -> dict[str, str]:
     return env
 
 
+def _sudo_install_ready() -> str | None:
+    if os.geteuid() == 0:
+        return None
+    if shutil.which("sudo") is None:
+        return "sudo is required to install Docker on Linux. Install sudo or run Rakkib from a root shell."
+    result = subprocess.run(["sudo", "-n", "true"], capture_output=True, text=True)
+    if result.returncode == 0:
+        return None
+    return "Run `rakkib auth` from an interactive terminal before `rakkib pull` so Docker can be installed with sudo."
+
+
 def _normalize_arch(raw: str) -> str | None:
     mapping = {
         "x86_64": "amd64",
@@ -414,6 +425,11 @@ def check_docker_prereq(state: State | None = None, console=None) -> bool:
     """Verify docker and docker compose are available. Install if missing."""
     docker_user = docker_access_user(state)
     if shutil.which("docker") is None:
+        sudo_error = _sudo_install_ready()
+        if sudo_error:
+            if console:
+                console.print(f"[bold red]{sudo_error}[/bold red]")
+            return False
         with progress_spinner("Installing Docker..."):
             msg = attempt_fix_docker()
         if console:
@@ -792,13 +808,27 @@ def attempt_fix_docker() -> str:
     if not _command_exists("curl"):
         return "curl is required but not found. Install curl first."
 
+    sudo_error = _sudo_install_ready()
+    if sudo_error:
+        return sudo_error
+
     if _command_exists("apt-get"):
         lock_error = wait_for_apt_locks(on_wait=_notify_apt_wait)
         if lock_error:
             return lock_error
 
+    install_cmd = ["sh", "-c", "curl -fsSL https://get.docker.com | sh"]
+    if os.geteuid() != 0:
+        install_cmd = [
+            "sudo",
+            "-n",
+            "env",
+            *[f"{key}={value}" for key, value in PACKAGE_MANAGER_SAFE_ENV.items()],
+            *install_cmd,
+        ]
+
     result = subprocess.run(
-        ["sh", "-c", "curl -fsSL https://get.docker.com | sh"],
+        install_cmd,
         capture_output=True,
         text=True,
         env=_package_manager_env(),
