@@ -5,6 +5,7 @@ import { ApiError, fetchSetupPhase, fetchSetupState, startSetupRun, submitSetupP
 import type { SetupPhasePayload, SetupQuestionField, SetupServiceCatalogItem } from '../api/types'
 import { FieldEditor } from '../components/FieldEditor'
 import { fieldLabel, renderFieldValue } from '../components/FieldRenderer'
+import { ServiceMark } from '../components/ServiceMark'
 import { SetupShell } from '../components/SetupShell'
 import { useI18n } from '../i18n/useI18n'
 
@@ -100,19 +101,6 @@ function friendlyScalar(value: unknown) {
   return labels[text] ?? text
 }
 
-function serviceInitials(item: SetupServiceCatalogItem) {
-  const label = item.label ?? item.slug
-  const words = label.replace(/\.[a-z]+$/i, '').split(/\s+|-/).filter(Boolean)
-  const initials = words.length > 1 ? `${words[0][0]}${words[1][0]}` : label.slice(0, 2)
-  return initials.toUpperCase()
-}
-
-function serviceTone(slug: string) {
-  const tones = ['blue', 'green', 'amber', 'rose', 'violet', 'cyan']
-  const index = Array.from(slug).reduce((total, char) => total + char.charCodeAt(0), 0) % tones.length
-  return tones[index]
-}
-
 function serviceDescription(
   fieldId: CatalogFieldKey,
   item: SetupServiceCatalogItem,
@@ -148,14 +136,6 @@ function serviceDescription(
     return labels.runsOnHost
   }
   return labels.optionalApp
-}
-
-function ServiceMark({ item }: { item: SetupServiceCatalogItem }) {
-  return (
-    <span className={`setup-service-mark tone-${serviceTone(item.slug)}`} aria-hidden="true">
-      <span>{serviceInitials(item)}</span>
-    </span>
-  )
 }
 
 function catalogSearchText(item: CatalogServiceItem) {
@@ -200,7 +180,7 @@ function CatalogCategory({ title, items, selected, onToggle }: CatalogCategoryPr
             onClick={() => onToggle(item.fieldId, item.slug)}
             role="listitem"
           >
-            <ServiceMark item={item} />
+             <ServiceMark slug={item.slug} label={item.label ?? item.slug} />
               <span className="setup-service-copy">
                 <strong>{item.label ?? item.slug}</strong>
                 <span>{serviceDescription(item.fieldId, item, descriptionLabels)}</span>

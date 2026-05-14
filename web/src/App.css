@@ -1242,19 +1242,24 @@
   place-items: center;
   width: 58px;
   height: 58px;
-  border-radius: 18px;
-  color: #fff;
+  color: var(--color-accent);
   font-weight: 900;
   letter-spacing: -0.06em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
-.setup-service-mark.tone-blue { background: linear-gradient(135deg, #007aff, #54a9ff); }
-.setup-service-mark.tone-green { background: linear-gradient(135deg, #1a8f5c, #7cd896); }
-.setup-service-mark.tone-amber { background: linear-gradient(135deg, #b66b00, #f3b85b); }
-.setup-service-mark.tone-rose { background: linear-gradient(135deg, #b83b5e, #ff7d95); }
-.setup-service-mark.tone-violet { background: linear-gradient(135deg, #6654d9, #a79aff); }
-.setup-service-mark.tone-cyan { background: linear-gradient(135deg, #008da6, #69d9ed); }
+.setup-service-mark-image {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.setup-service-mark-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+}
 
 .setup-service-copy {
   display: grid;

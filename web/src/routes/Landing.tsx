@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { fetchPublicServices, fetchSession, fetchSetupResume, fetchSetupRunStatus } from '../api/client'
 import type { PublicService } from '../api/types'
 import { LanguageToggle } from '../components/LanguageToggle'
+import { ServiceMark } from '../components/ServiceMark'
 import { useI18n } from '../i18n/useI18n'
 import { SetupBridge } from './SetupBridge'
 
@@ -15,27 +16,6 @@ type ServicesState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; services: PublicServiceItem[] }
-
-function serviceInitials(item: PublicServiceItem) {
-  const label = item.name ?? item.id
-  const words = label.replace(/\.[a-z]+$/i, '').split(/\s+|-/).filter(Boolean)
-  const initials = words.length > 1 ? `${words[0][0]}${words[1][0]}` : label.slice(0, 2)
-  return initials.toUpperCase()
-}
-
-function serviceTone(slug: string) {
-  const tones = ['blue', 'green', 'amber', 'rose', 'violet', 'cyan']
-  const index = Array.from(slug).reduce((total, char) => total + char.charCodeAt(0), 0) % tones.length
-  return tones[index]
-}
-
-function ServiceMark({ item }: { item: PublicServiceItem }) {
-  return (
-    <span className={`setup-service-mark tone-${serviceTone(item.id)}`} aria-hidden="true">
-      <span>{serviceInitials(item)}</span>
-    </span>
-  )
-}
 
 function formatServiceSubdomain(item: PublicServiceItem, subdomainSuffix: string, localOrHostTool: string) {
   return item.default_subdomain ? `${item.default_subdomain}${subdomainSuffix}` : localOrHostTool
@@ -313,7 +293,7 @@ export function Landing() {
                             role="listitem"
                             style={{ cursor: 'default' }}
                           >
-                            <ServiceMark item={item} />
+                            <ServiceMark slug={item.id} label={item.name ?? item.id} />
                             <span className="setup-service-copy">
                               <strong>{item.name ?? item.id}</strong>
                               <span>{serviceDetail(item, ts, detailLabels)}</span>

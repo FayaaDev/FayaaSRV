@@ -9,6 +9,7 @@
     "prebuild": "node scripts/generate-services-json.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "service-logos:fetch": "node scripts/generate-services-json.mjs --fetch-logos",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },
