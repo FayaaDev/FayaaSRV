@@ -24,7 +24,7 @@ Run deployments on the test server (not this machine):
 `sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153`
 
 Validation must follow the service-targeted bare-metal flow:
-- `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
+- `curl -fsSL https://install.rakkib.app | bash`
 - deploy only the target service with `rakkib add <service> --yes` or `rakkib add --service <service> --yes`
 - continue with the service-specific verification steps below
 

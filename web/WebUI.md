@@ -7,7 +7,7 @@ Add a browser-based setup and management UI without changing Rakkib's core contr
 Primary flow:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://install.rakkib.app | bash
 rakkib web --lan
 ```
 

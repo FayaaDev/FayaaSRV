@@ -33,7 +33,7 @@ Required preflight:
 3. If load is high, memory is exhausted, swap is heavily used, or another validation is running, stop and report the blocker.
 
 Required validation flow for a service:
-1. Install/update Rakkib on the test server with `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`.
+1. Install/update Rakkib on the test server with `curl -fsSL https://install.rakkib.app | bash`.
 2. Deploy only the target service with `rakkib add <service> --yes` or `rakkib add --service <service> --yes`.
 3. Check container or host process status and recent logs for the target service.
 4. For browser-facing services, run `rakkib smoke <service>`.

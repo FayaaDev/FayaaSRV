@@ -126,12 +126,16 @@
 }
 
 .install-box code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   padding: 20px;
   overflow-x: auto;
   color: var(--color-text-primary);
   font-size: 16px;
   line-height: 1.5;
+  text-align: center;
   white-space: pre-wrap;
   word-break: break-all;
 }

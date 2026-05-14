@@ -6,7 +6,7 @@ import { LanguageToggle } from '../components/LanguageToggle'
 import { useI18n } from '../i18n/useI18n'
 import { SetupBridge } from './SetupBridge'
 
-const installCommand = 'curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash'
+const installCommand = 'curl -fsSL https://install.rakkib.app | bash'
 const repoUrl = 'https://github.com/FayaaDev/Rakkib'
 
 type PublicServiceItem = PublicService

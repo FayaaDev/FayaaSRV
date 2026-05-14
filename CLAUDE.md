@@ -7,7 +7,7 @@ Assume the target machine is **bare metal** — only `curl`, `git`, and `python3
 Dont debug and run tests on current machine, the app is being tested on a bare metal machine. Not this one
 
 Solo one-line command:
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://install.rakkib.app | bash
 
 ## Runtime branch
 

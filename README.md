@@ -5,6 +5,12 @@ Rakkib is a wizard-driven personal server installer. A built-in TUI interview re
 ## Quickstart
 
 ```bash
+curl -fsSL https://install.rakkib.app | bash
+```
+
+Fallback if the branded endpoint is unavailable:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 ```
 

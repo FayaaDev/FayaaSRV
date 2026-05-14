@@ -55,7 +55,7 @@ sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.1
 When delegating validation, feed the selected `RakkibTester` subagent the target bead/service, the command above, and the validation checklist below. Do not ask a beads-task-agent to run service validation.
 
 Validation must follow the service-targeted bare-metal flow:
-- `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
+- `curl -fsSL https://install.rakkib.app | bash`
 - deploy only the target service with `rakkib add <service> --yes` or `rakkib add --service <service> --yes`
 - continue with the service-specific verification steps below
 

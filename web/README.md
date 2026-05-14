@@ -16,9 +16,29 @@ The frontend is a thin UI layer over existing Rakkib behavior.
 Primary flow:
 
 ```bash
+curl -fsSL https://install.rakkib.app | bash
+rakkib web --lan
+```
+
+Fallback if the branded endpoint is unavailable:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
 rakkib web --lan
 ```
+
+## Installer Endpoint
+
+The branded install command is served by a dedicated Cloudflare Worker, separate
+from the marketing site routing.
+
+```bash
+npm run install-proxy:dev
+npm run install-proxy:deploy
+```
+
+Worker config lives in `web/wrangler.install.jsonc` and proxies the canonical
+GitHub `main/install.sh` with a 5 minute cache TTL.
 
 ## Local Development
 

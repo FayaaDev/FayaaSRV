@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "service-logos:fetch": "node scripts/generate-services-json.mjs --fetch-logos",
     "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "install-proxy:dev": "wrangler dev -c wrangler.install.jsonc",
+    "install-proxy:deploy": "wrangler deploy -c wrangler.install.jsonc"
   },
   "dependencies": {
     "qrcode": "^1.5.4",

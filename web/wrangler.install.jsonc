@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rakkib-install",
+  "main": "install-worker.js",
+  "compatibility_date": "2026-05-14",
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  },
+  "routes": [
+    {
+      "pattern": "install.rakkib.app/*",
+      "zone_name": "rakkib.app"
+    }
+  ]
+}

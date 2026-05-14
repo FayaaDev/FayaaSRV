@@ -13,7 +13,7 @@ Build a browser-based Rakkib setup and management UI without changing the core c
 Primary target flow:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://install.rakkib.app | bash
 rakkib web --lan
 ```
 

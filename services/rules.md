@@ -37,7 +37,7 @@ Use the dedicated project subagents for this validation work:
 - The primary agent is responsible for interpreting tester output, updating repository files, closing beads, committing, and pushing after validation passes.
 
 Minimum validation steps:
-1. `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
+1. `curl -fsSL https://install.rakkib.app | bash`
 2. `rakkib add <service> --yes` or `rakkib add --service <service> --yes`
 3. Continue with the service-specific verification steps below
 

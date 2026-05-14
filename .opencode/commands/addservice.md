@@ -12,7 +12,7 @@ Rules:
 - MUST validate on the test server via:
   `sshpass -p 'ub' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.153`
 - Validation must be the full bare-metal flow:
-  `curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash`
+  `curl -fsSL https://install.rakkib.app | bash`
   then `rakkib init`, then `rakkib pull`.
 
 First, resolve what `$ARGUMENTS` refers to:

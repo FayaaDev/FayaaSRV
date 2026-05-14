@@ -35,7 +35,7 @@ sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.1
 - Install local test tooling with `python3 -m venv .venv && .venv/bin/python -m pip install -e '.[test]'` when `.venv` or pytest is missing. Keep this dev-only; do not assume pytest exists on bare-metal target hosts.
 
 Solo one-line command:
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://install.rakkib.app | bash
 
 ## Runtime branch
 
