@@ -35,10 +35,21 @@ class PickerOptions:
 
 
 def service_label(svc: dict[str, Any]) -> str:
+    return append_service_suffixes(svc["id"], svc)
+
+
+def service_description_suffix(svc: dict[str, Any]) -> str:
+    homepage = svc.get("homepage") or {}
+    description = str(homepage.get("description") or "").strip()
+    if description:
+        return f" [{description}]"
+
     notes = str(svc.get("notes", "")).strip()
     summary = notes.split(".", 1)[0].strip()
-    base = f"{svc['id']} - {summary}" if summary else svc["id"]
-    return append_resource_warning(base, svc)
+    if summary:
+        return f" [{summary}]"
+
+    return ""
 
 
 def _format_ram_label(value_mb: int) -> str:
@@ -69,6 +80,10 @@ def resource_warning_suffix(svc: dict[str, Any]) -> str:
 
 def append_resource_warning(label: str, svc: dict[str, Any]) -> str:
     return f"{label}{resource_warning_suffix(svc)}"
+
+
+def append_service_suffixes(label: str, svc: dict[str, Any]) -> str:
+    return append_resource_warning(f"{label}{service_description_suffix(svc)}", svc)
 
 
 def service_selection_category(svc: dict[str, Any]) -> str:
