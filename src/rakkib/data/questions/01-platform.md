@@ -57,6 +57,8 @@ fields:
     type: single_select
     prompt: What platform are you installing on?
     canonical_values: [linux, mac]
+    disabled_values:
+      mac: soon
     normalize: lowercase
     aliases:
       linux: [linux]
@@ -132,10 +134,8 @@ Ask: "What platform are you installing on?"
 
 Accepted answers (case-insensitive, normalize to lowercase):
 - `linux`
-- `mac`
-- `macos` -> `mac`
-- `osx` -> `mac`
-- `darwin` -> `mac`
+
+Show Mac as `soon` in the picker, but do not allow selecting it until macOS deployment is supported.
 
 Re-ask if the user provides any other answer.
 
@@ -152,9 +152,9 @@ If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker
 ## Record in .fss-state.yaml
 
 ```yaml
-platform: linux        # or: mac
+platform: linux        # mac is shown as soon and is not selectable yet
 arch: amd64            # or: arm64, auto-detected from `uname -m`
-privilege_mode: sudo   # normal Linux/Mac flow; root only for repair/debug sessions
+privilege_mode: sudo   # normal Linux flow; root only for repair/debug sessions
 privilege_strategy: on_demand  # request sudo only for specific post-confirmation actions
 docker_installed: true # or: false
 ```

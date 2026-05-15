@@ -476,6 +476,8 @@ def _prompt_single_select(field: FieldDef, state: State) -> str:
     prompt = field.prompt
     values = field.canonical_values
     default = _get_prompt_default(field, state)
+    disabled_values = field.disabled_values
+    enabled_values = [value for value in values if value not in disabled_values]
 
     choices = []
     for canonical in values:
@@ -486,14 +488,30 @@ def _prompt_single_select(field: FieldDef, state: State) -> str:
             title = f"{canonical} ({aliases[0]})"
         else:
             title = canonical
-        choices.append(Choice(title=title, value=canonical))
+        disabled_reason = disabled_values.get(canonical)
+        if disabled_reason:
+            choices.append(
+                Choice(
+                    title=f"{canonical} ({disabled_reason})",
+                    value=canonical,
+                    disabled=disabled_reason,
+                )
+            )
+        else:
+            choices.append(Choice(title=title, value=canonical))
 
-    default_choice = default if isinstance(default, str) and default in values else None
+    default_choice = (
+        default
+        if isinstance(default, str) and default in values and default not in disabled_values
+        else None
+    )
     choices.append(_exit_choice())
     result = prompt_select(prompt, choices=choices, default=default_choice)
     _raise_if_exit(result)
-    if result is not None:
+    if result is not None and result not in disabled_values:
         return result
+    if result in disabled_values:
+        console.print(f"[red]{result} is not available yet: {disabled_values[result]}[/red]")
 
     while True:
         fallback = prompt_text(prompt)
@@ -502,11 +520,11 @@ def _prompt_single_select(field: FieldDef, state: State) -> str:
             continue
         fallback_lower = fallback.strip().lower()
         for canonical, aliases in field.aliases.items():
-            if fallback_lower in [a.lower() for a in aliases]:
+            if fallback_lower in [a.lower() for a in aliases] and canonical not in disabled_values:
                 return canonical
-        if fallback_lower in [v.lower() for v in values]:
+        if fallback_lower in [v.lower() for v in values] and fallback_lower not in disabled_values:
             return fallback_lower
-        console.print(f"[red]Invalid choice. Valid options: {', '.join(values)}[/red]")
+        console.print(f"[red]Invalid choice. Valid options: {', '.join(enabled_values)}[/red]")
 
 
 def _prompt_multi_select(field: FieldDef, state: State) -> list[str]:

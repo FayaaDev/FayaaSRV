@@ -37,6 +37,7 @@ def test_phase_1_platform_field():
     assert platform.type == "single_select"
     assert platform.prompt == "What platform are you installing on?"
     assert platform.canonical_values == ["linux", "mac"]
+    assert platform.disabled_values["mac"] == "soon"
     assert platform.normalize == "lowercase"
     assert platform.aliases["mac"] == ["mac", "macos", "osx", "darwin"]
     assert platform.records == ["platform"]
