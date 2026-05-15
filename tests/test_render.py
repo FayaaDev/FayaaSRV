@@ -39,6 +39,13 @@ def test_flatten_state_none():
     assert flat["EMPTY"] == ""
 
 
+def test_flatten_state_expands_data_root(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    state = State({"platform": "mac", "data_root": "$HOME/srv"})
+    flat = flatten_state(state)
+    assert flat["DATA_ROOT"] == str(tmp_path / "srv")
+
+
 def test_render_string_simple():
     result = render_string("Hello {{NAME}}!", {"NAME": "World"})
     assert result == "Hello World!"

@@ -356,6 +356,8 @@ def check_disk(data_root: str) -> CheckResult:
 
 def check_docker() -> CheckResult:
     if not _command_exists("docker"):
+        if platform.system() == "Darwin":
+            return CheckResult("docker", "fail", True, "docker command is missing; install and start Docker Desktop for local service testing")
         return CheckResult("docker", "fail", True, "docker command is missing")
     try:
         docker_run(["info"])
@@ -369,6 +371,13 @@ def docker_access_user(state: State | None = None) -> str:
 
 
 def docker_access_commands(user: str) -> str:
+    if platform.system() == "Darwin":
+        return (
+            "Install Docker Desktop for Mac\n"
+            "Start Docker Desktop\n"
+            "docker info\n"
+            "rakkib web"
+        )
     return (
         "sudo groupadd -f docker\n"
         f"sudo usermod -aG docker {user}\n"
@@ -383,6 +392,8 @@ def prepare_docker_access(user: str, *, validate_sudo: bool = True) -> str:
     if os.geteuid() == 0:
         return "Rakkib is running as root; Docker socket group repair is not needed."
     if sys.platform != "linux":
+        if sys.platform == "darwin":
+            return "Docker group repair is not used on macOS. Install and start Docker Desktop, then run `docker info`."
         return "Automatic Docker group repair is only supported on Linux."
     if shutil.which("sudo") is None:
         return "sudo is required to prepare Docker access for a non-root user."
@@ -430,6 +441,16 @@ def _offer_docker_group_rerun(console) -> None:
 
 
 def handle_docker_permission_denied(console, user: str) -> bool:
+    if platform.system() == "Darwin":
+        console.print(
+            "[bold red]Docker Desktop is installed, but this shell cannot access it.[/bold red]"
+        )
+        console.print(
+            "[yellow]Start or restart Docker Desktop, verify with `docker info`, "
+            "and rerun Rakkib.[/yellow]"
+        )
+        return False
+
     console.print(
         "[bold red]Docker is installed, but this shell cannot access /var/run/docker.sock.[/bold red]"
     )
@@ -450,6 +471,13 @@ def check_docker_prereq(state: State | None = None, console=None) -> bool:
     """Verify docker and docker compose are available. Install if missing."""
     docker_user = docker_access_user(state)
     if shutil.which("docker") is None:
+        if platform.system() == "Darwin":
+            if console:
+                console.print(
+                    "[bold red]Docker Desktop is required for local service testing on macOS. "
+                    "Install and start Docker Desktop, then rerun Rakkib.[/bold red]"
+                )
+            return False
         sudo_error = _sudo_install_ready()
         if sudo_error:
             if console:
@@ -480,6 +508,13 @@ def check_docker_prereq(state: State | None = None, console=None) -> bool:
     if compose_check.returncode != 0 and is_docker_permission_error(compose_output):
         return handle_docker_permission_denied(console, docker_user) if console else False
     if compose_check.returncode != 0:
+        if platform.system() == "Darwin":
+            if console:
+                console.print(
+                    "[bold red]Docker Compose v2 is unavailable. Update or reinstall Docker Desktop, "
+                    "then verify with `docker compose version`.[/bold red]"
+                )
+            return False
         with progress_spinner("Installing Docker Compose plugin..."):
             msg = attempt_fix_compose()
         if console:
@@ -535,6 +570,8 @@ def ensure_prereqs(state: State | None = None, console=None, cloudflared_bin: st
 
 def check_compose() -> CheckResult:
     if not _command_exists("docker"):
+        if platform.system() == "Darwin":
+            return CheckResult("compose", "fail", True, "docker command is missing; install Docker Desktop")
         return CheckResult("compose", "fail", True, "docker command is missing")
     result = docker_run(["compose", "version"], check=False)
     if result.returncode == 0 and result.stdout.strip():
@@ -650,7 +687,7 @@ def check_cloudflare_readiness(state: State) -> list[CheckResult]:
         results.append(CheckResult("cloudflare_auth", "warn", False, "Cloudflare auth method is not recorded yet"))
         return results
 
-    data_root = state.get("data_root", "/srv")
+    data_root = str(state.data_root)
     if auth_method == "browser_login":
         cert_path = Path(data_root) / "data" / "cloudflared" / "cert.pem"
         if cert_path.exists():
@@ -827,6 +864,8 @@ def summary_text(checks: list[CheckResult]) -> str:
 
 def attempt_fix_docker() -> str:
     """Attempt to install Docker via get.docker.com. Returns a message describing the result."""
+    if platform.system() == "Darwin":
+        return "Automatic Docker installation is not supported on macOS. Install and start Docker Desktop, then run `docker info`."
     if platform.system() != "Linux":
         return "Automatic Docker installation is only supported on Linux."
 
@@ -868,6 +907,9 @@ def attempt_fix_docker() -> str:
 
 def attempt_fix_compose() -> str:
     """Install docker-compose-plugin. Returns a message describing the result."""
+    if platform.system() == "Darwin":
+        return "Docker Compose v2 is provided by Docker Desktop on macOS. Update or reinstall Docker Desktop, then run `docker compose version`."
+
     # get.docker.com adds the Docker apt repo, so the plugin is available via apt.
     if _command_exists("apt-get"):
         lock_error = wait_for_apt_locks(on_wait=_notify_apt_wait)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import os
+import platform
 import shutil
 import subprocess
 
@@ -38,6 +39,38 @@ def check_host_auth_readiness() -> HostAuthStatus:
     """Return whether a web-triggered setup run can use host privileges safely."""
     if os.geteuid() == 0:
         return HostAuthStatus(True, "root", "Rakkib is running as root.", command=None)
+
+    if platform.system() == "Darwin":
+        if shutil.which("docker") is None:
+            return HostAuthStatus(
+                False,
+                "docker_desktop_missing",
+                "Docker Desktop is required for local service testing on macOS. Install and start Docker Desktop before applying services.",
+                command=None,
+            )
+
+        try:
+            docker_run(["info"])
+        except DockerError as exc:
+            return HostAuthStatus(
+                False,
+                "docker_desktop_unavailable",
+                f"Docker Desktop is not reachable from this web session. Start or restart Docker Desktop, then restart `rakkib web`: {exc}",
+                command=None,
+                requires_restart=True,
+            )
+
+        compose = docker_run(["compose", "version"], check=False)
+        if compose.returncode != 0:
+            return HostAuthStatus(
+                False,
+                "compose_unavailable",
+                "Docker Compose v2 is unavailable. Update or reinstall Docker Desktop, then restart `rakkib web`.",
+                command=None,
+                requires_restart=True,
+            )
+
+        return HostAuthStatus(True, "ready", "Docker Desktop is ready for local service testing.", command=None)
 
     if shutil.which("sudo") is None:
         return HostAuthStatus(

@@ -341,6 +341,21 @@ class TestRun:
         assert "newgrp docker" in str(exc_info.value)
         assert "docker info" in str(exc_info.value)
 
+    @patch("rakkib.docker.platform.system", return_value="Darwin")
+    @patch("rakkib.docker.subprocess.run")
+    def test_docker_permission_failure_has_mac_hint(self, mock_subprocess: MagicMock, _system: MagicMock):
+        mock_subprocess.return_value = MagicMock(
+            returncode=1,
+            stderr="permission denied while trying to connect to /var/run/docker.sock",
+        )
+        from rakkib.docker import _run
+
+        with pytest.raises(DockerError) as exc_info:
+            _run(["docker", "info"])
+
+        assert "Docker Desktop" in str(exc_info.value)
+        assert "newgrp docker" not in str(exc_info.value)
+
     @patch("rakkib.docker.subprocess.run")
     def test_check_false_does_not_raise(self, mock_subprocess: MagicMock):
         mock_subprocess.return_value = MagicMock(returncode=1, stderr="err")

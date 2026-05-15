@@ -153,6 +153,13 @@ class TestCheckDocker:
         assert result.status == "fail"
         assert "missing" in result.message
 
+    @patch("platform.system", return_value="Darwin")
+    @patch("rakkib.doctor._command_exists", return_value=False)
+    def test_missing_on_mac_mentions_docker_desktop(self, _cmd: MagicMock, _system: MagicMock):
+        result = check_docker()
+        assert result.status == "fail"
+        assert "Docker Desktop" in result.message
+
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("rakkib.doctor.docker_run")
     def test_unreachable(self, mock_run: MagicMock, _cmd: MagicMock):
@@ -345,7 +352,7 @@ class TestAttemptFixDocker:
     @patch("platform.system", return_value="Darwin")
     def test_skips_mac(self, _mock: MagicMock):
         msg = attempt_fix_docker()
-        assert "only supported on Linux" in msg
+        assert "Docker Desktop" in msg
 
     @patch("platform.system", return_value="Linux")
     @patch("rakkib.doctor.os.geteuid", return_value=0)
@@ -502,6 +509,14 @@ class TestDockerPermissionRepair:
         mock_prompt.assert_not_called()
         mock_execvp.assert_not_called()
 
+    @patch("platform.system", return_value="Darwin")
+    def test_mac_permission_message_uses_docker_desktop(self, _system: MagicMock):
+        console = MagicMock()
+        assert handle_docker_permission_denied(console, "tester") is False
+        rendered = "\n".join(call.args[0] for call in console.print.call_args_list)
+        assert "Docker Desktop" in rendered
+        assert "newgrp docker" not in rendered
+
 
 class TestWaitForAptLocks:
     @patch("rakkib.doctor._locked_apt_files", return_value=[])
@@ -537,6 +552,11 @@ class TestWaitForAptLocks:
 
 
 class TestAttemptFixCompose:
+    @patch("platform.system", return_value="Darwin")
+    def test_mac_compose_fix_points_to_docker_desktop(self, _system: MagicMock):
+        msg = attempt_fix_compose()
+        assert "Docker Desktop" in msg
+
     @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
     @patch("rakkib.doctor._command_exists", return_value=True)
     @patch("platform.machine", return_value="x86_64")

@@ -31,6 +31,16 @@ def test_state_get_and_set():
     assert state.get("missing", "default") == "default"
 
 
+def test_mac_data_root_defaults_to_home_srv(tmp_path: Path):
+    with patch("pathlib.Path.home", return_value=tmp_path):
+        assert State({"platform": "mac"}).data_root == tmp_path / "srv"
+
+
+def test_data_root_expands_home(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert State({"platform": "mac", "data_root": "$HOME/rakkib-data"}).data_root == tmp_path / "rakkib-data"
+
+
 def test_state_has():
     state = State({"x": {"y": None}})
     assert state.has("x.y") is True

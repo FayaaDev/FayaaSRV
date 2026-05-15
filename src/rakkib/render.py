@@ -47,6 +47,8 @@ def flatten_state(state: State) -> dict[str, Any]:
     selected_ids.update(state.get("selected_services", []) or [])
     for service_id in selected_ids:
         flat[service_enabled_key(service_id)] = True
+    if state.has("data_root"):
+        flat["DATA_ROOT"] = str(state.data_root)
     return flat
 
 

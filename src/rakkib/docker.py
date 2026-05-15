@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import subprocess
 import time
 from contextlib import nullcontext
@@ -27,10 +28,14 @@ class DockerError(Exception):
         self.stderr = stderr
 
 
-DOCKER_PERMISSION_HINT = (
+DOCKER_PERMISSION_HINT_LINUX = (
     "Docker is installed, but this user cannot access /var/run/docker.sock. "
     "Add the user to the docker group, then run `newgrp docker` or open a new shell, "
     "verify with `docker info`, and rerun `rakkib pull`."
+)
+DOCKER_PERMISSION_HINT_MAC = (
+    "Docker Desktop is installed, but this shell cannot access it. "
+    "Start or restart Docker Desktop, verify with `docker info`, and rerun Rakkib."
 )
 
 
@@ -256,6 +261,12 @@ def _is_docker_permission_error(text: str) -> bool:
     return is_docker_permission_error(text)
 
 
+def docker_permission_hint() -> str:
+    if platform.system() == "Darwin":
+        return DOCKER_PERMISSION_HINT_MAC
+    return DOCKER_PERMISSION_HINT_LINUX
+
+
 def _error_message(cmd: list[str], returncode: int, stderr: str, log_hint: str) -> str:
     message = f"Command failed with exit code {returncode}: {' '.join(cmd)}.{log_hint}"
     detail = stderr.strip()
@@ -265,7 +276,7 @@ def _error_message(cmd: list[str], returncode: int, stderr: str, log_hint: str) 
             detail = f"...{detail}"
         message = f"{message}\nstderr:\n{detail}"
     if cmd and cmd[0] == "docker" and _is_docker_permission_error(stderr):
-        message = f"{message} {DOCKER_PERMISSION_HINT}"
+        message = f"{message} {docker_permission_hint()}"
     return message
 
 

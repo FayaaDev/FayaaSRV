@@ -6,6 +6,7 @@ REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
 BRANCH="${RAKKIB_BRANCH:-runtime}"
 UPDATE_MODE="${RAKKIB_UPDATE_MODE:-reset}"
 VENV_INSTALL_IN_PROGRESS=0
+PLATFORM=""
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
@@ -54,7 +55,8 @@ _prompt() {
 
 detect_platform() {
   case "$(uname -s 2>/dev/null || true)" in
-    Linux|Darwin) ;;
+    Linux) PLATFORM="linux" ;;
+    Darwin) PLATFORM="mac" ;;
     *) die "unsupported OS; expected Linux or macOS" ;;
   esac
 }
@@ -200,11 +202,19 @@ ensure_python3_and_venv() {
   elif command_exists brew; then
     [[ $need_python -eq 1 ]] && brew install python
   else
+    if [[ "${PLATFORM:-}" == "mac" ]]; then
+      die "Could not find python3 with venv/ensurepip. Install Python 3 for macOS from python.org or run 'brew install python', then rerun."
+    fi
     die "Could not find a package manager. Install python3 (with venv module) manually and rerun."
   fi
 
   command_exists python3 || die "python3 installation failed. Install manually and rerun."
-  python3 -c "import venv, ensurepip" 2>/dev/null || die "python3-venv unavailable (including ensurepip). Install it manually and rerun."
+  if ! python3 -c "import venv, ensurepip" 2>/dev/null; then
+    if [[ "${PLATFORM:-}" == "mac" ]]; then
+      die "python3 is missing venv/ensurepip. Install Python 3 for macOS from python.org or run 'brew install python', then rerun."
+    fi
+    die "python3-venv unavailable (including ensurepip). Install it manually and rerun."
+  fi
 }
 
 is_empty_dir() {
@@ -340,6 +350,33 @@ ensure_shell_path() {
 }
 
 print_next_steps() {
+  if [[ "${PLATFORM:-}" == "mac" ]]; then
+    cat <<EOF
+
+Rakkib is installed.
+
+Repo:  ${INSTALL_DIR}
+Venv:  ${INSTALL_DIR}/.venv
+
+Next step:
+  rakkib web
+
+If rakkib is not on PATH yet, run one of:
+  source ~/.bashrc   |   source ~/.zshrc   |   source ~/.profile
+
+Or run directly:
+  ${HOME}/.local/bin/rakkib web
+
+For local service testing on macOS, install and start Docker Desktop first.
+Verify it with 'docker info'. Rakkib does not use Linux docker-group repair on macOS.
+
+To uninstall:
+  rakkib uninstall --yes
+
+EOF
+    return
+  fi
+
   cat <<EOF
 
 Rakkib is installed.

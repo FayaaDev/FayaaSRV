@@ -91,7 +91,7 @@ sudo rakkib privileged fix-repo-owner --state .fss-state.yaml
 
 ## Requirements
 
-- Ubuntu 24.04 is the tested deployment target (macOS supported for development)
+- Ubuntu 24.04 is the tested production deployment target; macOS is supported for local CLI/web UI use and Docker Desktop-backed testing
 - Normal sudo-capable admin user — do not run as root
 - A domain on Cloudflare only when using public HTTPS routes
 - Python 3.9+ (the installer handles venv and pip)

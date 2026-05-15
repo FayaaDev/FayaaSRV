@@ -6,6 +6,7 @@ Commands: init, pull, update, doctor, status, add, restart, uninstall, privilege
 from __future__ import annotations
 
 import os
+import platform
 import pwd
 import shutil
 import subprocess
@@ -100,6 +101,26 @@ def _run_auth_setup(ctx: click.Context) -> bool:
     """Validate sudo and prepare Docker access when possible."""
     if os.geteuid() == 0:
         console.print("[green]Already running as root; no sudo validation needed.[/green]")
+        return True
+
+    if platform.system() == "Darwin":
+        console.print("[green]macOS detected; Linux sudo/docker-group repair is not needed.[/green]")
+        if shutil.which("docker") is None:
+            console.print(
+                "[red]Docker Desktop is required for local service testing. "
+                "Install and start Docker Desktop, then run `docker info`.[/red]"
+            )
+            return False
+        try:
+            docker_run(["info"])
+        except DockerError as exc:
+            console.print(
+                "[red]Docker Desktop is not reachable from this shell. "
+                "Start or restart Docker Desktop, then run `docker info`.[/red]"
+            )
+            console.print(f"[dim]{exc}[/dim]")
+            return False
+        console.print("[green]Docker Desktop is reachable by this shell.[/green]")
         return True
 
     if shutil.which("sudo") is None:
@@ -793,7 +814,7 @@ def status(ctx: click.Context) -> None:
         return
 
     domain = state.get("domain", "") or ""
-    data_root = state.get("data_root", "/srv") or "/srv"
+    data_root = str(state.data_root)
 
     console.print(f"\n[bold]Domain:[/bold] [cyan]{domain or '—'}[/cyan]")
 

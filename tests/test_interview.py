@@ -352,7 +352,8 @@ class TestHandleDerived:
         _handle_derived(field, empty_state)
         assert empty_state.get("lan_ip") == "192.168.1.10"
 
-    def test_value_platform_keyed(self, empty_state):
+    def test_value_platform_keyed(self, empty_state, monkeypatch):
+        monkeypatch.setenv("HOME", "/Users/tester")
         field = FieldDef(
             id="data_root",
             type="derived",
@@ -362,7 +363,7 @@ class TestHandleDerived:
         )
         empty_state.set("platform", "mac")
         _handle_derived(field, empty_state)
-        assert empty_state.get("data_root") == "$HOME/srv"
+        assert empty_state.get("data_root") == "/Users/tester/srv"
 
     def test_value_state_keyed(self, empty_state):
         field = FieldDef(

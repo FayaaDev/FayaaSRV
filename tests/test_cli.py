@@ -928,6 +928,18 @@ class TestAuth:
         assert result.exit_code == 1
         assert "sudo is required" in result.output
 
+    def test_auth_mac_missing_docker_points_to_docker_desktop(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        monkeypatch.setattr("rakkib.cli.platform.system", lambda: "Darwin")
+        monkeypatch.setattr("rakkib.cli.shutil.which", lambda _cmd: None)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["auth"], obj={"repo_dir": tmp_path})
+
+        assert result.exit_code == 1
+        assert "Docker Desktop" in result.output
+        assert "docker-group repair" in result.output
+
     def test_auth_help(self, tmp_path: Path):
         runner = CliRunner()
         result = runner.invoke(cli, ["auth", "--help"])

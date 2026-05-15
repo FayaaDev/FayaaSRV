@@ -15,6 +15,13 @@ DEFAULT_STATE_FILE = ".fss-state.yaml"
 _UNSET = object()
 
 
+def default_data_root(platform: str | None = None) -> Path:
+    """Return the platform-specific default data root."""
+    if str(platform or "linux").lower() == "mac":
+        return Path.home() / "srv"
+    return Path("/srv")
+
+
 def default_state_path(repo_dir: Path | str) -> Path:
     """Return the canonical deployment state path for a Rakkib checkout."""
     repo_dir = Path(repo_dir)
@@ -47,7 +54,10 @@ class State:
     @property
     def data_root(self) -> Path:
         """Return the configured Rakkib data root."""
-        return Path(self.get("data_root", "/srv"))
+        raw = self.get("data_root")
+        if raw is None:
+            return default_data_root(self.get("platform"))
+        return Path(os.path.expandvars(os.path.expanduser(str(raw))))
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_STATE_FILE) -> "State":
