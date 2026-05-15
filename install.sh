@@ -182,15 +182,18 @@ install_xcode_command_line_tools() {
   marker="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
   touch "$marker" || die "Failed to request Xcode Command Line Tools install. Check write access to /tmp and rerun."
   label="$(softwareupdate -l 2>/dev/null | awk -F': ' '/Label: Command Line Tools/ {print $2}' | tail -n 1 || true)"
-  rm -f "$marker"
 
   if [[ -z "$label" ]]; then
+    rm -f "$marker"
     die "Xcode Command Line Tools are required, but macOS did not expose an install package via softwareupdate. Run 'xcode-select --install', complete the Apple installer, then rerun."
   fi
 
   log "Installing Xcode Command Line Tools..."
-  run_quiet "Installing Xcode Command Line Tools" run_root softwareupdate -i "$label" --verbose \
-    || die "Xcode Command Line Tools installation failed. Run 'xcode-select --install', complete the Apple installer, then rerun."
+  if ! run_quiet "Installing Xcode Command Line Tools" run_root softwareupdate -i "$label" --verbose; then
+    rm -f "$marker"
+    die "Xcode Command Line Tools installation failed. Run 'xcode-select --install', complete the Apple installer, then rerun."
+  fi
+  rm -f "$marker"
   select_xcode_command_line_tools || die "Xcode Command Line Tools installed, but macOS did not create /Library/Developer/CommandLineTools. Run 'xcode-select --install', complete the Apple installer, then rerun."
   xcode_clt_installed || die "Xcode Command Line Tools installed, but xcode-select is still not configured. Run 'sudo xcode-select --reset' and rerun."
 }

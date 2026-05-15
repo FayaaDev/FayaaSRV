@@ -70,6 +70,7 @@ def test_macos_tooling_installs_clt_homebrew_and_git(tmp_path: Path):
           exit 0
         fi
         if [[ "$1" == "-i" ]]; then
+          [[ -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress ]] || exit 2
           : > {_q(clt_ready)}
           exit 0
         fi
@@ -126,6 +127,7 @@ def test_macos_clt_install_selects_command_line_tools(tmp_path: Path):
           exit 0
         fi
         if [[ "$1" == "-i" ]]; then
+          [[ -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress ]] || exit 2
           : > {_q(clt_ready)}
           exit 0
         fi
