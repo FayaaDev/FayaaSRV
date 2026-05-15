@@ -134,6 +134,10 @@ class State:
             else:
                 break
 
+    def clear(self) -> None:
+        """Remove all recorded state values."""
+        self._data.clear()
+
     def merge(self, other: dict[str, Any]) -> None:
         """Deep-merge another dict into this state."""
         _deep_merge(self._data, other)

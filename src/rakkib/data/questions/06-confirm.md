@@ -117,7 +117,7 @@ Ask: "Proceed with deployment using the above configuration? [Y/n]"
 
 Accepted answers: `y` or `n`.
 
-If `n`, do not execute any step files. Ask the user which phase they want to revisit, update `.fss-state.yaml`, and return to the appropriate question file.
+If `n`, do not execute any step files. Clear the recorded interview settings and exit without saving answers.
 
 If `y`, set `confirmed: true` and continue to `steps/00-prereqs.md`.
 
