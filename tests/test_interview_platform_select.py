@@ -23,7 +23,7 @@ def test_single_select_disables_unavailable_values():
 
     choices = mock_select.call_args.kwargs["choices"]
     mac_choice = next(choice for choice in choices if choice.value == "mac")
-    assert mac_choice.title == "mac (soon)"
+    assert mac_choice.title == "mac"
     assert mac_choice.disabled == "soon"
 
 
