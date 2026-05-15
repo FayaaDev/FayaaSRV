@@ -12,6 +12,25 @@ warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+run_quiet() {
+  local label="$1"
+  shift
+
+  local log_file
+  log_file="$(mktemp "${TMPDIR:-/tmp}/rakkib-install.XXXXXX.log")" \
+    || die "Failed to create a temporary log file. Check write access to ${TMPDIR:-/tmp} and rerun."
+
+  if "$@" >"$log_file" 2>&1; then
+    rm -f "$log_file"
+    return 0
+  fi
+
+  printf 'ERROR: %s failed.\n' "$label" >&2
+  printf 'Log: %s\n' "$log_file" >&2
+  cat "$log_file" >&2
+  return 1
+}
+
 warn_incomplete_venv() {
   local status=$?
   if [[ "${VENV_INSTALL_IN_PROGRESS:-0}" -eq 1 ]]; then
@@ -165,11 +184,11 @@ ensure_python3_and_venv() {
     fi
     wait_for_apt_locks
     log "Refreshing apt index..."
-    apt_get update -qq -o Acquire::Retries=3 \
+    run_quiet "Refreshing apt index" apt_get update -qq -o Acquire::Retries=3 \
       || warn "apt-get update failed; continuing with existing index."
     log "Installing ${pkgs[*]} via apt-get..."
     wait_for_apt_locks
-    apt_get install -y -qq --no-install-recommends "${pkgs[@]}" \
+    run_quiet "Installing ${pkgs[*]} via apt-get" apt_get install -y -qq --no-install-recommends "${pkgs[@]}" \
       || die "Failed to install ${pkgs[*]}. Run 'sudo apt-get update && sudo apt-get install --no-install-recommends ${pkgs[*]}' and rerun install.sh."
   elif command_exists dnf; then
     local pkgs=()
@@ -228,18 +247,23 @@ prepare_repo() {
       esac
     fi
     log "Updating from origin/${BRANCH}"
-    git -C "$INSTALL_DIR" fetch origin "$BRANCH"
+    run_quiet "Fetching origin/${BRANCH}" git -C "$INSTALL_DIR" fetch origin "$BRANCH" \
+      || die "Failed to fetch origin/${BRANCH}. Check git access and rerun install.sh."
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-      git -C "$INSTALL_DIR" switch "$BRANCH"
+      run_quiet "Switching to ${BRANCH}" git -C "$INSTALL_DIR" switch "$BRANCH" \
+        || die "Failed to switch to branch ${BRANCH}. Resolve the checkout state and rerun install.sh."
     else
-      git -C "$INSTALL_DIR" switch -c "$BRANCH" "origin/${BRANCH}"
+      run_quiet "Creating branch ${BRANCH}" git -C "$INSTALL_DIR" switch -c "$BRANCH" "origin/${BRANCH}" \
+        || die "Failed to create local branch ${BRANCH} from origin/${BRANCH}. Check the repository state and rerun install.sh."
     fi
     case "$UPDATE_MODE" in
       reset)
-        git -C "$INSTALL_DIR" reset --hard "origin/${BRANCH}"
+        run_quiet "Resetting ${BRANCH} to origin/${BRANCH}" git -C "$INSTALL_DIR" reset --hard "origin/${BRANCH}" \
+          || die "Failed to reset ${BRANCH} to origin/${BRANCH}. Resolve the checkout state and rerun install.sh."
         ;;
       skip)
-        git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+        run_quiet "Pulling origin/${BRANCH}" git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH" \
+          || die "Failed to fast-forward ${BRANCH} from origin/${BRANCH}. Resolve the checkout state and rerun install.sh."
         ;;
       *)
         die "invalid RAKKIB_UPDATE_MODE '${UPDATE_MODE}'. Use 'reset' or 'skip'."
@@ -254,7 +278,8 @@ prepare_repo() {
 
   mkdir -p "$(dirname "$INSTALL_DIR")"
   log "Cloning ${REPO_URL} into ${INSTALL_DIR}"
-  git clone --depth 1 --single-branch --no-tags --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+  run_quiet "Cloning ${REPO_URL}" git clone --depth 1 --single-branch --no-tags --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR" \
+    || die "Failed to clone ${REPO_URL}. Check git access and rerun install.sh."
 }
 
 ensure_venv_install() {
@@ -265,20 +290,20 @@ ensure_venv_install() {
 
   if [[ ! -d "$venv_dir" ]]; then
     log "Creating venv at ${venv_dir}"
-    python3 -m venv "$venv_dir" \
-      || python3 -m venv --without-pip "$venv_dir" \
+    run_quiet "Creating venv at ${venv_dir}" python3 -m venv "$venv_dir" \
+      || run_quiet "Creating venv at ${venv_dir} without pip" python3 -m venv --without-pip "$venv_dir" \
       || die "Failed to create venv at ${venv_dir}. Install python3-venv and rerun."
   fi
 
   if [[ ! -x "${venv_dir}/bin/pip" ]]; then
     log "pip absent from venv; bootstrapping via get-pip.py..."
     command_exists curl || die "curl is required to bootstrap pip. Install curl and rerun."
-    curl -fsSL https://bootstrap.pypa.io/get-pip.py | "${venv_dir}/bin/python" \
+    run_quiet "Bootstrapping pip in ${venv_dir}" bash -lc 'curl -fsSL https://bootstrap.pypa.io/get-pip.py | "$1"' -- "${venv_dir}/bin/python" \
       || die "Failed to bootstrap pip. Check network and rerun."
   fi
 
   log "Installing rakkib into venv..."
-  "${venv_dir}/bin/pip" install -q -e "${INSTALL_DIR}" \
+  run_quiet "Installing rakkib into venv" "${venv_dir}/bin/pip" install -q -e "${INSTALL_DIR}" \
     || die "pip install failed. Check the error above and rerun."
 
   mkdir -p "$bin_dir"
