@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rakkib.interview import (
+    InterviewExit,
     _build_subdomain_defaults,
     _enforce_rules,
     _get_default,
@@ -70,9 +71,9 @@ def sample_schema() -> QuestionSchema:
 
 class TestRunInterview:
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.prompt_confirm")
+    @patch("rakkib.interview.prompt_select")
     @patch("rakkib.interview._run_phase")
-    def test_resumes_at_phase(self, mock_run_phase, mock_confirm, mock_load):
+    def test_resumes_at_phase(self, mock_run_phase, mock_select, mock_load):
         schema1 = MagicMock(phase=1)
         schema2 = MagicMock(phase=2)
         schema3 = MagicMock(phase=3)
@@ -85,9 +86,9 @@ class TestRunInterview:
         assert mock_run_phase.call_count == 2
 
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.prompt_confirm", return_value=True)
+    @patch("rakkib.interview.prompt_select", return_value=True)
     @patch("rakkib.interview._run_phase")
-    def test_confirmed_reset(self, mock_run_phase, mock_confirm, mock_load):
+    def test_confirmed_reset(self, mock_run_phase, mock_select, mock_load):
         schema1 = MagicMock(phase=1)
         mock_load.return_value = [schema1]
 
@@ -95,13 +96,13 @@ class TestRunInterview:
         with patch.object(State, "resume_phase", return_value=1):
             run_interview(state)
 
-        mock_confirm.assert_called_once()
+        mock_select.assert_called_once()
         assert mock_run_phase.call_count == 1
 
     @patch("rakkib.interview.load_all_schemas")
-    @patch("rakkib.interview.prompt_confirm", return_value=False)
+    @patch("rakkib.interview.prompt_select", return_value=False)
     @patch("rakkib.interview._run_phase")
-    def test_confirmed_keep(self, mock_run_phase, mock_confirm, mock_load):
+    def test_confirmed_keep(self, mock_run_phase, mock_select, mock_load):
         schema1 = MagicMock(phase=1)
         mock_load.return_value = [schema1]
 
@@ -110,7 +111,7 @@ class TestRunInterview:
             with patch.object(state, "save") as mock_save:
                 run_interview(state)
 
-        mock_confirm.assert_called_once()
+        mock_select.assert_called_once()
         assert mock_run_phase.call_count == 0
 
     @patch("rakkib.interview.load_all_schemas")
@@ -126,6 +127,57 @@ class TestRunInterview:
             run_interview(state)
 
         assert mock_run_phase.call_count == 3
+
+    @patch("rakkib.interview.load_all_schemas")
+    @patch("rakkib.interview.prompt_select", return_value=False)
+    def test_final_confirmation_false_discards_state(self, mock_select, mock_load, tmp_path):
+        state_path = tmp_path / ".fss-state.yaml"
+        state_path.write_text("server_name: old\n")
+        schema = QuestionSchema(
+            schema_version=1,
+            phase=6,
+            fields=[
+                FieldDef(
+                    id="confirmed",
+                    type="confirm",
+                    prompt="Proceed?",
+                    accepted_inputs={"y": True, "n": False},
+                    records=["confirmed"],
+                )
+            ],
+        )
+        mock_load.return_value = [schema]
+
+        state = State({"server_name": "old"}, path=state_path)
+        result = run_interview(state)
+
+        assert result.to_dict() == {}
+        assert not state_path.exists()
+
+    @patch("rakkib.interview.load_all_schemas")
+    @patch("rakkib.interview.prompt_text", return_value="exit")
+    def test_exit_discards_state(self, mock_text, mock_load, tmp_path):
+        state_path = tmp_path / ".fss-state.yaml"
+        state_path.write_text("server_name: old\n")
+        schema = QuestionSchema(
+            schema_version=1,
+            phase=1,
+            fields=[
+                FieldDef(
+                    id="server_name",
+                    type="text",
+                    prompt="Server?",
+                    records=["server_name"],
+                )
+            ],
+        )
+        mock_load.return_value = [schema]
+
+        state = State({"server_name": "old"}, path=state_path)
+        result = run_interview(state)
+
+        assert result.to_dict() == {}
+        assert not state_path.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +226,7 @@ class TestRunField:
             accepted_inputs={"y": True, "n": False},
             records=["docker_installed"],
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=True):
+        with patch("rakkib.interview.prompt_select", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("docker_installed") is True
 
@@ -242,7 +294,7 @@ class TestRunField:
             records=["cloudflare.auth_method"],
             value_if_true={"cloudflare.auth_method": "api_token"},
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=True):
+        with patch("rakkib.interview.prompt_select", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("cloudflare.auth_method") == "api_token"
 
@@ -255,7 +307,7 @@ class TestRunField:
             records=["cloudflare.auth_method"],
             value_if_true={"cloudflare.auth_method": "api_token"},
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=False):
+        with patch("rakkib.interview.prompt_select", return_value=False):
             _run_field(field, empty_state)
         assert empty_state.get("cloudflare.auth_method") is None
 
@@ -267,7 +319,7 @@ class TestRunField:
             accepted_inputs={"y": True, "n": False},
             records=[],
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=True):
+        with patch("rakkib.interview.prompt_select", return_value=True):
             _run_field(field, empty_state)
         assert empty_state.get("accept_browser_login") is True
 
@@ -443,7 +495,7 @@ class TestPromptConfirm:
         field = FieldDef(
             id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False}
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=True):
+        with patch("rakkib.interview.prompt_select", return_value=True):
             assert _prompt_confirm(field, State({})) is True
 
     def test_mapped_confirm(self):
@@ -478,9 +530,9 @@ class TestPromptConfirm:
             accepted_inputs={"y": True, "n": False},
             records=["confirmed"],
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=False) as mock_ask:
+        with patch("rakkib.interview.prompt_select", return_value=False) as mock_ask:
             assert _prompt_confirm(field, State({"confirmed": False})) is False
-            mock_ask.assert_called_once_with("Proceed?", default=False)
+            assert mock_ask.call_args.kwargs["default"].value is False
 
     def test_boolean_confirm_uses_schema_default_when_state_missing(self):
         field = FieldDef(
@@ -491,9 +543,9 @@ class TestPromptConfirm:
             accepted_inputs={"y": True, "n": False},
             records=["confirmed"],
         )
-        with patch("rakkib.interview.prompt_confirm", return_value=True) as mock_ask:
+        with patch("rakkib.interview.prompt_select", return_value=True) as mock_ask:
             assert _prompt_confirm(field, State({})) is True
-            mock_ask.assert_called_once_with("Proceed?", default=True)
+            assert mock_ask.call_args.kwargs["default"].value is True
 
     def test_mapped_confirm_uses_existing_state_default(self):
         field = FieldDef(
@@ -506,7 +558,15 @@ class TestPromptConfirm:
         with patch("rakkib.interview.prompt_select", return_value="n") as mock_ask:
             result = _prompt_confirm(field, State({"secrets": {"mode": "manual"}}))
             assert result == "manual"
-            mock_ask.assert_called_once_with("Mode?", choices=["y", "n"], default="n")
+            assert mock_ask.call_args.kwargs["default"] == "n"
+
+    def test_exit_choice_raises(self):
+        field = FieldDef(
+            id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False}
+        )
+        with patch("rakkib.interview.prompt_select", return_value="exit"):
+            with pytest.raises(InterviewExit):
+                _prompt_confirm(field, State({}))
 
 
 class TestPromptSingleSelect:
@@ -607,7 +667,7 @@ class TestPromptMultiSelect:
         with patch("rakkib.interview.prompt_checkbox", return_value=["x"]) as mock_ask:
             assert _prompt_multi_select(field, State({"selected_services": ["x"]})) == ["x"]
             choices = mock_ask.call_args.kwargs["choices"]
-            assert [choice.checked for choice in choices] == [True, False]
+            assert [choice.checked for choice in choices] == [True, False, False]
 
 
 class TestHandleServiceCatalog:

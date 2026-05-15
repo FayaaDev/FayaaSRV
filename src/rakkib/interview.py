@@ -25,11 +25,16 @@ from rakkib.service_catalog import (
 )
 from rakkib.services_cli import append_service_suffixes
 from rakkib.steps import load_service_registry
-from rakkib.tui import prompt_checkbox, prompt_confirm, prompt_password, prompt_select, prompt_text
+from rakkib.tui import prompt_checkbox, prompt_password, prompt_select, prompt_text
 
 console = Console()
 _TEMPLATE_KEY_RE = re.compile(r"\{\{([^{}]+)\}\}")
 _SCHEMA_COMMAND_FORBIDDEN_RE = re.compile(r"[;|&$`(){}<>]")
+_EXIT_VALUE = "__rakkib_interview_exit__"
+
+
+class InterviewExit(Exception):
+    """Raised when the user abandons the interview."""
 
 
 def _split_schema_command(command: Any) -> list[str]:
@@ -54,7 +59,7 @@ def run_interview(state: State, questions_dir: Path | str = "questions") -> Stat
     schemas = load_all_schemas(questions_dir)
 
     if state.is_confirmed():
-        overwrite = prompt_confirm(
+        overwrite = _prompt_bool(
             "An existing confirmed state was found. Start over?",
             default=False,
         )
@@ -62,11 +67,14 @@ def run_interview(state: State, questions_dir: Path | str = "questions") -> Stat
             state = State({}, path=state.path)
 
     resume = 1 if state.has("confirmed") and not state.is_confirmed() else state.resume_phase()
-    for schema in schemas:
-        if schema.phase < resume:
-            continue
-        _run_phase(schema, state)
-        _save_if_bound(state)
+    try:
+        for schema in schemas:
+            if schema.phase < resume:
+                continue
+            _run_phase(schema, state)
+            _save_if_bound(state)
+    except InterviewExit:
+        _discard_state(state)
 
     return state
 
@@ -75,6 +83,13 @@ def _save_if_bound(state: State) -> None:
     """Persist interview progress when the caller supplied a state path."""
     if state.path is not None:
         state.save()
+
+
+def _discard_state(state: State) -> None:
+    """Clear interview answers without writing an empty state file."""
+    state.clear()
+    if state.path is not None and state.path.exists():
+        state.path.unlink()
 
 
 def _run_phase(schema: QuestionSchema, state: State) -> None:
@@ -134,6 +149,12 @@ def _run_field(
         return
 
     _record_field_value(field, value, state)
+    if _is_final_confirmation(field) and value is False:
+        raise InterviewExit
+
+
+def _is_final_confirmation(field: FieldDef) -> bool:
+    return field.id == "confirmed" or "confirmed" in field.records
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +236,9 @@ def _handle_service_catalog(schema: QuestionSchema, state: State) -> None:
 
     console.print("\n[bold]=== Service Selection ===[/bold]\n")
 
+    choices.append(_exit_choice())
     selected = prompt_checkbox("Select services to install:", choices=choices)
+    _raise_if_exit(selected)
 
     foundation_defaults = [item["slug"] for item in foundation_items]
     foundation_selected = [s for s in selected if s in foundation_defaults]
@@ -245,6 +268,7 @@ def _prompt_selected_service_subdomains(state: State, registry: dict[str, Any], 
         while True:
             suffix = f".{domain}" if domain else ""
             answer = prompt_text(f"Subdomain for {svc_id}{suffix}", default=default)
+            _raise_if_exit(answer)
             label = normalize_subdomain(answer or default)
             message = validate_subdomain_label(label)
             if message:
@@ -400,6 +424,7 @@ def _prompt_text(field: FieldDef, state: State) -> str:
     while True:
         default_str = str(default) if default is not None and default != "" else None
         answer = prompt_text(prompt, default=default_str)
+        _raise_if_exit(answer)
 
         if answer == "" and default is not None:
             answer = str(default)
@@ -411,7 +436,7 @@ def _prompt_text(field: FieldDef, state: State) -> str:
 def _prompt_confirm(field: FieldDef, state: State) -> Any:
     """Prompt for confirmation or yes/no mapped to arbitrary values.
 
-    For boolean confirms (y/n → True/False), uses questionary.confirm.
+    For boolean confirms (y/n → True/False), uses a select prompt with Exit.
     For non-boolean mappings (y/n → generate/manual), uses questionary.select.
     """
     prompt = field.prompt
@@ -421,9 +446,10 @@ def _prompt_confirm(field: FieldDef, state: State) -> Any:
         values = set(field.accepted_inputs.values())
         if values <= {True, False}:
             bool_default = default if isinstance(default, bool) else False
-            return prompt_confirm(prompt, default=bool_default)
+            return _prompt_bool(prompt, default=bool_default)
         else:
-            choices = [str(k) for k in field.accepted_inputs.keys()]
+            input_choices = [str(k) for k in field.accepted_inputs.keys()]
+            choices = input_choices + [_exit_choice()]
             values_map = {str(k): v for k, v in field.accepted_inputs.items()}
             default_choice = next(
                 (key for key, value in values_map.items() if value == default),
@@ -431,6 +457,7 @@ def _prompt_confirm(field: FieldDef, state: State) -> Any:
             )
             while True:
                 result = prompt_select(prompt, choices=choices, default=default_choice)
+                _raise_if_exit(result)
                 if result is None:
                     if default is not None:
                         return default
@@ -438,10 +465,10 @@ def _prompt_confirm(field: FieldDef, state: State) -> Any:
                 matched = values_map.get(result.lower())
                 if matched is not None:
                     return matched
-                console.print(f"[red]Invalid choice. Valid options: {', '.join(choices)}[/red]")
+                console.print(f"[red]Invalid choice. Valid options: {', '.join(input_choices)}[/red]")
     else:
         bool_default = default if isinstance(default, bool) else False
-        return prompt_confirm(prompt, default=bool_default)
+        return _prompt_bool(prompt, default=bool_default)
 
 
 def _prompt_single_select(field: FieldDef, state: State) -> str:
@@ -462,12 +489,15 @@ def _prompt_single_select(field: FieldDef, state: State) -> str:
         choices.append(Choice(title=title, value=canonical))
 
     default_choice = default if isinstance(default, str) and default in values else None
+    choices.append(_exit_choice())
     result = prompt_select(prompt, choices=choices, default=default_choice)
+    _raise_if_exit(result)
     if result is not None:
         return result
 
     while True:
         fallback = prompt_text(prompt)
+        _raise_if_exit(fallback)
         if not fallback:
             continue
         fallback_lower = fallback.strip().lower()
@@ -495,8 +525,10 @@ def _prompt_multi_select(field: FieldDef, state: State) -> list[str]:
     for item in canonical:
         is_checked = item in default
         choices.append(Choice(title=item, value=item, checked=is_checked))
+    choices.append(_exit_choice())
 
     selected = prompt_checkbox(prompt, choices=choices)
+    _raise_if_exit(selected)
 
     if not selected:
         if selection_mode == "deselect_from_default":
@@ -525,6 +557,7 @@ def _handle_secret_group(field: FieldDef, state: State) -> None:
 
         while True:
             value = prompt_password(f"Enter value for {key}:")
+            _raise_if_exit(value)
             if value.strip() != "":
                 state.set(f"secrets.values.{key}", value)
                 break
@@ -685,6 +718,33 @@ def _get_recorded_value(field: FieldDef, state: State) -> Any:
     if state.has(field.id):
         return state.get(field.id)
     return None
+
+
+def _prompt_bool(message: str, default: bool = False) -> bool:
+    choices: list[Choice] = [
+        Choice(title="Yes", value=True),
+        Choice(title="No", value=False),
+        _exit_choice(),
+    ]
+    default_choice: Choice = choices[0] if default else choices[1]
+    result = prompt_select(message, choices=choices, default=default_choice)
+    _raise_if_exit(result)
+    if result is None:
+        return default
+    return bool(result)
+
+
+def _exit_choice() -> Choice:
+    return Choice(title="Exit", value=_EXIT_VALUE)
+
+
+def _raise_if_exit(value: Any) -> None:
+    if isinstance(value, str) and value.strip().lower() == "exit":
+        raise InterviewExit
+    if value == _EXIT_VALUE:
+        raise InterviewExit
+    if isinstance(value, list) and any(item == _EXIT_VALUE for item in value):
+        raise InterviewExit
 
 
 def _validate(answer: str, field: FieldDef) -> bool:
