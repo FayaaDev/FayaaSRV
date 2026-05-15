@@ -95,7 +95,7 @@ sudo rakkib privileged fix-repo-owner --state .fss-state.yaml
 - Normal sudo-capable admin user — do not run as root
 - A domain on Cloudflare only when using public HTTPS routes
 - Python 3.9+ (the installer handles venv and pip)
-- On macOS, Homebrew and Git are optional; Docker Desktop is required before applying local services
+- On macOS, the installer bootstraps Xcode Command Line Tools, Homebrew, Git, and Python as needed; Docker Desktop is required before applying local services
 
 ## License
 

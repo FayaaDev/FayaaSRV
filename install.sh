@@ -8,8 +8,6 @@ UPDATE_MODE="${RAKKIB_UPDATE_MODE:-reset}"
 VENV_INSTALL_IN_PROGRESS=0
 PLATFORM=""
 PYTHON_CMD="${RAKKIB_PYTHON:-}"
-MAC_PYTHON_VERSION="${RAKKIB_MAC_PYTHON_VERSION:-3.12.10}"
-MAC_PYTHON_SHA256="${RAKKIB_MAC_PYTHON_SHA256:-8373e58da4ea146b3eb1c1f9834f19a319440b6b679b06050b1f9ee3237aa8e4}"
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
@@ -128,12 +126,11 @@ confirm_root() {
 
 ensure_tooling() {
   command_exists curl || die "curl is required. Install curl and rerun."
-  if ! git_usable && [[ "${PLATFORM:-}" != "mac" ]]; then
-    die "git is required. Install git and rerun."
+  if [[ "${PLATFORM:-}" == "mac" ]]; then
+    ensure_macos_tooling
+    return
   fi
-  if [[ "${PLATFORM:-}" == "mac" ]] && ! git_usable; then
-    command_exists tar || die "tar is required to download Rakkib without git. Install tar and rerun."
-  fi
+  git_usable || die "git is required. Install git and rerun."
 }
 
 git_path() {
@@ -151,6 +148,94 @@ git_usable() {
   fi
 
   return 0
+}
+
+xcode_clt_installed() {
+  command_exists xcode-select || return 1
+  xcode-select -p >/dev/null 2>&1
+}
+
+run_root() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+install_xcode_command_line_tools() {
+  xcode_clt_installed && return 0
+  command_exists softwareupdate || die "softwareupdate is required to install Xcode Command Line Tools on macOS."
+
+  local marker label
+  marker="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  touch "$marker" || die "Failed to request Xcode Command Line Tools install. Check write access to /tmp and rerun."
+  label="$(softwareupdate -l 2>/dev/null | awk -F': ' '/Label: Command Line Tools/ {print $2}' | tail -n 1 || true)"
+  rm -f "$marker"
+
+  if [[ -z "$label" ]]; then
+    die "Xcode Command Line Tools are required, but macOS did not expose an install package via softwareupdate. Run 'xcode-select --install', complete the Apple installer, then rerun."
+  fi
+
+  log "Installing Xcode Command Line Tools..."
+  run_quiet "Installing Xcode Command Line Tools" run_root softwareupdate -i "$label" --verbose \
+    || die "Xcode Command Line Tools installation failed. Run 'xcode-select --install', complete the Apple installer, then rerun."
+  xcode_clt_installed || die "Xcode Command Line Tools installed, but xcode-select is still not configured. Run 'sudo xcode-select --reset' and rerun."
+}
+
+homebrew_path() {
+  if command_exists brew; then
+    command -v brew
+    return 0
+  fi
+  if [[ -x /opt/homebrew/bin/brew ]]; then
+    printf '%s\n' /opt/homebrew/bin/brew
+    return 0
+  fi
+  if [[ -x /usr/local/bin/brew ]]; then
+    printf '%s\n' /usr/local/bin/brew
+    return 0
+  fi
+  return 1
+}
+
+load_homebrew_env() {
+  local brew_bin
+  brew_bin="$(homebrew_path || true)"
+  [[ -n "$brew_bin" ]] || return 1
+  eval "$("$brew_bin" shellenv)"
+}
+
+ensure_homebrew() {
+  if load_homebrew_env; then
+    return 0
+  fi
+
+  log "Installing Homebrew..."
+  run_quiet "Installing Homebrew" /bin/bash -lc 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' \
+    || die "Homebrew installation failed. Check the log above, then rerun install.sh."
+  load_homebrew_env || die "Homebrew installed, but brew is not available on PATH. Open a new terminal and rerun install.sh."
+}
+
+ensure_brew_package() {
+  local package="$1" binary="$2"
+  local force="${3:-0}"
+  if [[ "$force" != "1" ]] && command_exists "$binary"; then
+    return 0
+  fi
+  log "Installing ${package} via Homebrew..."
+  run_quiet "Installing ${package} via Homebrew" brew install "$package" \
+    || die "Failed to install ${package} with Homebrew. Check the log above and rerun."
+  command_exists "$binary" || die "Homebrew installed ${package}, but ${binary} is not on PATH. Open a new terminal and rerun."
+}
+
+ensure_macos_tooling() {
+  install_xcode_command_line_tools
+  ensure_homebrew
+  if ! git_usable; then
+    ensure_brew_package git git 1
+  fi
+  git_usable || die "Git installed, but it is not usable. Open a new terminal and rerun install.sh."
 }
 
 # Block until all dpkg/apt lock files are free.
@@ -205,14 +290,6 @@ select_python_cmd() {
   if command_exists python3; then
     candidates+=("$(command -v python3)")
   fi
-  if [[ "${PLATFORM:-}" == "mac" ]]; then
-    local major_minor="${MAC_PYTHON_VERSION%.*}"
-    candidates+=(
-      "/Library/Frameworks/Python.framework/Versions/${major_minor}/bin/python3"
-      "/Library/Frameworks/Python.framework/Versions/Current/bin/python3"
-    )
-  fi
-
   local candidate
   for candidate in "${candidates[@]}"; do
     if [[ -x "$candidate" ]] && python_has_venv "$candidate"; then
@@ -223,61 +300,12 @@ select_python_cmd() {
   return 1
 }
 
-mac_python_pkg_url() {
-  printf 'https://www.python.org/ftp/python/%s/python-%s-macos11.pkg\n' "$MAC_PYTHON_VERSION" "$MAC_PYTHON_VERSION"
-}
-
-sha256_file() {
-  local path="$1"
-  if [[ "${PLATFORM:-}" == "mac" ]] && command_exists shasum; then
-    shasum -a 256 "$path" | awk '{print $1}'
-  elif command_exists sha256sum; then
-    sha256sum "$path" | awk '{print $1}'
-  elif command_exists shasum; then
-    shasum -a 256 "$path" | awk '{print $1}'
-  else
-    die "Cannot verify download checksum because neither sha256sum nor shasum is available."
-  fi
-}
-
-verify_sha256() {
-  local path="$1" expected="$2" actual
-  actual="$(sha256_file "$path")"
-  [[ "$actual" == "$expected" ]] || die "Checksum mismatch for ${path}. Expected ${expected}, got ${actual}. Delete the file and rerun."
-}
-
-install_python_macos_pkg() {
-  local pkg url
-  pkg="$(mktemp "${TMPDIR:-/tmp}/rakkib-python.XXXXXX.pkg")" \
-    || die "Failed to create a temporary Python package path. Check write access to ${TMPDIR:-/tmp} and rerun."
-  url="$(mac_python_pkg_url)"
-
-  log "Downloading Python ${MAC_PYTHON_VERSION} for macOS..."
-  run_quiet "Downloading Python ${MAC_PYTHON_VERSION}" curl -fsSL -o "$pkg" "$url" \
-    || die "Failed to download Python from ${url}. Check network access and rerun."
-  verify_sha256 "$pkg" "$MAC_PYTHON_SHA256"
-
-  log "Installing Python ${MAC_PYTHON_VERSION} via macOS installer..."
-  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    run_quiet "Installing Python ${MAC_PYTHON_VERSION}" installer -pkg "$pkg" -target / \
-      || die "Python installer failed. Open the installer log above, resolve the macOS installer error, and rerun."
-  else
-    run_quiet "Installing Python ${MAC_PYTHON_VERSION}" sudo installer -pkg "$pkg" -target / \
-      || die "Python installer failed. Re-run from an admin account or install Python from python.org, then rerun."
-  fi
-  rm -f "$pkg"
-}
-
 ensure_python_macos() {
-  if command_exists brew; then
-    log "Installing Python via existing Homebrew..."
-    run_quiet "Installing Python via Homebrew" brew install python \
-      || warn "Homebrew Python install failed; falling back to Python.org installer."
-    select_python_cmd && return 0
-  fi
-
-  install_python_macos_pkg
-  select_python_cmd || die "Python ${MAC_PYTHON_VERSION} installed, but venv/ensurepip is still unavailable. Open a new terminal and rerun."
+  ensure_homebrew
+  log "Installing Python via Homebrew..."
+  run_quiet "Installing Python via Homebrew" brew install python \
+    || die "Failed to install Python with Homebrew. Check the log above and rerun."
+  select_python_cmd || die "Homebrew Python installed, but venv/ensurepip is still unavailable. Open a new terminal and rerun."
 }
 
 # Install python3 + python3-venv via the system package manager.
@@ -343,84 +371,6 @@ discard_repo_local_changes() {
   git -C "$INSTALL_DIR" clean -fd
 }
 
-repo_archive_url() {
-  local repo="$REPO_URL" path owner name
-  case "$repo" in
-    https://github.com/*/*.git) path="${repo#https://github.com/}"; path="${path%.git}" ;;
-    https://github.com/*/*) path="${repo#https://github.com/}"; path="${path%.git}" ;;
-    git@github.com:*/*.git) path="${repo#git@github.com:}"; path="${path%.git}" ;;
-    *) die "git is missing and RAKKIB_REPO is not a supported GitHub URL: ${REPO_URL}" ;;
-  esac
-  owner="${path%%/*}"
-  name="${path#*/}"
-  [[ -n "$owner" && -n "$name" ]] \
-    || die "Could not derive GitHub archive URL from RAKKIB_REPO=${REPO_URL}"
-  printf 'https://codeload.github.com/%s/%s/tar.gz/refs/heads/%s\n' "$owner" "$name" "$BRANCH"
-}
-
-repo_is_archive_checkout() {
-  [[ -f "${INSTALL_DIR}/.rakkib-archive-install" && -f "${INSTALL_DIR}/pyproject.toml" ]]
-}
-
-replace_dir_from_archive_source() {
-  local source_dir="$1" backup=""
-  mkdir -p "$(dirname "$INSTALL_DIR")"
-  if [[ -e "$INSTALL_DIR" ]]; then
-    backup="${INSTALL_DIR}.previous.$$"
-    mv "$INSTALL_DIR" "$backup" || die "Failed to move existing ${INSTALL_DIR} aside for update."
-  fi
-  mkdir -p "$INSTALL_DIR" || die "Failed to create ${INSTALL_DIR}."
-  if cp -R "${source_dir}/." "$INSTALL_DIR/"; then
-    rm -rf "$backup"
-  else
-    rm -rf "$INSTALL_DIR"
-    [[ -n "$backup" && -e "$backup" ]] && mv "$backup" "$INSTALL_DIR"
-    die "Failed to copy downloaded Rakkib archive into ${INSTALL_DIR}."
-  fi
-}
-
-prepare_repo_archive() {
-  local archive tmpdir extracted entries url
-  if [[ -e "$INSTALL_DIR" ]] && ! is_empty_dir "$INSTALL_DIR"; then
-    if repo_is_archive_checkout; then
-      case "$UPDATE_MODE" in
-        reset) ;;
-        skip)
-          warn "Using existing archive checkout because RAKKIB_UPDATE_MODE=skip."
-          return 0
-          ;;
-        *) die "invalid RAKKIB_UPDATE_MODE '${UPDATE_MODE}'. Use 'reset' or 'skip'." ;;
-      esac
-    else
-      die "target path exists and is not an empty Rakkib archive checkout: ${INSTALL_DIR}"
-    fi
-  fi
-
-  command_exists tar || die "tar is required to download Rakkib without git. Install tar and rerun."
-  archive="$(mktemp "${TMPDIR:-/tmp}/rakkib-source.XXXXXX.tar.gz")" \
-    || die "Failed to create a temporary archive path. Check write access to ${TMPDIR:-/tmp} and rerun."
-  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/rakkib-source.XXXXXX")" \
-    || die "Failed to create a temporary extraction directory. Check write access to ${TMPDIR:-/tmp} and rerun."
-  url="$(repo_archive_url)"
-
-  log "Downloading ${REPO_URL} branch ${BRANCH} without git"
-  run_quiet "Downloading ${REPO_URL} archive" curl -fsSL -o "$archive" "$url" \
-    || die "Failed to download ${url}. Check network access and branch name, then rerun."
-  run_quiet "Extracting ${REPO_URL} archive" tar -xzf "$archive" -C "$tmpdir" \
-    || die "Failed to extract downloaded Rakkib archive. Delete ${archive} and rerun."
-
-  entries=("$tmpdir"/*)
-  extracted="${entries[0]:-}"
-  [[ -d "$extracted" && -f "$extracted/pyproject.toml" ]] \
-    || die "Downloaded archive did not contain a Rakkib checkout."
-  replace_dir_from_archive_source "$extracted"
-  {
-    printf 'repo=%s\n' "$REPO_URL"
-    printf 'branch=%s\n' "$BRANCH"
-  } > "${INSTALL_DIR}/.rakkib-archive-install"
-  rm -rf "$archive" "$tmpdir"
-}
-
 prepare_repo() {
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
     git_usable || die "Existing git checkout at ${INSTALL_DIR} requires usable git for updates. Install Git/Xcode Command Line Tools or set RAKKIB_DIR to a new path."
@@ -470,10 +420,6 @@ prepare_repo() {
   fi
 
   if ! git_usable; then
-    if [[ "${PLATFORM:-}" == "mac" ]]; then
-      prepare_repo_archive
-      return 0
-    fi
     die "git is required. Install git and rerun."
   fi
 

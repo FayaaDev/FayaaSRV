@@ -34,168 +34,26 @@ def _run_install_script(script: str, tmp_path: Path) -> subprocess.CompletedProc
     )
 
 
-def test_macos_without_git_uses_archive_checkout(tmp_path: Path):
+def test_macos_tooling_installs_clt_homebrew_and_git(tmp_path: Path):
     fakebin = tmp_path / "fakebin"
     fakebin.mkdir()
-    install_dir = tmp_path / "Rakkib"
+    clt_ready = tmp_path / "clt-ready"
+    git_ready = tmp_path / "git-ready"
+    calls = tmp_path / "calls"
 
     _write_executable(
-        fakebin / "curl",
-        """
+        fakebin / "softwareupdate",
+        f"""
         #!/usr/bin/env bash
-        out=""
-        while [[ $# -gt 0 ]]; do
-          case "$1" in
-            -o) out="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        : > "$out"
-        """,
-    )
-    _write_executable(
-        fakebin / "tar",
-        """
-        #!/usr/bin/env bash
-        target=""
-        while [[ $# -gt 0 ]]; do
-          case "$1" in
-            -C) target="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        mkdir -p "$target/Rakkib-MacSupport/src/rakkib"
-        printf '[project]\nname = "rakkib"\n' > "$target/Rakkib-MacSupport/pyproject.toml"
-        : > "$target/Rakkib-MacSupport/src/rakkib/__init__.py"
-        """,
-    )
-
-    script = f"""
-    set -euo pipefail
-    export RAKKIB_INSTALL_TEST_MODE=1
-    source ./install.sh
-    PLATFORM=mac
-    INSTALL_DIR={_q(install_dir)}
-    REPO_URL=https://github.com/FayaaDev/Rakkib.git
-    BRANCH=MacSupport
-    UPDATE_MODE=reset
-    PATH={_q(fakebin)}:$PATH
-    command_exists() {{
-      case "$1" in
-        git) return 1 ;;
-        curl|tar) return 0 ;;
-        *) command -v "$1" >/dev/null 2>&1 ;;
-      esac
-    }}
-    prepare_repo
-    test -f "$INSTALL_DIR/.rakkib-archive-install"
-    test -f "$INSTALL_DIR/pyproject.toml"
-    """
-
-    result = _run_install_script(script, tmp_path)
-    assert result.returncode == 0, result.stderr + result.stdout
-
-
-def test_macos_xcode_git_shim_uses_archive_checkout(tmp_path: Path):
-    fakebin = tmp_path / "fakebin"
-    fakebin.mkdir()
-    install_dir = tmp_path / "Rakkib"
-
-    _write_executable(
-        fakebin / "curl",
-        """
-        #!/usr/bin/env bash
-        out=""
-        while [[ $# -gt 0 ]]; do
-          case "$1" in
-            -o) out="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        : > "$out"
-        """,
-    )
-    _write_executable(
-        fakebin / "tar",
-        """
-        #!/usr/bin/env bash
-        target=""
-        while [[ $# -gt 0 ]]; do
-          case "$1" in
-            -C) target="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        mkdir -p "$target/Rakkib-MacSupport/src/rakkib"
-        printf '[project]\nname = "rakkib"\n' > "$target/Rakkib-MacSupport/pyproject.toml"
-        : > "$target/Rakkib-MacSupport/src/rakkib/__init__.py"
-        """,
-    )
-    _write_executable(
-        fakebin / "xcode-select",
-        """
-        #!/usr/bin/env bash
-        exit 2
-        """,
-    )
-    _write_executable(
-        fakebin / "git",
-        """
-        #!/usr/bin/env bash
-        printf 'git should not be called\n' >&2
-        exit 99
-        """,
-    )
-
-    script = f"""
-    set -euo pipefail
-    export RAKKIB_INSTALL_TEST_MODE=1
-    source ./install.sh
-    PLATFORM=mac
-    INSTALL_DIR={_q(install_dir)}
-    REPO_URL=https://github.com/FayaaDev/Rakkib.git
-    BRANCH=MacSupport
-    UPDATE_MODE=reset
-    PATH={_q(fakebin)}:$PATH
-    git_path() {{ printf '/usr/bin/git\n'; }}
-    command_exists() {{
-      case "$1" in
-        git|curl|tar|xcode-select) return 0 ;;
-        *) command -v "$1" >/dev/null 2>&1 ;;
-      esac
-    }}
-    prepare_repo
-    test -f "$INSTALL_DIR/.rakkib-archive-install"
-    test -f "$INSTALL_DIR/pyproject.toml"
-    """
-
-    result = _run_install_script(script, tmp_path)
-    assert result.returncode == 0, result.stderr + result.stdout
-
-
-def test_macos_python_fallback_installs_python_org_pkg(tmp_path: Path):
-    fakebin = tmp_path / "fakebin"
-    fakebin.mkdir()
-
-    _write_executable(
-        fakebin / "curl",
-        """
-        #!/usr/bin/env bash
-        out=""
-        while [[ $# -gt 0 ]]; do
-          case "$1" in
-            -o) out="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        printf 'pkg' > "$out"
-        """,
-    )
-    _write_executable(
-        fakebin / "shasum",
-        """
-        #!/usr/bin/env bash
-        printf '%s  %s\n' "$MAC_PYTHON_SHA256" "${@: -1}"
+        if [[ "$1" == "-l" ]]; then
+          printf '   * Label: Command Line Tools for Xcode-16.4\n'
+          exit 0
+        fi
+        if [[ "$1" == "-i" ]]; then
+          : > {_q(clt_ready)}
+          exit 0
+        fi
+        exit 1
         """,
     )
     _write_executable(
@@ -205,56 +63,120 @@ def test_macos_python_fallback_installs_python_org_pkg(tmp_path: Path):
         exec "$@"
         """,
     )
-    _write_executable(
-        fakebin / "installer",
-        f"""
-        #!/usr/bin/env bash
-        cat > {_q(fakebin / 'python3')} <<'PY'
-        #!/usr/bin/env bash
-        exit 0
-        PY
-        chmod +x {_q(fakebin / 'python3')}
-        """,
-    )
 
     script = f"""
     set -euo pipefail
     export RAKKIB_INSTALL_TEST_MODE=1
     source ./install.sh
-    export MAC_PYTHON_SHA256
     PLATFORM=mac
     PATH={_q(fakebin)}:/usr/bin:/bin
+    xcode_clt_installed() {{ [[ -f {_q(clt_ready)} ]]; }}
+    git_usable() {{ [[ -f {_q(git_ready)} ]]; }}
+    ensure_homebrew() {{ printf 'homebrew\n' >> {_q(calls)}; }}
+    ensure_brew_package() {{ printf '%s %s %s\n' "$1" "$2" "${{3:-0}}" >> {_q(calls)}; : > {_q(git_ready)}; }}
     command_exists() {{
       case "$1" in
-        python3) [[ -x {_q(fakebin / 'python3')} ]] ;;
-        apt-get|dnf|pacman|brew|sha256sum) return 1 ;;
-        curl|shasum|sudo|installer) return 0 ;;
+        curl|softwareupdate|sudo) return 0 ;;
         *) command -v "$1" >/dev/null 2>&1 ;;
       esac
     }}
-    ensure_python3_and_venv
-    [[ "$PYTHON_CMD" == {_q(fakebin / 'python3')} ]]
+    ensure_tooling
+    test -f {_q(clt_ready)}
+    test -f {_q(git_ready)}
+    [[ "$(cat {_q(calls)})" == $'homebrew\ngit git 1' ]]
     """
 
     result = _run_install_script(script, tmp_path)
     assert result.returncode == 0, result.stderr + result.stdout
 
 
-def test_macos_tooling_allows_missing_git_when_archive_tools_exist(tmp_path: Path):
-    script = """
+def test_macos_python_installs_homebrew_python(tmp_path: Path):
+    python_ready = tmp_path / "python-ready"
+    calls = tmp_path / "calls"
+
+    script = f"""
     set -euo pipefail
     export RAKKIB_INSTALL_TEST_MODE=1
     source ./install.sh
     PLATFORM=mac
-    command_exists() {
+    ensure_homebrew() {{ printf 'homebrew\n' >> {_q(calls)}; }}
+    select_python_cmd() {{
+      if [[ -f {_q(python_ready)} ]]; then
+        PYTHON_CMD=/opt/homebrew/bin/python3
+        return 0
+      fi
+      return 1
+    }}
+    brew() {{
+      printf '%s %s\n' "$1" "$2" >> {_q(calls)}
+      [[ "$1" == "install" && "$2" == "python" ]] && : > {_q(python_ready)}
+    }}
+    command_exists() {{
       case "$1" in
-        git) return 1 ;;
-        curl|tar) return 0 ;;
+        apt-get|dnf|pacman) return 1 ;;
         *) command -v "$1" >/dev/null 2>&1 ;;
       esac
-    }
-    ensure_tooling
+    }}
+    ensure_python3_and_venv
+    [[ "$PYTHON_CMD" == /opt/homebrew/bin/python3 ]]
+    [[ "$(cat {_q(calls)})" == $'homebrew\ninstall python' ]]
     """
 
     result = _run_install_script(script, tmp_path)
     assert result.returncode == 0, result.stderr + result.stdout
+
+
+def test_prepare_repo_requires_git_without_archive_fallback(tmp_path: Path):
+    install_dir = tmp_path / "Rakkib"
+
+    script = f"""
+    set -euo pipefail
+    export RAKKIB_INSTALL_TEST_MODE=1
+    source ./install.sh
+    PLATFORM=mac
+    INSTALL_DIR={_q(install_dir)}
+    git_usable() {{ return 1; }}
+    if ( prepare_repo ) >/tmp/rakkib-prepare.out 2>&1; then
+      exit 1
+    fi
+    if ! [[ "$(cat /tmp/rakkib-prepare.out)" == *"git is required"* ]]; then
+      cat /tmp/rakkib-prepare.out >&2
+      exit 1
+    fi
+    """
+
+    result = _run_install_script(script, tmp_path)
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
+def test_linux_tooling_still_requires_git(tmp_path: Path):
+    script = """
+    set -euo pipefail
+    export RAKKIB_INSTALL_TEST_MODE=1
+    source ./install.sh
+    PLATFORM=linux
+    git_usable() { return 1; }
+    command_exists() {
+      case "$1" in
+        curl) return 0 ;;
+        *) command -v "$1" >/dev/null 2>&1 ;;
+      esac
+    }
+    if ( ensure_tooling ) >/tmp/rakkib-tooling.out 2>&1; then
+      exit 1
+    fi
+    if ! [[ "$(cat /tmp/rakkib-tooling.out)" == *"git is required"* ]]; then
+      cat /tmp/rakkib-tooling.out >&2
+      exit 1
+    fi
+    """
+
+    result = _run_install_script(script, tmp_path)
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
+def test_removed_macos_archive_and_python_pkg_fallbacks():
+    install_text = (REPO_ROOT / "install.sh").read_text()
+    assert "prepare_repo_archive" not in install_text
+    assert "codeload.github.com" not in install_text
+    assert "python.org/ftp" not in install_text
