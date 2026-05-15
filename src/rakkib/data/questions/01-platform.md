@@ -57,6 +57,9 @@ fields:
     type: single_select
     prompt: What platform are you installing on?
     canonical_values: [linux, mac]
+    display_labels:
+      linux: Linux (Ubuntu 24.04)
+      mac: macOS
     disabled_values:
       mac: soon
     normalize: lowercase

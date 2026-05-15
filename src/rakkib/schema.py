@@ -25,6 +25,7 @@ class FieldDef:
     default_from_state: str | None = None
     default_from_host: Any = None
     canonical_values: list[str] = field(default_factory=list)
+    display_labels: dict[str, str] = field(default_factory=dict)
     disabled_values: dict[str, str] = field(default_factory=dict)
     numeric_aliases: dict[str, str] = field(default_factory=dict)
     aliases: dict[str, list[str]] = field(default_factory=dict)

@@ -481,18 +481,12 @@ def _prompt_single_select(field: FieldDef, state: State) -> str:
 
     choices = []
     for canonical in values:
-        aliases = field.aliases.get(canonical, [])
-        if aliases and len(aliases) > 1:
-            title = f"{canonical} ({', '.join(aliases)})"
-        elif aliases:
-            title = f"{canonical} ({aliases[0]})"
-        else:
-            title = canonical
+        title = field.display_labels.get(canonical, canonical)
         disabled_reason = disabled_values.get(canonical)
         if disabled_reason:
             choices.append(
                 Choice(
-                    title=canonical,
+                    title=title,
                     value=canonical,
                     disabled=disabled_reason,
                 )
