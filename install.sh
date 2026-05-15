@@ -128,12 +128,29 @@ confirm_root() {
 
 ensure_tooling() {
   command_exists curl || die "curl is required. Install curl and rerun."
-  if ! command_exists git && [[ "${PLATFORM:-}" != "mac" ]]; then
+  if ! git_usable && [[ "${PLATFORM:-}" != "mac" ]]; then
     die "git is required. Install git and rerun."
   fi
-  if [[ "${PLATFORM:-}" == "mac" ]] && ! command_exists git; then
+  if [[ "${PLATFORM:-}" == "mac" ]] && ! git_usable; then
     command_exists tar || die "tar is required to download Rakkib without git. Install tar and rerun."
   fi
+}
+
+git_path() {
+  command -v git 2>/dev/null || true
+}
+
+git_usable() {
+  local path
+  path="$(git_path)"
+  [[ -n "$path" ]] || return 1
+
+  if [[ "${PLATFORM:-}" == "mac" && "$path" == "/usr/bin/git" ]]; then
+    command_exists xcode-select || return 1
+    xcode-select -p >/dev/null 2>&1 || return 1
+  fi
+
+  return 0
 }
 
 # Block until all dpkg/apt lock files are free.
@@ -406,7 +423,7 @@ prepare_repo_archive() {
 
 prepare_repo() {
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
-    command_exists git || die "Existing git checkout at ${INSTALL_DIR} requires git for updates. Install git or set RAKKIB_DIR to a new path."
+    git_usable || die "Existing git checkout at ${INSTALL_DIR} requires usable git for updates. Install Git/Xcode Command Line Tools or set RAKKIB_DIR to a new path."
     log "Using existing checkout: ${INSTALL_DIR}"
     if repo_has_local_changes; then
       case "$UPDATE_MODE" in
@@ -452,7 +469,7 @@ prepare_repo() {
     return 0
   fi
 
-  if ! command_exists git; then
+  if ! git_usable; then
     if [[ "${PLATFORM:-}" == "mac" ]]; then
       prepare_repo_archive
       return 0

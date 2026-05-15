@@ -96,6 +96,83 @@ def test_macos_without_git_uses_archive_checkout(tmp_path: Path):
     assert result.returncode == 0, result.stderr + result.stdout
 
 
+def test_macos_xcode_git_shim_uses_archive_checkout(tmp_path: Path):
+    fakebin = tmp_path / "fakebin"
+    fakebin.mkdir()
+    install_dir = tmp_path / "Rakkib"
+
+    _write_executable(
+        fakebin / "curl",
+        """
+        #!/usr/bin/env bash
+        out=""
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            -o) out="$2"; shift 2 ;;
+            *) shift ;;
+          esac
+        done
+        : > "$out"
+        """,
+    )
+    _write_executable(
+        fakebin / "tar",
+        """
+        #!/usr/bin/env bash
+        target=""
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            -C) target="$2"; shift 2 ;;
+            *) shift ;;
+          esac
+        done
+        mkdir -p "$target/Rakkib-MacSupport/src/rakkib"
+        printf '[project]\nname = "rakkib"\n' > "$target/Rakkib-MacSupport/pyproject.toml"
+        : > "$target/Rakkib-MacSupport/src/rakkib/__init__.py"
+        """,
+    )
+    _write_executable(
+        fakebin / "xcode-select",
+        """
+        #!/usr/bin/env bash
+        exit 2
+        """,
+    )
+    _write_executable(
+        fakebin / "git",
+        """
+        #!/usr/bin/env bash
+        printf 'git should not be called\n' >&2
+        exit 99
+        """,
+    )
+
+    script = f"""
+    set -euo pipefail
+    export RAKKIB_INSTALL_TEST_MODE=1
+    source ./install.sh
+    PLATFORM=mac
+    INSTALL_DIR={_q(install_dir)}
+    REPO_URL=https://github.com/FayaaDev/Rakkib.git
+    BRANCH=MacSupport
+    UPDATE_MODE=reset
+    PATH={_q(fakebin)}:$PATH
+    git_path() {{ printf '/usr/bin/git\n'; }}
+    command_exists() {{
+      case "$1" in
+        git|curl|tar|xcode-select) return 0 ;;
+        *) command -v "$1" >/dev/null 2>&1 ;;
+      esac
+    }}
+    prepare_repo
+    test -f "$INSTALL_DIR/.rakkib-archive-install"
+    test -f "$INSTALL_DIR/pyproject.toml"
+    """
+
+    result = _run_install_script(script, tmp_path)
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
 def test_macos_python_fallback_installs_python_org_pkg(tmp_path: Path):
     fakebin = tmp_path / "fakebin"
     fakebin.mkdir()
