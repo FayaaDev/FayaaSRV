@@ -300,9 +300,6 @@ export function Landing() {
               <a className="bridge-button bridge-button-primary" href="#services">
                 {t('heroPrimaryAction')}
               </a>
-              <a className="bridge-button" href="#demo">
-                {t('heroSecondaryAction')}
-              </a>
             </div>
           </div>
 

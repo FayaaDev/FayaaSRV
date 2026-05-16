@@ -10,7 +10,6 @@ export const translations = {
     heroText:
       'Rakkib transforms a fresh machine into a polished self-hosted stack for apps, data, automation, photos, and secure access.',
     heroPrimaryAction: 'Explore services',
-    heroSecondaryAction: 'Watch setup',
     copy: 'Copy',
     copied: 'Copied!',
     installNote:
@@ -139,7 +138,6 @@ export const translations = {
     heroText:
       'ركّب يضبط جهازك القديم او سيرفرك المنزلي. أختار من حزمة خدمات مستضافة تشمل تطبيقات الذكاء الاصطناعي والأتمتة وغيرها.',
     heroPrimaryAction: 'استعرض الخدمات',
-    heroSecondaryAction: 'شاهد الإعداد',
     copy: 'نسخ',
     copied: 'تم النسخ!',
     installNote:

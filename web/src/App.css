@@ -184,7 +184,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   background:
-    radial-gradient(circle at 24% 0%, rgba(0, 122, 255, 0.18), transparent 34%),
+    radial-gradient(circle at 24% 0%, rgba(253, 252, 252, 0.1), transparent 34%),
     linear-gradient(145deg, rgba(48, 44, 44, 0.98), rgba(23, 20, 20, 0.96));
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.28);
 }
@@ -806,8 +806,8 @@
 }
 
 .setup-status-pill.is-succeeded {
-  border-color: rgba(93, 176, 255, 0.6);
-  color: #8cc8ff;
+  border-color: rgba(124, 216, 150, 0.6);
+  color: #7cd896;
 }
 
 .setup-status-pill.is-failed {
@@ -839,7 +839,7 @@
   margin: 20px 0 0;
   min-height: 280px;
   max-height: 60vh;
-  color: #d7e5ff;
+  color: var(--color-text-primary);
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -963,7 +963,7 @@
   pointer-events: none;
   content: '';
   background:
-    radial-gradient(circle at 20% 30%, rgba(0, 122, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 20% 30%, rgba(253, 252, 252, 0.1), transparent 34%),
     radial-gradient(circle at 76% 8%, rgba(124, 216, 150, 0.12), transparent 28%);
   filter: blur(8px);
   z-index: -1;
@@ -1059,8 +1059,8 @@
 }
 
 .setup-timeline-link.is-current {
-  border-color: rgba(0, 122, 255, 0.8);
-  background: linear-gradient(180deg, rgba(0, 122, 255, 0.2), rgba(255, 255, 255, 0.04));
+  border-color: rgba(253, 252, 252, 0.58);
+  background: linear-gradient(180deg, rgba(253, 252, 252, 0.1), rgba(255, 255, 255, 0.04));
 }
 
 .setup-timeline-link.is-complete {
@@ -1077,7 +1077,7 @@
 .setup-timeline-link.is-current .setup-timeline-number {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 .setup-timeline-copy strong {
@@ -1150,7 +1150,7 @@
   height: 150px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 40px;
-  background: radial-gradient(circle, rgba(0, 122, 255, 0.2), rgba(255, 255, 255, 0.03) 60%);
+  background: radial-gradient(circle, rgba(253, 252, 252, 0.1), rgba(255, 255, 255, 0.03) 60%);
 }
 
 .setup-orbit img,
@@ -1240,8 +1240,8 @@
 .setup-choice-card:hover,
 .setup-choice-card.is-selected {
   transform: translateY(-1px);
-  border-color: rgba(0, 122, 255, 0.78);
-  background: rgba(0, 122, 255, 0.16);
+  border-color: rgba(253, 252, 252, 0.58);
+  background: rgba(253, 252, 252, 0.1);
 }
 
 .setup-choice-dot {
@@ -1306,12 +1306,12 @@
 .setup-service-item:hover,
 .setup-service-item.is-selected {
   transform: translateY(-3px);
-  border-color: rgba(0, 122, 255, 0.78);
+  border-color: rgba(253, 252, 252, 0.58);
 }
 
 .setup-service-item.is-selected {
   background:
-    radial-gradient(circle at 18% 16%, rgba(0, 122, 255, 0.28), transparent 35%),
+    radial-gradient(circle at 18% 16%, rgba(253, 252, 252, 0.1), transparent 35%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
 }
 
@@ -1454,19 +1454,19 @@
 
 .bridge-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(0, 122, 255, 0.8);
+  border-color: rgba(253, 252, 252, 0.58);
 }
 
 .bridge-button-primary {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-bg);
   font-weight: 700;
 }
 
 .bridge-button-primary:hover,
 .bridge-button-primary:active {
-  color: #fff;
+  color: var(--color-bg);
   background: var(--color-accent-hover);
 }
 
@@ -1633,7 +1633,7 @@
 .setup-progress-step.is-active span {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  box-shadow: 0 0 0 8px rgba(0, 122, 255, 0.12);
+  box-shadow: 0 0 0 8px rgba(253, 252, 252, 0.1);
 }
 
 .setup-warning-card {
@@ -1705,7 +1705,7 @@
   height: 10px;
   margin-top: 5px;
   border-radius: 999px;
-  background: rgba(140, 200, 255, 0.9);
+  background: rgba(253, 252, 252, 0.72);
 }
 
 .setup-activity-row p {
@@ -1733,7 +1733,7 @@
   max-height: 52vh;
   border-radius: 18px;
   background: #121010;
-  color: #d7e5ff;
+  color: var(--color-text-primary);
   font-family: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 }
 
@@ -1833,7 +1833,7 @@
   pointer-events: none;
   content: '';
   background:
-    radial-gradient(circle at 18% 22%, rgba(0, 122, 255, 0.26), transparent 34%),
+    radial-gradient(circle at 18% 22%, rgba(253, 252, 252, 0.1), transparent 34%),
     radial-gradient(circle at 72% 2%, rgba(124, 216, 150, 0.16), transparent 32%),
     radial-gradient(circle at 92% 48%, rgba(255, 184, 91, 0.12), transparent 28%);
   filter: blur(10px);
@@ -1947,12 +1947,12 @@
 .marketing-install-box button {
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 0;
-  background: rgba(0, 122, 255, 0.16);
+  background: rgba(253, 252, 252, 0.1);
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .marketing-install-box button:hover {
-  background: rgba(0, 122, 255, 0.26);
+  background: rgba(253, 252, 252, 0.16);
 }
 
 .landing-hero .install-note {
@@ -1979,7 +1979,7 @@
 .marketing-shell .hero-actions .bridge-button-primary {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-bg);
 }
 
 .landing-hero-visual {
@@ -1998,7 +1998,7 @@
 .landing-hero-visual .hero-logo {
   width: min(420px, 88%);
   height: auto;
-  filter: drop-shadow(0 34px 60px rgba(0, 122, 255, 0.22));
+  filter: drop-shadow(0 34px 60px rgba(253, 252, 252, 0.1));
 }
 
 .marketing-demo {
@@ -2013,7 +2013,7 @@
   border-radius: 32px;
   background:
     radial-gradient(circle at 15% 0%, rgba(124, 216, 150, 0.18), transparent 32%),
-    radial-gradient(circle at 88% 12%, rgba(0, 122, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(253, 252, 252, 0.1), transparent 30%),
     linear-gradient(145deg, rgba(48, 44, 44, 0.98), rgba(18, 17, 17, 0.96));
 }
 
@@ -2108,8 +2108,8 @@
 .catalog-category-chip:hover,
 .catalog-category-chip.is-active {
   transform: translateY(-1px);
-  border-color: rgba(0, 122, 255, 0.58);
-  background: rgba(0, 122, 255, 0.12);
+  border-color: rgba(253, 252, 252, 0.42);
+  background: rgba(253, 252, 252, 0.08);
 }
 
 .catalog-category-chip:focus-visible {
@@ -2138,7 +2138,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 34px;
   background:
-    radial-gradient(circle at 16% 18%, rgba(0, 122, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 16% 18%, rgba(253, 252, 252, 0.1), transparent 30%),
     radial-gradient(circle at 82% 8%, rgba(124, 216, 150, 0.14), transparent 28%),
     linear-gradient(145deg, rgba(18, 17, 17, 0.86), rgba(35, 31, 31, 0.94));
   perspective: 740px;
