@@ -678,6 +678,28 @@ class TestAttemptFixCompose:
 
 
 class TestAttemptFixCloudflared:
+    @patch("rakkib.doctor._macos_tool_cmd", return_value="/opt/homebrew/bin/cloudflared")
+    @patch("rakkib.doctor._macos_brew_cmd", return_value="/opt/homebrew/bin/brew")
+    @patch("subprocess.run")
+    @patch("platform.system", return_value="Darwin")
+    def test_download_success_darwin_brew(
+        self,
+        _system: MagicMock,
+        mock_run: MagicMock,
+        _brew: MagicMock,
+        _cloudflared: MagicMock,
+    ):
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stderr="", stdout=""),
+            MagicMock(returncode=0, stderr="", stdout="cloudflared version 2026.3.0"),
+        ]
+
+        msg = attempt_fix_cloudflared()
+
+        assert "Homebrew" in msg
+        assert mock_run.call_args_list[0].args[0] == ["/opt/homebrew/bin/brew", "install", "cloudflared"]
+        assert mock_run.call_args_list[1].args[0] == ["/opt/homebrew/bin/cloudflared", "--version"]
+
     @patch("subprocess.run")
     @patch("rakkib.doctor._sha256_file", return_value="4a9e50e6d6d798e90fcd01933151a90bf7edd99a0a55c28ad18f2e16263a5c30")
     @patch("platform.system", return_value="Linux")
@@ -704,7 +726,8 @@ class TestAttemptFixCloudflared:
     @patch("pathlib.Path.mkdir")
     @patch("rakkib.doctor.tarfile.open")
     @patch("subprocess.run")
-    @patch("rakkib.doctor._sha256_file", return_value="b91dbec79a3e3809d5508b96d8b0bdfbf3ad7d51f858200228fa3e57100580d9")
+    @patch("rakkib.doctor._macos_brew_cmd", return_value=None)
+    @patch("rakkib.doctor._sha256_file", return_value="0f30140c4a5e213d22f951ef4c964cac5fb6a5f061ba6eba5ea932999f7c0394")
     @patch("platform.system", return_value="Darwin")
     @patch("platform.machine", return_value="x86_64")
     def test_download_success_darwin_amd64_archive(
@@ -712,6 +735,7 @@ class TestAttemptFixCloudflared:
         _machine: MagicMock,
         _system: MagicMock,
         _sha: MagicMock,
+        _brew: MagicMock,
         mock_run: MagicMock,
         mock_tar_open: MagicMock,
         _mkdir: MagicMock,
@@ -738,7 +762,8 @@ class TestAttemptFixCloudflared:
     @patch("pathlib.Path.mkdir")
     @patch("rakkib.doctor.tarfile.open")
     @patch("subprocess.run")
-    @patch("rakkib.doctor._sha256_file", return_value="633cee0fd41fd2020e17498beecc54811bf4fc99f891c080dc9343eb0f449c60")
+    @patch("rakkib.doctor._macos_brew_cmd", return_value=None)
+    @patch("rakkib.doctor._sha256_file", return_value="2aae4f69b0fc1c671b8353b4f594cbd902cd1e360c8eed2b8cad4602cb1546fb")
     @patch("platform.system", return_value="Darwin")
     @patch("platform.machine", return_value="arm64")
     def test_download_success_darwin_arm64_archive(
@@ -746,6 +771,7 @@ class TestAttemptFixCloudflared:
         _machine: MagicMock,
         _system: MagicMock,
         _sha: MagicMock,
+        _brew: MagicMock,
         mock_run: MagicMock,
         mock_tar_open: MagicMock,
         _mkdir: MagicMock,

@@ -114,8 +114,8 @@ MACOS_DOCKER_PACKAGES = ("colima", "docker", "docker-compose")
 
 CLOUDFLARED_VERSION = "2026.3.0"
 CLOUDFLARED_SHA256 = {
-    ("darwin", "amd64"): "b91dbec79a3e3809d5508b96d8b0bdfbf3ad7d51f858200228fa3e57100580d9",
-    ("darwin", "arm64"): "633cee0fd41fd2020e17498beecc54811bf4fc99f891c080dc9343eb0f449c60",
+    ("darwin", "amd64"): "0f30140c4a5e213d22f951ef4c964cac5fb6a5f061ba6eba5ea932999f7c0394",
+    ("darwin", "arm64"): "2aae4f69b0fc1c671b8353b4f594cbd902cd1e360c8eed2b8cad4602cb1546fb",
     ("linux", "amd64"): "4a9e50e6d6d798e90fcd01933151a90bf7edd99a0a55c28ad18f2e16263a5c30",
     ("linux", "arm64"): "0755ba4cbab59980e6148367fcf53a8f3ec85a97deefd63c2420cf7850769bee",
 }
@@ -1049,6 +1049,21 @@ def attempt_fix_compose() -> str:
 
 def attempt_fix_cloudflared() -> str:
     """Install cloudflared binary into ~/.local/bin. Returns a message describing the result."""
+    if platform.system() == "Darwin":
+        _ensure_macos_tool_path()
+        brew = _macos_brew_cmd()
+        if brew is not None:
+            result = subprocess.run([brew, "install", "cloudflared"], capture_output=True, text=True)
+            if result.returncode != 0:
+                detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+                return f"Homebrew cloudflared install failed: {detail}"
+            cloudflared = _macos_tool_cmd("cloudflared") or "cloudflared"
+            verify = subprocess.run([cloudflared, "--version"], capture_output=True, text=True)
+            if verify.returncode != 0:
+                detail = verify.stderr.strip() or verify.stdout.strip() or "unknown error"
+                return f"Homebrew cloudflared install verification failed: {detail}"
+            return "cloudflared installed via Homebrew."
+
     if not _command_exists("curl"):
         return "curl is required but not found. Install curl first."
 
