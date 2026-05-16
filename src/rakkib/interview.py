@@ -97,8 +97,6 @@ def _discard_state(state: State) -> None:
 
 def _run_phase(schema: QuestionSchema, state: State) -> None:
     """Execute a single phase's field list against the current state."""
-    console.print(f"[bold blue]Phase {schema.phase}[/bold blue]")
-
     if schema.service_catalog:
         _handle_service_catalog(schema, state)
         _enforce_rules(schema, state)
