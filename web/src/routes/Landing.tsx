@@ -8,6 +8,7 @@ import { SetupBridge } from './SetupBridge'
 
 const installCommand = 'curl -fsSL https://install.rakkib.app | bash'
 const repoUrl = 'https://github.com/FayaaDev/Rakkib'
+const demoVideoUrl = 'https://github.com/user-attachments/assets/4cd59d91-1668-4ed1-a53e-f5e22ba83cad'
 
 type PublicServiceItem = PublicService
 
@@ -196,6 +197,21 @@ export function Landing() {
             </button>
           </div>
           <p className="install-note">{t('installNote')}</p>
+        </section>
+
+        <section className="demo-showcase" aria-label="Rakkib demo">
+          <div className="demo-frame">
+            <video
+              className="demo-video"
+              src={demoVideoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Rakkib setup demo"
+            />
+          </div>
         </section>
 
         <section className="services" aria-labelledby="services-title">
