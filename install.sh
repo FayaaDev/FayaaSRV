@@ -36,7 +36,7 @@ run_quiet() {
 warn_incomplete_venv() {
   local status=$?
   if [[ "${VENV_INSTALL_IN_PROGRESS:-0}" -eq 1 ]]; then
-    warn "venv setup was interrupted; remove the incomplete venv with: rm -rf '${INSTALL_DIR}/.venv' && rerun install.sh"
+    warn "Setup was interrupted. To retry cleanly, run: rm -rf '${INSTALL_DIR}/.venv' && rerun install.sh"
   fi
   exit "$status"
 }
@@ -88,8 +88,7 @@ usage() {
   cat <<'USAGE'
 Usage: install.sh [--dir <path>] [--repo <url>] [--branch <name>]
 
-Rakkib bootstrapper. Clones or updates the repo, creates a project-local
-venv, installs the rakkib CLI into it, and links it onto PATH.
+Rakkib installer. Sets up the rakkib command on this machine.
 
 Environment overrides:
   RAKKIB_DIR       target checkout path   (default: $HOME/Rakkib)
@@ -320,7 +319,7 @@ ensure_python_macos() {
   log "Installing Python via Homebrew..."
   run_quiet "Installing Python via Homebrew" brew install python \
     || die "Failed to install Python with Homebrew. Check the log above and rerun."
-  select_python_cmd || die "Homebrew Python installed, but venv/ensurepip is still unavailable. Open a new terminal and rerun."
+  select_python_cmd || die "Homebrew Python installed, but setup cannot use it yet. Open a new terminal and rerun."
 }
 
 # Install python3 + python3-venv via the system package manager.
@@ -362,10 +361,10 @@ ensure_python3_and_venv() {
   elif command_exists brew; then
     brew install python
   else
-    die "Could not find a package manager. Install python3 (with venv module) manually and rerun."
+    die "Could not find a package manager. Install Python 3 manually and rerun."
   fi
 
-  select_python_cmd || die "python3-venv unavailable (including ensurepip). Install it manually and rerun."
+  select_python_cmd || die "Python setup is unavailable. Install Python 3 support and rerun."
 }
 
 is_empty_dir() {
@@ -455,28 +454,28 @@ ensure_venv_install() {
   VENV_INSTALL_IN_PROGRESS=1
 
   if [[ ! -d "$venv_dir" ]]; then
-    log "Creating venv at ${venv_dir}"
-    run_quiet "Creating venv at ${venv_dir}" "$PYTHON_CMD" -m venv "$venv_dir" \
-      || run_quiet "Creating venv at ${venv_dir} without pip" "$PYTHON_CMD" -m venv --without-pip "$venv_dir" \
-      || die "Failed to create venv at ${venv_dir}. Install python3-venv and rerun."
+    log "Preparing Rakkib..."
+    run_quiet "Preparing Rakkib" "$PYTHON_CMD" -m venv "$venv_dir" \
+      || run_quiet "Preparing Rakkib" "$PYTHON_CMD" -m venv --without-pip "$venv_dir" \
+      || die "Failed to prepare Rakkib. Install python3-venv and rerun."
   fi
 
   if [[ ! -x "${venv_dir}/bin/pip" ]]; then
-    log "pip absent from venv; bootstrapping via get-pip.py..."
+    log "Preparing Python tools..."
     command_exists curl || die "curl is required to bootstrap pip. Install curl and rerun."
-    run_quiet "Bootstrapping pip in ${venv_dir}" bash -lc 'curl -fsSL https://bootstrap.pypa.io/get-pip.py | "$1"' -- "${venv_dir}/bin/python" \
+    run_quiet "Preparing Python tools" bash -lc 'curl -fsSL https://bootstrap.pypa.io/get-pip.py | "$1"' -- "${venv_dir}/bin/python" \
       || die "Failed to bootstrap pip. Check network and rerun."
   fi
 
-  log "Installing rakkib into venv..."
-  run_quiet "Installing rakkib into venv" "${venv_dir}/bin/pip" install -q -e "${INSTALL_DIR}" \
+  log "Finishing setup..."
+  run_quiet "Finishing setup" "${venv_dir}/bin/pip" install -q -e "${INSTALL_DIR}" \
     || die "pip install failed. Check the error above and rerun."
 
   mkdir -p "$bin_dir"
   # Overwrite symlink if it points elsewhere (e.g. stale pipx path)
   if [[ -L "$target" || ! -e "$target" ]]; then
     ln -sf "${venv_dir}/bin/rakkib" "$target"
-    log "Linked ${target} -> ${venv_dir}/bin/rakkib"
+    log "Added rakkib to PATH."
   else
     warn "${target} exists and is not a symlink; skipping link creation."
   fi
@@ -515,20 +514,14 @@ print_next_steps() {
 
 Rakkib is installed.
 
-Repo:  ${INSTALL_DIR}
-Venv:  ${INSTALL_DIR}/.venv
-
-Next step:
+Next:
   rakkib web
 
-If rakkib is not on PATH yet, run one of:
+If your shell cannot find rakkib yet, run one of:
   source ~/.zshrc   |   source ~/.zprofile   |   source ~/.profile
 
-Or run directly:
-  ${HOME}/.local/bin/rakkib web
-
-For local service testing on macOS, run 'rakkib auth' to install/start
-the Colima Docker backend if Docker is not already available.
+To install local services on macOS, run:
+  rakkib auth
 
 To uninstall:
   rakkib uninstall --yes
@@ -541,21 +534,15 @@ EOF
 
 Rakkib is installed.
 
-Repo:  ${INSTALL_DIR}
-Venv:  ${INSTALL_DIR}/.venv
-
-Next steps:
+Next:
   rakkib init
   rakkib pull
 
-If rakkib is not on PATH yet, run one of:
+If your shell cannot find rakkib yet, run one of:
   source ~/.bashrc   |   source ~/.zshrc   |   source ~/.profile
 
-Or run directly:
-  ${HOME}/.local/bin/rakkib init
-
-If Docker access needs repair for a non-root user, run 'rakkib auth'.
-After it succeeds, open a new shell or run 'newgrp docker', then rerun 'rakkib pull'.
+If Docker needs setup, run:
+  rakkib auth
 
 To uninstall:
   rakkib uninstall --yes

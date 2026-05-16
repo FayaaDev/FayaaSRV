@@ -29,13 +29,11 @@ class DockerError(Exception):
 
 
 DOCKER_PERMISSION_HINT_LINUX = (
-    "Docker is installed, but this user cannot access /var/run/docker.sock. "
-    "Add the user to the docker group, then run `newgrp docker` or open a new shell, "
-    "verify with `docker info`, and rerun `rakkib pull`."
+    "Docker needs permission for this user. Run `rakkib auth`, then open a new shell "
+    "and try again."
 )
 DOCKER_PERMISSION_HINT_MAC = (
-    "Docker is installed, but this shell cannot access the macOS Docker backend. "
-    "Run `colima start`, verify with `docker info`, and rerun Rakkib."
+    "Docker is not ready. Run `rakkib auth`, then try again."
 )
 
 

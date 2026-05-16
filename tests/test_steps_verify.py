@@ -180,8 +180,8 @@ class TestRun:
         ):
             verify_step.run(state)
         captured = capsys.readouterr()
-        assert "VERIFICATION SUMMARY" in captured.out
-        assert "Some verification checks failed" in captured.out
+        assert "CHECK SUMMARY" in captured.out
+        assert "Some checks failed" in captured.out
 
     def test_prints_success_when_all_pass(self, capsys):
         state = State({})
@@ -197,4 +197,4 @@ class TestRun:
         ):
             verify_step.run(state)
         captured = capsys.readouterr()
-        assert "All verification checks passed." in captured.out
+        assert "Checks passed." in captured.out

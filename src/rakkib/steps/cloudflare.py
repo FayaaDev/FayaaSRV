@@ -627,7 +627,7 @@ def run(state: State) -> None:
     try:
         _run([_cloudflared_bin(), "--version"], env=cloudflared_env)
     except RuntimeError:
-        print("cloudflared not found — installing automatically...")
+        print("Preparing Cloudflare tunnel tool...")
         msg = attempt_fix_cloudflared()
         print(f"[dim]{msg}[/dim]")
         if shutil.which("cloudflared") is None and not Path(_cloudflared_bin()).exists():
@@ -656,9 +656,8 @@ def run(state: State) -> None:
                     )
                 headless = state.get("cloudflare.headless", False)
                 if headless:
-                    print("\nStep 3 — Cloudflare login (headless mode)")
-                    print("Running: cloudflared tunnel login")
-                    print("Waiting for auth URL...\n")
+                    print("\nCloudflare login required")
+                    print("Waiting for login link...\n")
 
                     proc = subprocess.Popen(
                         [_cloudflared_bin(), "tunnel", "login"],
@@ -679,8 +678,8 @@ def run(state: State) -> None:
                                 _show_qr(login_url)
                                 showed_qr = True
                                 print(
-                                    f"\nOr open manually:\n  {login_url}\n\n"
-                                    "Waiting for approval — keep this terminal open...\n"
+                                    f"\nOr open this link:\n  {login_url}\n\n"
+                                    "Waiting for approval. Keep this terminal open...\n"
                                 )
                                 continue
 
@@ -699,7 +698,7 @@ def run(state: State) -> None:
                         )
                 else:
                     print(
-                        "\nStep 3 is paused for Cloudflare approval.\n"
+                        "\nCloudflare approval is required.\n"
                         "A browser window will open for Cloudflare login.\n"
                         "Approve the domain, then return here.\n"
                     )
@@ -772,7 +771,7 @@ def run(state: State) -> None:
                     shutil.copy2(default_cert, cert_path)
                 else:
                     print(
-                        "\nStep 3 needs Cloudflare login to repair missing credentials.\n"
+                        "\nCloudflare login is needed to repair missing credentials.\n"
                         "cloudflared tunnel login will be initiated.\n"
                     )
                     result = subprocess.run(

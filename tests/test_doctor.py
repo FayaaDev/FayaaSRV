@@ -352,7 +352,7 @@ class TestSummaryText:
 
 class TestAttemptFixDocker:
     @patch("platform.system", return_value="Darwin")
-    @patch("rakkib.doctor.attempt_start_colima", return_value="Colima started; Docker daemon should be reachable.")
+    @patch("rakkib.doctor.attempt_start_colima", return_value="Docker started.")
     @patch("rakkib.doctor._macos_brew_cmd", return_value="/usr/local/bin/brew")
     @patch("subprocess.run")
     def test_mac_installs_colima_backend(
@@ -364,7 +364,7 @@ class TestAttemptFixDocker:
     ):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         msg = attempt_fix_docker()
-        assert "Colima Docker backend" in msg
+        assert "Docker installed" in msg
         assert mock_run.call_args.args[0] == [
             "/usr/local/bin/brew",
             "install",
@@ -395,7 +395,7 @@ class TestAttemptFixDocker:
     ):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         msg = attempt_fix_docker()
-        assert "get.docker.com" in msg
+        assert "Docker installed" in msg
         mock_wait.assert_called_once()
         assert mock_run.call_args_list[0].kwargs["env"]["DEBIAN_FRONTEND"] == "noninteractive"
         assert mock_run.call_args_list[0].kwargs["env"]["NEEDRESTART_MODE"] == "a"
@@ -479,7 +479,7 @@ class TestAttemptFixDocker:
             MagicMock(returncode=0, stdout="", stderr=""),
         ]
         msg = attempt_fix_docker()
-        assert "get.docker.com" in msg
+        assert "Docker installed" in msg
         assert mock_run.call_args_list[1].args[0] == [
             "sudo",
             "-n",
@@ -499,7 +499,7 @@ class TestDockerPermissionRepair:
     @patch("rakkib.doctor.os.execvp", side_effect=OSError("exec failed"))
     @patch("rakkib.doctor.prompt_confirm", return_value=True)
     @patch("rakkib.doctor.shutil.which", return_value="/usr/bin/sg")
-    @patch("rakkib.doctor.prepare_docker_access", return_value="Docker access was prepared for user ubuntu.")
+    @patch("rakkib.doctor.prepare_docker_access", return_value="Docker is ready for ubuntu.")
     def test_offers_current_command_rerun_after_group_repair(
         self,
         _repair: MagicMock,
@@ -514,7 +514,7 @@ class TestDockerPermissionRepair:
         assert handle_docker_permission_denied(MagicMock(), "ubuntu") is False
 
         mock_prompt.assert_called_once_with(
-            "Re-run this Rakkib command in a docker-group subshell now?",
+            "Continue with updated Docker access now?",
             default=True,
         )
         mock_execvp.assert_called_once_with(
@@ -540,7 +540,7 @@ class TestDockerPermissionRepair:
         console = MagicMock()
         assert handle_docker_permission_denied(console, "tester") is False
         rendered = "\n".join(call.args[0] for call in console.print.call_args_list)
-        assert "colima start" in rendered
+        assert "rakkib auth" in rendered
         assert "newgrp docker" not in rendered
 
 
@@ -553,7 +553,7 @@ class TestAttemptStartColima:
 
         msg = attempt_start_colima()
 
-        assert "Colima started" in msg
+        assert "Docker started" in msg
         assert mock_run.call_args.args[0] == ["/usr/local/bin/colima", "start"]
 
 
@@ -602,7 +602,7 @@ class TestAttemptFixCompose:
     ):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         msg = attempt_fix_compose()
-        assert "Homebrew" in msg
+        assert "Docker Compose installed" in msg
         assert mock_run.call_args.args[0] == ["/usr/local/bin/brew", "install", "docker-compose"]
 
     @patch("rakkib.doctor.wait_for_apt_locks", return_value=None)
@@ -618,7 +618,7 @@ class TestAttemptFixCompose:
     ):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         msg = attempt_fix_compose()
-        assert "docker-compose-plugin installed via apt" in msg
+        assert "Docker Compose installed" in msg
         mock_wait.assert_called_once()
         assert "DPkg::Lock::Timeout=900" in mock_run.call_args.args[0]
         assert "DEBIAN_FRONTEND=noninteractive" in mock_run.call_args.args[0]
@@ -696,7 +696,7 @@ class TestAttemptFixCloudflared:
 
         msg = attempt_fix_cloudflared()
 
-        assert "Homebrew" in msg
+        assert "Cloudflare tunnel tool installed" in msg
         assert mock_run.call_args_list[0].args[0] == ["/opt/homebrew/bin/brew", "install", "cloudflared"]
         assert mock_run.call_args_list[1].args[0] == ["/opt/homebrew/bin/cloudflared", "--version"]
 
@@ -717,7 +717,7 @@ class TestAttemptFixCloudflared:
     ):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         msg = attempt_fix_cloudflared()
-        assert "downloaded" in msg or "installed" in msg
+        assert "Cloudflare tunnel tool installed" in msg
         assert mock_run.call_args.args[0][-1].endswith("/cloudflared-linux-amd64")
 
     @patch("pathlib.Path.open", mock_open())
@@ -750,7 +750,7 @@ class TestAttemptFixCloudflared:
 
         msg = attempt_fix_cloudflared()
 
-        assert "downloaded" in msg
+        assert "Cloudflare tunnel tool installed" in msg
         assert mock_run.call_args.args[0][-1].endswith("/cloudflared-darwin-amd64.tgz")
         mock_tar_open.assert_called_once()
         archive.getmember.assert_called_once_with("cloudflared")
@@ -786,7 +786,7 @@ class TestAttemptFixCloudflared:
 
         msg = attempt_fix_cloudflared()
 
-        assert "downloaded" in msg
+        assert "Cloudflare tunnel tool installed" in msg
         assert mock_run.call_args.args[0][-1].endswith("/cloudflared-darwin-arm64.tgz")
 
     @patch("subprocess.run")

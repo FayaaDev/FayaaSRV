@@ -45,7 +45,7 @@ def check_host_auth_readiness() -> HostAuthStatus:
             return HostAuthStatus(
                 False,
                 "docker_missing",
-                "Docker is missing on macOS. Run `rakkib auth` in the terminal that started this web session to install and start the Colima Docker backend.",
+                "Docker needs setup. Run `rakkib auth`, then restart `rakkib web`.",
             )
 
         try:
@@ -54,7 +54,7 @@ def check_host_auth_readiness() -> HostAuthStatus:
             return HostAuthStatus(
                 False,
                 "docker_unavailable",
-                f"Docker is not reachable from this web session. Run `rakkib auth` to start Colima, then restart `rakkib web`: {exc}",
+                f"Docker is not ready. Run `rakkib auth`, then restart `rakkib web`: {exc}",
                 requires_restart=True,
             )
 
@@ -63,7 +63,7 @@ def check_host_auth_readiness() -> HostAuthStatus:
             return HostAuthStatus(
                 False,
                 "compose_unavailable",
-                "Docker Compose v2 is unavailable. Run `rakkib auth` to install the macOS Docker backend, then restart `rakkib web`.",
+                "Docker needs setup. Run `rakkib auth`, then restart `rakkib web`.",
                 requires_restart=True,
             )
 
@@ -73,7 +73,7 @@ def check_host_auth_readiness() -> HostAuthStatus:
         return HostAuthStatus(
             False,
             "sudo_missing",
-            "sudo is required for browser deployment. Install sudo or run Rakkib from a root shell.",
+            "sudo is required. Install sudo, then run Rakkib again.",
             command=None,
         )
 
@@ -82,14 +82,14 @@ def check_host_auth_readiness() -> HostAuthStatus:
         return HostAuthStatus(
             False,
             "sudo_required",
-            "Host authorization is required before browser deployment can run privileged setup steps. Run `rakkib auth` in the terminal that started this web session, then recheck.",
+            "Authorization is needed. Run `rakkib auth`, then recheck.",
         )
 
     if shutil.which("docker") is None:
         return HostAuthStatus(
             True,
             "sudo_ready_docker_missing",
-            "Host authorization is ready; setup can install Docker if needed.",
+            "Authorization is ready.",
             command=None,
         )
 
@@ -101,13 +101,13 @@ def check_host_auth_readiness() -> HostAuthStatus:
             return HostAuthStatus(
                 False,
                 "docker_permission",
-                "Docker is installed, but this user cannot access /var/run/docker.sock. Run `rakkib auth`, then open a new shell or run `newgrp docker` and restart `rakkib web`.",
+                "Docker needs permission. Run `rakkib auth`, then restart `rakkib web` from a new terminal.",
                 requires_restart=True,
             )
         return HostAuthStatus(
             False,
             "docker_unavailable",
-            f"Docker is installed but not usable by this session: {exc}",
+            f"Docker is not ready: {exc}",
             command=None,
         )
 
@@ -117,8 +117,8 @@ def check_host_auth_readiness() -> HostAuthStatus:
         return HostAuthStatus(
             False,
             "docker_permission",
-            "Docker Compose cannot access /var/run/docker.sock. Run `rakkib auth`, then open a new shell or run `newgrp docker` and restart `rakkib web`.",
+            "Docker needs permission. Run `rakkib auth`, then restart `rakkib web` from a new terminal.",
             requires_restart=True,
         )
 
-    return HostAuthStatus(True, "ready", "Host authorization is ready.", command=None)
+    return HostAuthStatus(True, "ready", "Authorization is ready.", command=None)

@@ -764,7 +764,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
     log_path = data_root / "logs" / f"step5-{svc_id}.log"
     registry = _load_registry()
     hooks = svc.get("hooks") or {}
-    console.print(f"[dim]Deploying {svc_id}... log: {log_path}[/dim]")
+    console.print(f"[dim]Installing {svc_id}...[/dim]")
 
     _enforce_service_resource_requirements(state, svc)
 
@@ -813,8 +813,7 @@ def _deploy_single_service(state: State, svc: dict, repo: Path, data_root: Path)
         compose_up(svc_dir, log_path=log_path)
     except DockerError as exc:
         raise RuntimeError(
-            f"Service '{svc_id}' failed to start. "
-            f"Env: {env_path}. Compose: {svc_dir / 'docker-compose.yml'}. Log: {log_path}. {exc}"
+            f"Service '{svc_id}' failed to start. Log: {log_path}. {exc}"
         ) from exc
 
     container_name = svc.get("container_name", svc_id)
@@ -896,7 +895,7 @@ def run(state: State) -> None:
 
     for svc in services:
         if service_is_installed(state, svc, data_root):
-            console.print(f"[dim]Skipping {svc['id']} — already installed and running.[/dim]")
+            console.print(f"[dim]{svc['id']} is already installed.[/dim]")
             continue
         _deploy_single_service(state, svc, repo, data_root)
 

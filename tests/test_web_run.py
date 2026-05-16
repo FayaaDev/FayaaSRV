@@ -135,7 +135,7 @@ def test_host_auth_readiness_on_mac_points_to_auth_when_docker_missing(monkeypat
     assert status.ok is False
     assert status.code == "docker_missing"
     assert status.command == "rakkib auth"
-    assert "Colima" in status.message
+    assert "Docker needs setup" in status.message
 
 
 def test_host_auth_readiness_on_mac_skips_sudo_when_docker_ready(monkeypatch):

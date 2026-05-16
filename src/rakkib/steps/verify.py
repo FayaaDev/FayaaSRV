@@ -117,13 +117,13 @@ def _print_summary(results: list[VerificationResult]) -> None:
     """Print a plain-text summary of verification results."""
     print("")
     print("=" * 60)
-    print("VERIFICATION SUMMARY")
+    print("CHECK SUMMARY")
     print("=" * 60)
 
     for r in results:
         status = "PASS" if r.ok else "FAIL"
         icon = "✓" if r.ok else "✗"
-        print(f"{icon}  [{status}]  Step {r.step:<12}  {r.message}")
+        print(f"{icon}  [{status}]  {r.step:<12}  {r.message}")
         if not r.ok and r.log_path:
             print(f"      Log: {r.log_path}")
 
@@ -136,8 +136,7 @@ def _print_summary(results: list[VerificationResult]) -> None:
         print("ACTION REQUIRED")
         print("-" * 60)
         print(
-            "Some verification checks failed. Review the failures above, "
-            "check the relevant logs, and re-run `rakkib pull` to retry."
+            "Some checks failed. Review the message above, then run `rakkib pull` again."
         )
         print("")
 
@@ -154,7 +153,7 @@ def run(state: State) -> None:
     if failures:
         _print_summary(results)
     else:
-        print("All verification checks passed.")
+        print("Checks passed.")
 
 
 # ---------------------------------------------------------------------------

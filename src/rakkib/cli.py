@@ -101,13 +101,13 @@ def _stdin_is_interactive() -> bool:
 def _run_auth_setup(ctx: click.Context) -> bool:
     """Validate sudo and prepare Docker access when possible."""
     if os.geteuid() == 0:
-        console.print("[green]Already running as root; no sudo validation needed.[/green]")
+        console.print("[green]Authorization is ready.[/green]")
         return True
 
     if platform.system() == "Darwin":
-        console.print("[green]macOS detected; Linux sudo/docker-group repair is not needed.[/green]")
+        console.print("[green]macOS detected.[/green]")
         if shutil.which("docker") is None:
-            console.print("[dim]Installing the Colima Docker backend for headless macOS use...[/dim]")
+            console.print("[dim]Preparing Docker...[/dim]")
             message = attempt_fix_docker()
             console.print(f"[dim]{message}[/dim]")
             if shutil.which("docker") is None:
@@ -120,24 +120,23 @@ def _run_auth_setup(ctx: click.Context) -> bool:
                 docker_run(["info"])
             except DockerError as retry_exc:
                 console.print(
-                    "[red]Docker is not reachable from this shell. "
-                    "Run `colima start`, then run `docker info`.[/red]"
+                    "[red]Docker is not ready. Run `rakkib auth`, then try again.[/red]"
                 )
                 console.print(f"[dim]{retry_exc or exc}[/dim]")
                 return False
-        console.print("[green]Docker is reachable by this shell.[/green]")
+        console.print("[green]Docker is ready.[/green]")
         return True
 
     if shutil.which("sudo") is None:
-        console.print("[red]sudo is required for privileged setup actions on Linux.[/red]")
+        console.print("[red]sudo is required. Install sudo, then try again.[/red]")
         return False
 
-    console.print("[dim]Validating sudo for this terminal. Rakkib will not store your password.[/dim]")
+    console.print("[dim]Checking authorization. Rakkib will not store your password.[/dim]")
     result = subprocess.run(["sudo", "-v"], capture_output=True, text=True)
     if result.returncode != 0:
         console.print("[red]Sudo validation failed. Run `sudo -v` in your terminal first.[/red]")
         return False
-    console.print("[green]Sudo is ready for this terminal according to your system sudo policy.[/green]")
+    console.print("[green]Authorization is ready.[/green]")
 
     if shutil.which("docker") is None:
         return True
@@ -148,22 +147,22 @@ def _run_auth_setup(ctx: click.Context) -> bool:
     user = docker_access_user(state)
     try:
         docker_run(["info"])
-        console.print("[green]Docker is already usable by this shell.[/green]")
+        console.print("[green]Docker is ready.[/green]")
         return True
     except DockerError as exc:
         if not is_docker_permission_error(exc.stderr or str(exc)):
-            console.print(f"[yellow]Docker is installed but not usable yet:[/yellow] {exc}")
+            console.print(f"[yellow]Docker is not ready yet:[/yellow] {exc}")
             return True
 
     message = prepare_docker_access(user, validate_sudo=False)
     console.print(f"[dim]{message}[/dim]")
-    if not message.startswith("Docker access was prepared"):
-        console.print("[dim]Manual fallback:[/dim]")
+    if not message.startswith("Docker is ready"):
+        console.print("[dim]Manual setup:[/dim]")
         console.print(f"[dim]{docker_access_commands(user)}[/dim]")
         return False
     console.print(
-        "[green]Docker access is prepared.[/green] "
-        "Open a new shell or run `newgrp docker`, then run `docker info` and `rakkib web`."
+        "[green]Docker is ready for your user.[/green] "
+        "Open a new shell, then run `rakkib web`."
     )
     return True
 
@@ -194,19 +193,19 @@ def _run_steps(state: State, repo_dir: Path) -> bool:
 
     for step_name, module_path in all_steps:
         if step_name == "caddy" and not caddy_enabled(state):
-            console.print("[dim]Skipping caddy — exposure mode is internal.[/dim]")
+            console.print("[dim]Skipping public web routes.[/dim]")
             continue
         if step_name == "cloudflare" and not cloudflare_enabled(state):
-            console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
+            console.print("[dim]Skipping Cloudflare.[/dim]")
             continue
-        console.print(f"[bold green]Step {step_name}[/bold green]")
+        console.print(f"[bold green]{step_name}[/bold green]")
         try:
             module = __import__(module_path, fromlist=["run", "verify"])
             run_fn = getattr(module, "run", None)
             verify_fn = getattr(module, "verify", None)
 
             if run_fn is None:
-                console.print(f"[yellow]  Step {step_name} module has no run() — skipping[/yellow]")
+                console.print(f"[yellow]  {step_name} is not available — skipping[/yellow]")
                 continue
 
             if step_name == "verify":
@@ -224,19 +223,19 @@ def _run_steps(state: State, repo_dir: Path) -> bool:
                 result = verify_fn(state)
                 verify_cache[step_name] = result
                 if not result.ok:
-                    console.print(f"[bold red]  Step {step_name} verify failed:[/bold red] {result.message}")
+                    console.print(f"[bold red]  {step_name} check failed:[/bold red] {result.message}")
                     if result.log_path:
                         console.print(f"[dim]  Log: {result.log_path}[/dim]")
                     return False
-                console.print(f"[dim]  Step {step_name} verify passed[/dim]")
+                console.print(f"[dim]  {step_name} ready[/dim]")
             else:
-                console.print(f"[dim]  Step {step_name} has no verify() — skipping check[/dim]")
+                console.print(f"[dim]  {step_name} completed[/dim]")
 
         except Exception as exc:
-            console.print(f"[bold red]  Step {step_name} failed:[/bold red] {exc}")
+            console.print(f"[bold red]  {step_name} failed:[/bold red] {exc}")
             return False
 
-    console.print("[bold green]All steps completed successfully.[/bold green]")
+    console.print("[bold green]Rakkib is ready.[/bold green]")
     _print_deployed_urls(state)
     return True
 
@@ -247,13 +246,13 @@ def _run_pre_service_steps(state: State) -> bool:
         if step_name == "services":
             break
         if step_name == "caddy" and not caddy_enabled(state):
-            console.print("[dim]Skipping caddy — exposure mode is internal.[/dim]")
+            console.print("[dim]Skipping public web routes.[/dim]")
             continue
         if step_name == "cloudflare" and not cloudflare_enabled(state):
-            console.print("[dim]Skipping cloudflare — exposure mode is internal.[/dim]")
+            console.print("[dim]Skipping Cloudflare.[/dim]")
             continue
 
-        console.print(f"[bold green]Step {step_name}[/bold green]")
+        console.print(f"[bold green]{step_name}[/bold green]")
         try:
             module = __import__(module_path, fromlist=["run", "verify"])
             run_fn = getattr(module, "run", None)
@@ -263,11 +262,11 @@ def _run_pre_service_steps(state: State) -> bool:
             if verify_fn is not None:
                 result = verify_fn(state)
                 if not result.ok:
-                    console.print(f"[bold red]  Step {step_name} verify failed:[/bold red] {result.message}")
+                    console.print(f"[bold red]  {step_name} check failed:[/bold red] {result.message}")
                     return False
-                console.print(f"[dim]  Step {step_name} verify passed[/dim]")
+                console.print(f"[dim]  {step_name} ready[/dim]")
         except Exception as exc:
-            console.print(f"[bold red]  Step {step_name} failed:[/bold red] {exc}")
+            console.print(f"[bold red]  {step_name} failed:[/bold red] {exc}")
             return False
 
     return True
@@ -307,7 +306,7 @@ def _run_service_pull(state: State, state_path: Path, service: str) -> bool:
     if not _run_pre_service_steps(state):
         return False
 
-    console.print(f"[bold green]Step services:{service}[/bold green]")
+    console.print(f"[bold green]Installing {service}[/bold green]")
     try:
         services_step.run_single_service(state, service)
     except Exception as exc:
@@ -1161,13 +1160,12 @@ def restart(ctx: click.Context, service: str | None, restart_all: bool) -> None:
 @cli.command()
 @click.confirmation_option(
     prompt=(
-        "Aggressively remove Rakkib containers, volumes, Cloudflare certificates, "
-        "state, checkout, and the configured data_root directory?"
+        "Remove Rakkib, its services, saved state, and local data?"
     )
 )
 @click.pass_context
 def uninstall(ctx: click.Context) -> None:
-    """Aggressively remove Rakkib-managed host, Docker, Cloudflare, and data-root artifacts."""
+    """Remove Rakkib-managed host, Docker, Cloudflare, and data-root artifacts."""
     home = Path.home()
     repo_dir = Path(ctx.obj["repo_dir"])
     checkout = _checkout_dir(repo_dir)
@@ -1175,7 +1173,7 @@ def uninstall(ctx: click.Context) -> None:
     state = State.load(state_path)
     registry = load_service_registry()
 
-    console.print("[bold yellow]Aggressively uninstalling Rakkib...[/bold yellow]")
+    console.print("[bold yellow]Uninstalling Rakkib...[/bold yellow]")
 
     _run_remove_hooks(state, registry)
     _remove_rakkib_docker(state, registry)
@@ -1206,7 +1204,7 @@ def uninstall(ctx: click.Context) -> None:
     _remove_checkout(repo_dir)
 
     console.print(
-        "\n[bold]Rakkib aggressive uninstall is complete.[/bold]\n"
+        "\n[bold]Rakkib uninstall is complete.[/bold]\n"
         "If this terminal still resolves rakkib, refresh your shell command cache or open a new terminal:\n"
         "  hash -r"
     )

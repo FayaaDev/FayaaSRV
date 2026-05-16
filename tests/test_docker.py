@@ -338,8 +338,8 @@ class TestRun:
         with pytest.raises(DockerError) as exc_info:
             _run(["docker", "network", "create", "caddy_net"])
 
-        assert "newgrp docker" in str(exc_info.value)
-        assert "docker info" in str(exc_info.value)
+        assert "rakkib auth" in str(exc_info.value)
+        assert "open a new shell" in str(exc_info.value)
 
     @patch("rakkib.docker.platform.system", return_value="Darwin")
     @patch("rakkib.docker.subprocess.run")
@@ -353,7 +353,7 @@ class TestRun:
         with pytest.raises(DockerError) as exc_info:
             _run(["docker", "info"])
 
-        assert "colima start" in str(exc_info.value)
+        assert "rakkib auth" in str(exc_info.value)
         assert "newgrp docker" not in str(exc_info.value)
 
     @patch("rakkib.docker.subprocess.run")
