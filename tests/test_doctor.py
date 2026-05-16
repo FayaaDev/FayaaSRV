@@ -6,8 +6,9 @@ import json
 import platform
 import subprocess
 import sys
+from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -695,6 +696,72 @@ class TestAttemptFixCloudflared:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         msg = attempt_fix_cloudflared()
         assert "downloaded" in msg or "installed" in msg
+        assert mock_run.call_args.args[0][-1].endswith("/cloudflared-linux-amd64")
+
+    @patch("pathlib.Path.open", mock_open())
+    @patch("pathlib.Path.unlink")
+    @patch("pathlib.Path.chmod")
+    @patch("pathlib.Path.mkdir")
+    @patch("rakkib.doctor.tarfile.open")
+    @patch("subprocess.run")
+    @patch("rakkib.doctor._sha256_file", return_value="b91dbec79a3e3809d5508b96d8b0bdfbf3ad7d51f858200228fa3e57100580d9")
+    @patch("platform.system", return_value="Darwin")
+    @patch("platform.machine", return_value="x86_64")
+    def test_download_success_darwin_amd64_archive(
+        self,
+        _machine: MagicMock,
+        _system: MagicMock,
+        _sha: MagicMock,
+        mock_run: MagicMock,
+        mock_tar_open: MagicMock,
+        _mkdir: MagicMock,
+        _chmod: MagicMock,
+        mock_unlink: MagicMock,
+    ):
+        archive = MagicMock()
+        archive.__enter__.return_value = archive
+        archive.extractfile.return_value = BytesIO(b"cloudflared")
+        mock_tar_open.return_value = archive
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+
+        msg = attempt_fix_cloudflared()
+
+        assert "downloaded" in msg
+        assert mock_run.call_args.args[0][-1].endswith("/cloudflared-darwin-amd64.tgz")
+        mock_tar_open.assert_called_once()
+        archive.getmember.assert_called_once_with("cloudflared")
+        mock_unlink.assert_called_once()
+
+    @patch("pathlib.Path.open", mock_open())
+    @patch("pathlib.Path.unlink")
+    @patch("pathlib.Path.chmod")
+    @patch("pathlib.Path.mkdir")
+    @patch("rakkib.doctor.tarfile.open")
+    @patch("subprocess.run")
+    @patch("rakkib.doctor._sha256_file", return_value="633cee0fd41fd2020e17498beecc54811bf4fc99f891c080dc9343eb0f449c60")
+    @patch("platform.system", return_value="Darwin")
+    @patch("platform.machine", return_value="arm64")
+    def test_download_success_darwin_arm64_archive(
+        self,
+        _machine: MagicMock,
+        _system: MagicMock,
+        _sha: MagicMock,
+        mock_run: MagicMock,
+        mock_tar_open: MagicMock,
+        _mkdir: MagicMock,
+        _chmod: MagicMock,
+        _unlink: MagicMock,
+    ):
+        archive = MagicMock()
+        archive.__enter__.return_value = archive
+        archive.extractfile.return_value = BytesIO(b"cloudflared")
+        mock_tar_open.return_value = archive
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+
+        msg = attempt_fix_cloudflared()
+
+        assert "downloaded" in msg
+        assert mock_run.call_args.args[0][-1].endswith("/cloudflared-darwin-arm64.tgz")
 
     @patch("subprocess.run")
     @patch("platform.system", return_value="Linux")

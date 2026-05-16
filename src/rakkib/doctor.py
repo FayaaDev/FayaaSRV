@@ -14,6 +14,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tarfile
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -113,6 +114,8 @@ MACOS_DOCKER_PACKAGES = ("colima", "docker", "docker-compose")
 
 CLOUDFLARED_VERSION = "2026.3.0"
 CLOUDFLARED_SHA256 = {
+    ("darwin", "amd64"): "b91dbec79a3e3809d5508b96d8b0bdfbf3ad7d51f858200228fa3e57100580d9",
+    ("darwin", "arm64"): "633cee0fd41fd2020e17498beecc54811bf4fc99f891c080dc9343eb0f449c60",
     ("linux", "amd64"): "4a9e50e6d6d798e90fcd01933151a90bf7edd99a0a55c28ad18f2e16263a5c30",
     ("linux", "arm64"): "0755ba4cbab59980e6148367fcf53a8f3ec85a97deefd63c2420cf7850769bee",
 }
@@ -624,7 +627,7 @@ def ensure_prereqs(state: State | None = None, console=None, cloudflared_bin: st
             if console:
                 console.print(
                     "[bold red]cloudflared installation failed. "
-                    "Install manually: https://github.com/cloudflare/cloudflared/releases[/bold red]"
+                    "Check your network connection and supported platform, then retry.[/bold red]"
                 )
             return False
 
@@ -1057,19 +1060,38 @@ def attempt_fix_cloudflared() -> str:
     expected_sha256 = CLOUDFLARED_SHA256.get((kernel, arch))
     if not expected_sha256:
         return f"Unsupported platform for pinned cloudflared checksum: {kernel}/{arch}"
-    url = f"https://github.com/cloudflare/cloudflared/releases/download/{CLOUDFLARED_VERSION}/cloudflared-{kernel}-{arch}"
+    asset_name = f"cloudflared-{kernel}-{arch}"
+    if kernel == "darwin":
+        asset_name = f"{asset_name}.tgz"
+    url = f"https://github.com/cloudflare/cloudflared/releases/download/{CLOUDFLARED_VERSION}/{asset_name}"
     dest = local_bin / "cloudflared"
+    download_path = local_bin / asset_name if kernel == "darwin" else dest
 
     result = subprocess.run(
-        ["curl", "-fsSL", "-o", str(dest), url],
+        ["curl", "-fsSL", "-o", str(download_path), url],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         return f"cloudflared download failed: {result.stderr.strip() or 'unknown error'}"
-    checksum_error = _verify_download_sha256(dest, expected_sha256)
+    checksum_error = _verify_download_sha256(download_path, expected_sha256)
     if checksum_error:
         return f"cloudflared download failed verification: {checksum_error}"
+    if kernel == "darwin":
+        try:
+            with tarfile.open(download_path, "r:gz") as archive:
+                member = archive.getmember("cloudflared")
+                source = archive.extractfile(member)
+                if source is None:
+                    return "cloudflared archive extraction failed: cloudflared member is not a file"
+                with dest.open("wb") as handle:
+                    shutil.copyfileobj(source, handle)
+        except (KeyError, OSError, tarfile.TarError) as exc:
+            return f"cloudflared archive extraction failed: {exc}"
+        try:
+            download_path.unlink()
+        except OSError:
+            pass
     dest.chmod(0o755)
     return f"cloudflared {CLOUDFLARED_VERSION} downloaded to {dest} with SHA256 verification"
 
