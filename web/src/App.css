@@ -1911,7 +1911,7 @@
 .landing-hero h1 {
   max-width: 780px;
   margin: 0;
-  font-size: clamp(2.6rem, 5.8vw, 5.4rem);
+  font-size: clamp(2.08rem, 4.64vw, 4.32rem);
   font-weight: 900;
   line-height: 0.95;
   letter-spacing: -0.07em;
@@ -2028,7 +2028,7 @@
 .marketing-services > h2 {
   max-width: 860px;
   margin: 18px 0 0;
-  font-size: clamp(2.4rem, 5.5vw, 5.4rem);
+  font-size: clamp(1.92rem, 4.4vw, 4.32rem);
   line-height: 0.95;
   letter-spacing: -0.07em;
 }

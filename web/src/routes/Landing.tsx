@@ -356,7 +356,6 @@ export function Landing() {
         </section>
 
         <section id="services" className="services marketing-services" aria-labelledby="services-title">
-          <p className="section-label">{t('sectionLabel')}</p>
           <h2 id="services-title">{t('servicesTitle')}</h2>
           <p className="services-intro">{t('catalogIntro')}</p>
 
@@ -397,7 +396,6 @@ export function Landing() {
               <div className="catalog-showcase">
                 <article className="catalog-search-card">
                   <div>
-                    <p className="section-label">{t('serviceLibraryLabel')}</p>
                     <h2>{t('serviceSearchTitle')}</h2>
                   </div>
                   <input
