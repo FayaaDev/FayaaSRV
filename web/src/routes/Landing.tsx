@@ -8,7 +8,7 @@ import { SetupBridge } from './SetupBridge'
 
 const installCommand = 'curl -fsSL https://install.rakkib.app | bash'
 const repoUrl = 'https://github.com/FayaaDev/Rakkib'
-const demoVideoUrl = 'https://github.com/user-attachments/assets/4cd59d91-1668-4ed1-a53e-f5e22ba83cad'
+const demoVideoUrl = 'https://github.com/user-attachments/assets/5d57317f-0d64-4bf3-90c7-89a2cbbac547'
 
 type PublicServiceItem = PublicService
 
