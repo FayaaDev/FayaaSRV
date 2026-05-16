@@ -53,7 +53,18 @@ def _macos_brew_cmd() -> str | None:
     return None
 
 
+def _ensure_macos_tool_path() -> None:
+    if platform.system() != "Darwin":
+        return
+    entries = os.environ.get("PATH", "").split(os.pathsep)
+    for path in ("/opt/homebrew/bin", "/usr/local/bin"):
+        if Path(path).is_dir() and path not in entries:
+            entries.insert(0, path)
+    os.environ["PATH"] = os.pathsep.join(entry for entry in entries if entry)
+
+
 def _macos_tool_cmd(name: str) -> str | None:
+    _ensure_macos_tool_path()
     tool = shutil.which(name)
     if tool:
         return tool
@@ -68,6 +79,7 @@ def attempt_start_colima() -> str:
     """Start the Colima-backed Docker daemon on macOS."""
     if platform.system() != "Darwin":
         return "Colima is only used on macOS."
+    _ensure_macos_tool_path()
     colima = _macos_tool_cmd("colima")
     if colima is None:
         return "Colima is not installed. Run `rakkib auth` to install the macOS Docker backend."
@@ -914,6 +926,7 @@ def summary_text(checks: list[CheckResult]) -> str:
 def attempt_fix_docker() -> str:
     """Attempt to install Docker via get.docker.com. Returns a message describing the result."""
     if platform.system() == "Darwin":
+        _ensure_macos_tool_path()
         brew = _macos_brew_cmd()
         if brew is None:
             return "Homebrew is required to install the macOS Docker backend. Rerun install.sh to bootstrap Homebrew, then run `rakkib auth`."
@@ -965,6 +978,7 @@ def attempt_fix_docker() -> str:
 def attempt_fix_compose() -> str:
     """Install docker-compose-plugin. Returns a message describing the result."""
     if platform.system() == "Darwin":
+        _ensure_macos_tool_path()
         brew = _macos_brew_cmd()
         if brew is None:
             return "Homebrew is required to install Docker Compose on macOS. Rerun install.sh to bootstrap Homebrew, then run `rakkib auth`."
