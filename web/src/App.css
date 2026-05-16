@@ -1939,9 +1939,9 @@
 }
 
 .marketing-install-box code {
-  justify-content: flex-start;
+  justify-content: center;
   padding: 22px 24px;
-  text-align: start;
+  text-align: center;
 }
 
 .marketing-install-box button {
