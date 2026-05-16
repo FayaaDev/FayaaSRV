@@ -719,6 +719,8 @@ def _get_default(field: FieldDef, state: State) -> Any:
 
 def _get_prompt_default(field: FieldDef, state: State) -> Any:
     """Return an existing answer when present, otherwise fall back to schema defaults."""
+    if _is_final_confirmation(field) and field.default is not None:
+        return field.default
     current = _get_recorded_value(field, state)
     if current is not None:
         return current
