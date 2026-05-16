@@ -1,0 +1,28 @@
+name: Publish Runtime Repo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish public runtime repo
+        env:
+          RAKKIB_PUBLIC_REPO: https://x-access-token:${{ secrets.PUBLIC_REPO_TOKEN }}@github.com/FayaaDev/rakkib.git
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          test -n "${RAKKIB_PUBLIC_REPO}"
+          chmod +x scripts/publish-runtime-repo.sh
+          scripts/publish-runtime-repo.sh sync --source-ref HEAD --push

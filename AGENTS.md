@@ -37,14 +37,14 @@ sshpass -p 'z45rdKUe' ssh -o StrictHostKeyChecking=accept-new root@174.138.183.1
 Solo one-line command:
 curl -fsSL https://install.rakkib.app | bash
 
-## Runtime branch
+## Runtime repository
 
-- `main` is the development branch and still hosts the public `install.sh` used by the curl-pipe command.
-- `runtime` is an orphan branch used as the slim install snapshot. It intentionally has no shared history with `main` and should contain only `.gitignore`, `README.md`, `install.sh`, `pyproject.toml`, and `src/rakkib/**`.
-- The installer defaults `RAKKIB_BRANCH` to `runtime`, so the public curl command fetches `install.sh` from `main` but clones the slim `runtime` tree onto target hosts.
-- **All development commits go to `main`. Never commit directly to `runtime`.** `runtime` is write-protected from dev work — it only receives updates via an explicit sync from `main`.
-- When `install.sh`, `pyproject.toml`, or `src/rakkib/**` changes on `main`, regenerate `runtime` with `scripts/runtime-branch.sh sync --push`. Do not hand-edit `runtime` and do not copy files outside the runtime allowlist.
-- Use `RAKKIB_BRANCH=main` only when intentionally installing the full development tree.
+- `main` in `FayaaDev/rakkib-dev` is the private development branch.
+- `FayaaDev/rakkib` is the public runtime repository. Its `main` branch is generated and contains only `.gitignore`, `README.md`, `LICENSE`, `install.sh`, `pyproject.toml`, and `src/rakkib/**`.
+- The installer defaults to cloning `https://github.com/FayaaDev/rakkib.git` branch `main`.
+- **All development commits go to private `main`. Never hand-edit the public runtime repository.** It only receives generated snapshots from `scripts/publish-runtime-repo.sh`.
+- When `install.sh`, `pyproject.toml`, `LICENSE`, `docs/public/README.md`, or `src/rakkib/**` changes on private `main`, publish the public runtime repo with `scripts/publish-runtime-repo.sh sync --push`.
+- Use `RAKKIB_REPO=git@github.com:FayaaDev/rakkib-dev.git RAKKIB_BRANCH=main` only when intentionally installing the full private development tree.
 
 ## Guidelines
 

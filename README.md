@@ -11,7 +11,7 @@ curl -fsSL https://install.rakkib.app | bash
 Fallback if the branded endpoint is unavailable:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/rakkib/main/install.sh | bash
 ```
 
 Then configure and deploy:
@@ -24,8 +24,8 @@ rakkib pull   # installs prereqs, runs all setup steps
 For a local clone:
 
 ```bash
-git clone https://github.com/FayaaDev/Rakkib.git
-cd Rakkib
+git clone https://github.com/FayaaDev/rakkib.git
+cd rakkib
 bash install.sh
 rakkib init
 rakkib pull
@@ -44,7 +44,7 @@ rakkib pull
 ```bash
 rakkib init              # run the interview wizard
 rakkib pull              # install prereqs and apply all steps
-rakkib update            # pull the latest installed CLI code from origin/runtime
+rakkib update            # pull the latest installed CLI code from origin/current-branch
 rakkib status            # show confirmed state and deployment summary
 rakkib add              # sync service selection for an existing deployment
 rakkib restart <service> # restart a single deployed service
@@ -99,4 +99,4 @@ sudo rakkib privileged fix-repo-owner --state .fss-state.yaml
 
 ## License
 
-See repository for license details.
+MIT. See `LICENSE` for details.

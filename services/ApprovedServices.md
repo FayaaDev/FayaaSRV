@@ -3,7 +3,7 @@
 This file tracks services that exist in `src/rakkib/data/registry.yaml` and their validation status.
 
 Status meanings:
-- `Implemented and tested`: committed, pushed, synced to `runtime`, and validated on the test server.
+- `Implemented and tested`: committed, pushed, published to the public runtime repo, and validated on the test server.
 - `Implemented, pending testing`: registry/templates/hooks exist, but the service has not yet completed the current test-server validation flow.
 
 ## Implemented And Tested

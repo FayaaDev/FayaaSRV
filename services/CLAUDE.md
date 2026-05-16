@@ -11,9 +11,9 @@ and the agent implements the service in the Rakkib app (registry + templates + h
 
 ## Branch Rules
 
-- **All commits go to `main`.** Never commit service work directly to `runtime`.
-- After pushing to `main`, regenerate `runtime` with `scripts/runtime-branch.sh sync --push`. The test server installs from `runtime` by default.
-- Do not hand-edit `runtime` and do not copy files outside the runtime allowlist.
+- **All commits go to private `main`.** Never edit the public runtime repo directly.
+- After pushing to private `main`, publish `FayaaDev/rakkib` with `scripts/publish-runtime-repo.sh sync --push`. The test server installs from the public runtime repo by default.
+- Do not hand-edit `FayaaDev/rakkib` and do not copy files outside the runtime allowlist.
 
 ## Hard Requirements
 

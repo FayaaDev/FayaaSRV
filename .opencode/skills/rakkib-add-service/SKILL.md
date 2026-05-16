@@ -110,7 +110,7 @@ Add only when required: `internal_access`, `extra_templates`, `hooks`, `postgres
 
 Validate one new service at a time. Use non-interactive commands whenever possible:
 
-1. Install/update the test server from `main` when validating development-tree changes. Remember the public installer clones `runtime` by default unless `RAKKIB_BRANCH=main` is set.
+1. Install/update the test server from the public runtime repo. For development-tree validation, publish private `main` first with `scripts/publish-runtime-repo.sh sync --push`.
 2. Run `rakkib init` when state is missing or intentionally reset.
 3. Deploy only the target service with `rakkib pull --service <id>` or `rakkib add <id> --yes`.
 4. Confirm the container/host service is running.
@@ -155,7 +155,7 @@ Avoid full `rakkib pull` during service-by-service testing unless intentionally 
 19. For app+volume containers, inspect the image runtime user and add registry `chown` for writable persistent directories when needed
 20. Use `rakkib add <id> --yes` for non-interactive add-path validation, then verify deselection/removal through checkbox `rakkib add` and/or `rakkib remove <id> --yes`
 21. After successful pull/add/remove, confirm deployed snapshots match the actual deployed service set
-22. If `install.sh`, `pyproject.toml`, or `src/rakkib/**` changed, update the `runtime` branch only through `scripts/runtime-branch.sh sync --push` after main changes are ready; never hand-edit `runtime`
+22. If `install.sh`, `pyproject.toml`, `LICENSE`, `docs/public/README.md`, or `src/rakkib/**` changed, publish the public runtime repo only through `scripts/publish-runtime-repo.sh sync --push` after private `main` changes are ready; never hand-edit `FayaaDev/rakkib`
 
 ## Done When
 

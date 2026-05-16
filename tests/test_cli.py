@@ -150,24 +150,24 @@ class TestStatus:
 
 
 class TestUpdate:
-    def test_update_success_existing_runtime_branch(self, tmp_path: Path):
+    def test_update_success_current_branch(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         (repo_dir / ".git").mkdir()
 
         ok = MagicMock(returncode=0, stdout="", stderr="")
-        with patch("rakkib.cli.subprocess.run", side_effect=[ok, ok, ok, ok]) as mock_run:
+        branch = MagicMock(returncode=0, stdout="main\n", stderr="")
+        with patch("rakkib.cli.subprocess.run", side_effect=[branch, ok, ok]) as mock_run:
             result = runner.invoke(cli, ["update"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "Updated to the latest origin/runtime code" in result.output
-        assert [call.kwargs["cwd"] for call in mock_run.call_args_list] == [repo_dir] * 4
+        assert "Updated to the latest origin/main code" in result.output
+        assert [call.kwargs["cwd"] for call in mock_run.call_args_list] == [repo_dir] * 3
         assert [call.args[0] for call in mock_run.call_args_list] == [
-            ["git", "fetch", "origin", "runtime"],
-            ["git", "rev-parse", "--verify", "runtime"],
-            ["git", "switch", "runtime"],
-            ["git", "pull", "--ff-only", "origin", "runtime"],
+            ["git", "branch", "--show-current"],
+            ["git", "fetch", "origin", "main"],
+            ["git", "pull", "--ff-only", "origin", "main"],
         ]
 
     def test_update_non_git_checkout_fails(self, tmp_path: Path):
@@ -188,8 +188,9 @@ class TestUpdate:
         (repo_dir / ".git").mkdir()
 
         ok = MagicMock(returncode=0, stdout="", stderr="")
+        branch = MagicMock(returncode=0, stdout="main\n", stderr="")
         failed = MagicMock(returncode=1, stdout="", stderr="pull blocked by local changes")
-        with patch("rakkib.cli.subprocess.run", side_effect=[ok, ok, ok, failed]):
+        with patch("rakkib.cli.subprocess.run", side_effect=[branch, ok, failed]):
             result = runner.invoke(cli, ["update"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 1
@@ -204,11 +205,12 @@ class TestUpdate:
         (repo_dir / ".git").mkdir()
 
         ok = MagicMock(returncode=0, stdout="", stderr="")
-        with patch("rakkib.cli.subprocess.run", side_effect=[ok, ok, ok, ok]) as mock_run:
+        branch = MagicMock(returncode=0, stdout="main\n", stderr="")
+        with patch("rakkib.cli.subprocess.run", side_effect=[branch, ok, ok]) as mock_run:
             result = runner.invoke(cli, ["update"], obj={"repo_dir": package_dir})
 
         assert result.exit_code == 0
-        assert [call.kwargs["cwd"] for call in mock_run.call_args_list] == [repo_dir] * 4
+        assert [call.kwargs["cwd"] for call in mock_run.call_args_list] == [repo_dir] * 3
 
 
 class TestDoctor:

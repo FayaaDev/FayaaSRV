@@ -682,7 +682,7 @@ def pull(ctx: click.Context, service: str | None) -> None:
 @cli.command()
 @click.pass_context
 def update(ctx: click.Context) -> None:
-    """Pull the latest installed CLI code from origin/runtime."""
+    """Pull the latest installed CLI code from the current origin branch."""
     repo_dir = _checkout_dir(ctx.obj["repo_dir"])
     if not (repo_dir / ".git").exists():
         console.print(
@@ -692,37 +692,23 @@ def update(ctx: click.Context) -> None:
         ctx.exit(1)
 
     console.print("[bold green]Rakkib update[/bold green]")
-    commands = [
-        ["git", "fetch", "origin", "runtime"],
-        ["git", "rev-parse", "--verify", "runtime"],
-    ]
 
     try:
-        for command in commands:
-            result = subprocess.run(command, cwd=repo_dir, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise subprocess.CalledProcessError(
-                    result.returncode,
-                    command,
-                    output=result.stdout,
-                    stderr=result.stderr,
-                )
-
-        branch_exists = True
-    except subprocess.CalledProcessError as exc:
-        if exc.cmd == ["git", "rev-parse", "--verify", "runtime"]:
-            branch_exists = False
-        else:
-            detail = (exc.stderr or exc.output or "unknown git error").strip()
-            console.print(f"[bold red]Update failed:[/bold red] {detail}")
-            console.print("[yellow]Local checkout changes may need to be resolved manually before updating.[/yellow]")
+        branch_result = subprocess.run(["git", "branch", "--show-current"], cwd=repo_dir, capture_output=True, text=True)
+        if branch_result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                branch_result.returncode,
+                ["git", "branch", "--show-current"],
+                output=branch_result.stdout,
+                stderr=branch_result.stderr,
+            )
+        branch = branch_result.stdout.strip()
+        if not branch:
+            console.print("[bold red]Update failed:[/bold red] checkout is in detached HEAD state.")
+            console.print("[yellow]Reinstall Rakkib with `bash install.sh` or switch to a branch before updating.[/yellow]")
             ctx.exit(1)
 
-    switch_command = ["git", "switch", "runtime"] if branch_exists else ["git", "switch", "-c", "runtime", "origin/runtime"]
-    pull_command = ["git", "pull", "--ff-only", "origin", "runtime"]
-
-    try:
-        for command in (switch_command, pull_command):
+        for command in (["git", "fetch", "origin", branch], ["git", "pull", "--ff-only", "origin", branch]):
             result = subprocess.run(command, cwd=repo_dir, capture_output=True, text=True)
             if result.returncode != 0:
                 raise subprocess.CalledProcessError(
@@ -737,7 +723,7 @@ def update(ctx: click.Context) -> None:
         console.print("[yellow]Local checkout changes may need to be resolved manually before updating.[/yellow]")
         ctx.exit(1)
 
-    console.print("[green]Updated to the latest origin/runtime code.[/green]")
+    console.print(f"[green]Updated to the latest origin/{branch} code.[/green]")
 
 
 @cli.command()

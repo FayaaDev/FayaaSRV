@@ -24,15 +24,15 @@ and the agent implements the service in the Rakkib app (registry + templates + h
 
 ## Branch Rules
 
-- **All commits go to `main`.** Never commit service work directly to `runtime`.
-- For every service implementation or service-definition change, commit the completed work to `main`, push `main`, then regenerate `runtime` with `scripts/runtime-branch.sh sync --push` before test-server validation. The test server installs from `runtime` by default.
-- Do not hand-edit `runtime` and do not copy files outside the runtime allowlist.
+- **All commits go to private `main`.** Never edit the public runtime repo directly.
+- For every service implementation or service-definition change, commit the completed work to private `main`, push `main`, then publish `FayaaDev/rakkib` with `scripts/publish-runtime-repo.sh sync --push` before test-server validation. The test server installs from the public runtime repo by default.
+- Do not hand-edit `FayaaDev/rakkib` and do not copy files outside the runtime allowlist.
 
 ## Hard Requirements
 
 1. Mandatory test-server validation for EVERY new service
 
-Service work is not complete until the implementation has been committed, pushed to `main`, synced to `runtime`, and validated on the test server.
+Service work is not complete until the implementation has been committed, pushed to private `main`, published to `FayaaDev/rakkib`, and validated on the test server.
 
 Use the dedicated project subagents for test-server validation:
 - `RakkibTester1`, `RakkibTester2`, and `RakkibTester3` are the only agents that should run the test-server validation workflow.

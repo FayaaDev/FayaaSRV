@@ -223,6 +223,31 @@ def test_prepare_repo_requires_git_without_archive_fallback(tmp_path: Path):
     assert result.returncode == 0, result.stderr + result.stdout
 
 
+def test_install_defaults_to_public_runtime_repo():
+    install_text = (REPO_ROOT / "install.sh").read_text()
+
+    assert 'DEFAULT_REPO_URL="https://github.com/FayaaDev/rakkib.git"' in install_text
+    assert 'DEFAULT_BRANCH="main"' in install_text
+
+
+def test_existing_checkout_migrates_legacy_origin_to_public_repo(tmp_path: Path):
+    install_dir = tmp_path / "Rakkib"
+
+    script = f"""
+    set -euo pipefail
+    git init -b runtime {_q(install_dir)} >/dev/null
+    git -C {_q(install_dir)} remote add origin https://github.com/FayaaDev/Rakkib.git
+    export RAKKIB_INSTALL_TEST_MODE=1
+    source ./install.sh
+    INSTALL_DIR={_q(install_dir)}
+    ensure_origin_url
+    [[ "$(git -C {_q(install_dir)} remote get-url origin)" == "https://github.com/FayaaDev/rakkib.git" ]]
+    """
+
+    result = _run_install_script(script, tmp_path)
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
 def test_linux_tooling_still_requires_git(tmp_path: Path):
     script = """
     set -euo pipefail

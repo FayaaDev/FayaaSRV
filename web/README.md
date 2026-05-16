@@ -23,7 +23,7 @@ rakkib web --lan
 Fallback if the branded endpoint is unavailable:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FayaaDev/Rakkib/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FayaaDev/rakkib/main/install.sh | bash
 rakkib web --lan
 ```
 

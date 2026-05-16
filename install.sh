@@ -2,8 +2,12 @@
 
 set -Eeuo pipefail
 
-REPO_URL="${RAKKIB_REPO:-https://github.com/FayaaDev/Rakkib.git}"
-BRANCH="${RAKKIB_BRANCH:-runtime}"
+DEFAULT_REPO_URL="https://github.com/FayaaDev/rakkib.git"
+DEFAULT_BRANCH="main"
+REPO_URL="${RAKKIB_REPO:-$DEFAULT_REPO_URL}"
+BRANCH="${RAKKIB_BRANCH:-$DEFAULT_BRANCH}"
+REPO_URL_OVERRIDDEN=0
+[[ -n "${RAKKIB_REPO:-}" ]] && REPO_URL_OVERRIDDEN=1
 UPDATE_MODE="${RAKKIB_UPDATE_MODE:-reset}"
 VENV_INSTALL_IN_PROGRESS=0
 PLATFORM=""
@@ -13,6 +17,13 @@ log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+is_legacy_repo_url() {
+  case "$1" in
+    https://github.com/FayaaDev/Rakkib|https://github.com/FayaaDev/Rakkib.git|git@github.com:FayaaDev/Rakkib.git|ssh://git@github.com/FayaaDev/Rakkib.git) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 run_quiet() {
   local label="$1"
@@ -92,8 +103,8 @@ Rakkib installer. Sets up the rakkib command on this machine.
 
 Environment overrides:
   RAKKIB_DIR       target checkout path   (default: $HOME/Rakkib)
-  RAKKIB_REPO      git repo URL           (default: https://github.com/FayaaDev/Rakkib.git)
-  RAKKIB_BRANCH    git branch             (default: runtime)
+  RAKKIB_REPO      git repo URL           (default: https://github.com/FayaaDev/rakkib.git)
+  RAKKIB_BRANCH    git branch             (default: main)
   RAKKIB_UPDATE_MODE  reset|skip          (default: reset)
 USAGE
 }
@@ -102,7 +113,7 @@ parse_args() {
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --dir)    [[ "$#" -ge 2 ]] || die "missing value for --dir";    INSTALL_DIR="$2"; shift 2 ;;
-      --repo)   [[ "$#" -ge 2 ]] || die "missing value for --repo";   REPO_URL="$2";    shift 2 ;;
+      --repo)   [[ "$#" -ge 2 ]] || die "missing value for --repo";   REPO_URL="$2"; REPO_URL_OVERRIDDEN=1; shift 2 ;;
       --branch) [[ "$#" -ge 2 ]] || die "missing value for --branch"; BRANCH="$2";      shift 2 ;;
       -h|--help) usage; exit 0 ;;
       *) die "unknown argument: $1" ;;
@@ -385,10 +396,30 @@ discard_repo_local_changes() {
   git -C "$INSTALL_DIR" clean -fd
 }
 
+ensure_origin_url() {
+  local current_url target_url=""
+  current_url="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
+  [[ -n "$current_url" ]] || return 0
+
+  if [[ "$REPO_URL_OVERRIDDEN" -eq 1 ]]; then
+    target_url="$REPO_URL"
+  elif is_legacy_repo_url "$current_url"; then
+    target_url="$DEFAULT_REPO_URL"
+  fi
+
+  [[ -n "$target_url" ]] || return 0
+  [[ "$current_url" == "$target_url" ]] && return 0
+
+  log "Setting origin to ${target_url}"
+  run_quiet "Setting origin to ${target_url}" git -C "$INSTALL_DIR" remote set-url origin "$target_url" \
+    || die "Failed to update git origin to ${target_url}. Resolve the checkout state or set RAKKIB_DIR to a new path."
+}
+
 prepare_repo() {
   if [[ -d "${INSTALL_DIR}/.git" ]]; then
     git_usable || die "Existing git checkout at ${INSTALL_DIR} requires usable git for updates. Install Git/Xcode Command Line Tools or set RAKKIB_DIR to a new path."
     log "Using existing checkout: ${INSTALL_DIR}"
+    ensure_origin_url
     if repo_has_local_changes; then
       case "$UPDATE_MODE" in
         reset)
