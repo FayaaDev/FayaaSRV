@@ -5,15 +5,19 @@ export const translations = {
     metaTitle: 'Rakkib - Agent-Driven Homeserver Setup',
     metaDescription: 'Rakkib turns a fresh machine into a self-hosted server stack with one guided install command.',
     brandLabel: 'Rakkib home',
+    heroEyebrow: 'Bare-metal to home cloud',
     heroTitle: 'Your own server, installed by an AI agent.',
     heroText:
       'Rakkib transforms a fresh machine into a polished self-hosted stack for apps, data, automation, photos, and secure access.',
+    heroPrimaryAction: 'Explore services',
     copy: 'Copy',
     copied: 'Copied!',
     installNote:
       'One command. Guided setup. Rakkib finds your agent, prepares the machine, and walks you into a secure self-hosted stack.',
     sectionLabel: 'Installed services',
     servicesTitle: 'Core stack included. Optional tools when you want them.',
+    catalogIntro: 'Search the full catalog, then scan the animated service wall by app, role, and subdomain.',
+    categoriesLabel: 'Service categories',
     optional: 'Optional',
     github: 'GitHub',
 
@@ -129,15 +133,19 @@ export const translations = {
     metaTitle: 'ركّب: جهّز سيرفرك بدون اشتراكات',
     metaDescription: 'ركّب يثبت لك حزمة خدمات بإختيارك بأمر واحد.',
     brandLabel: 'الصفحة الرئيسية لركّب',
+    heroEyebrow: 'من جهاز جديد إلى سحابة منزلية',
     heroTitle: 'سيرفرك الخاص، أدواتك الخاصة، بدون اشتراكات  .',
     heroText:
       'ركّب يضبط جهازك القديم او سيرفرك المنزلي. أختار من حزمة خدمات مستضافة تشمل تطبيقات الذكاء الاصطناعي والأتمتة وغيرها.',
+    heroPrimaryAction: 'استعرض الخدمات',
     copy: 'نسخ',
     copied: 'تم النسخ!',
     installNote:
       'انسخ هذا الأمر والصقة في التيرمنال. ركّب بشيل عنك الباقي.',
     sectionLabel: 'الخدمات ',
     servicesTitle: 'أختر الخدمات اللي تناسبك احتياحك',
+    catalogIntro: 'ابحث في الكتالوج الكامل ثم استعرض جدار الخدمات المتحرك حسب التطبيق والدور والنطاق الفرعي.',
+    categoriesLabel: 'تصنيفات الخدمات',
     optional: 'اختياري',
     github: 'GitHub',
 

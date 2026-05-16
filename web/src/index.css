@@ -48,9 +48,9 @@
   --color-text-muted: #6e6e73;
   --color-border: rgba(15, 0, 0, 0.12);
   --color-border-strong: #646262;
-  --color-accent: #007aff;
-  --color-accent-hover: #0056b3;
-  --color-accent-active: #004085;
+  --color-accent: #fdfcfc;
+  --color-accent-hover: #f1eeee;
+  --color-accent-active: #9a9898;
 
   font-family: 'Thmanyah Sans', ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', sans-serif;

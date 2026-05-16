@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { fetchPublicServices, fetchSession, fetchSetupResume, fetchSetupRunStatus } from '../api/client'
 import type { PublicService } from '../api/types'
 import { LanguageToggle } from '../components/LanguageToggle'
+import { Marquee } from '../components/MagicMarquee'
+import { ServiceMark } from '../components/ServiceMark'
+import { SmoothCursor } from '../components/SmoothCursor'
 import { useI18n } from '../i18n/useI18n'
 import { SetupBridge } from './SetupBridge'
 
@@ -66,12 +69,105 @@ function GitHubIcon() {
   )
 }
 
+function distributeServices(items: PublicServiceItem[], columnCount: number) {
+  const safeColumnCount = Math.max(1, Math.min(columnCount, Math.max(items.length, 1)))
+  const columns = Array.from({ length: safeColumnCount }, () => [] as PublicServiceItem[])
+  items.forEach((item, index) => columns[index % safeColumnCount].push(item))
+  return columns
+}
+
+function ServiceCatalogCard({
+  item,
+  subdomainSuffix,
+  ts,
+  tc,
+  detailLabels,
+}: {
+  item: PublicServiceItem
+  subdomainSuffix: string
+  ts: (key: string) => string
+  tc: (key: string) => string
+  detailLabels: { alwaysInstalled: string; runsOnHost: string; optionalApp: string }
+}) {
+  const serviceSubdomain = formatServiceSubdomain(item, subdomainSuffix)
+  const label = item.name ?? item.id
+
+  return (
+    <article className="catalog-service-card">
+      <ServiceMark slug={item.id} label={label} />
+      <span className="catalog-service-copy">
+        <strong>{label}</strong>
+        <span>{serviceDetail(item, ts, detailLabels)}</span>
+      </span>
+      <span className="catalog-service-meta">
+        <span>{tc(item.category?.trim() || 'Other')}</span>
+        {serviceSubdomain ? <span dir="ltr">{serviceSubdomain}</span> : null}
+      </span>
+    </article>
+  )
+}
+
+function ServicesMarquee3D({
+  services,
+  subdomainSuffix,
+  ts,
+  tc,
+  detailLabels,
+}: {
+  services: PublicServiceItem[]
+  subdomainSuffix: string
+  ts: (key: string) => string
+  tc: (key: string) => string
+  detailLabels: { alwaysInstalled: string; runsOnHost: string; optionalApp: string }
+}) {
+  const columns = distributeServices(services, 4)
+  const shouldRepeat = services.length > 6
+  const densityClass = services.length <= 2 ? ' is-sparse' : shouldRepeat ? '' : ' is-static'
+
+  return (
+    <div className={`services-marquee-3d${densityClass}`} aria-label="Animated service catalog">
+      <div
+        className="services-marquee-tilt"
+        style={{ '--service-column-count': columns.length } as CSSProperties}
+      >
+        {columns.map((column, index) => (
+          <Marquee
+            key={index}
+            className={`services-marquee-column${shouldRepeat ? '' : ' services-marquee-column-static'}`}
+            vertical
+            reverse={index % 2 === 1}
+            pauseOnHover
+            repeat={shouldRepeat ? 3 : 1}
+            style={{ '--marquee-duration': `${34 + index * 7}s` } as CSSProperties}
+          >
+            {column.map((item) => (
+              <ServiceCatalogCard
+                key={item.id}
+                item={item}
+                subdomainSuffix={subdomainSuffix}
+                ts={ts}
+                tc={tc}
+                detailLabels={detailLabels}
+              />
+            ))}
+          </Marquee>
+        ))}
+      </div>
+      <div className="services-marquee-fade services-marquee-fade-top" />
+      <div className="services-marquee-fade services-marquee-fade-bottom" />
+      <div className="services-marquee-fade services-marquee-fade-start" />
+      <div className="services-marquee-fade services-marquee-fade-end" />
+    </div>
+  )
+}
+
 export function Landing() {
   const location = useLocation()
   const navigate = useNavigate()
   const { t, tf, ts, tc } = useI18n()
   const [copied, setCopied] = useState(false)
   const [serviceSearch, setServiceSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [servicesState, setServicesState] = useState<ServicesState>({ status: 'loading' })
 
   const subdomainSuffix = t('subdomainSuffix')
@@ -169,7 +265,8 @@ export function Landing() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell marketing-shell">
+      <SmoothCursor />
       <header className="site-header">
         <a className="brand" href="#top" aria-label={t('brandLabel')}>
           <img className="brand-logo" src="/logo.png" alt="Rakkib logo" width="28" height="28" />
@@ -185,21 +282,35 @@ export function Landing() {
       </header>
 
       <main id="top">
-        <section className="hero" aria-labelledby="hero-title">
-          <img className="hero-logo" src="/logo-hero.png" alt="Rakkib" width="240" height="240" />
-          <h1 id="hero-title">{t('heroTitle')}</h1>
-          <p className="hero-text">{t('heroText')}</p>
+        <section className="landing-hero" aria-labelledby="hero-title">
+          <div className="landing-hero-copy">
+            <p className="eyebrow">{t('heroEyebrow')}</p>
+            <h1 id="hero-title">{t('heroTitle')}</h1>
+            <p className="hero-text">{t('heroText')}</p>
 
-          <div className="install-box" aria-label="Install command">
-            <code>{installCommand}</code>
-            <button type="button" onClick={copyInstallCommand} aria-live="polite" style={{ direction: 'ltr' }}>
-              {copied ? t('copied') : t('copy')}
-            </button>
+            <div className="install-box marketing-install-box" aria-label="Install command">
+              <code>{installCommand}</code>
+              <button type="button" onClick={copyInstallCommand} aria-live="polite" style={{ direction: 'ltr' }}>
+                {copied ? t('copied') : t('copy')}
+              </button>
+            </div>
+            <p className="install-note">{t('installNote')}</p>
+
+            <div className="hero-actions">
+              <a className="bridge-button bridge-button-primary" href="#services">
+                {t('heroPrimaryAction')}
+              </a>
+            </div>
           </div>
-          <p className="install-note">{t('installNote')}</p>
+
+          <div className="landing-hero-visual" aria-hidden="true">
+            <div className="hero-logo-stage">
+              <img className="hero-logo" src="/logo-hero.png" alt="" width="240" height="240" />
+            </div>
+          </div>
         </section>
 
-        <section className="demo-showcase" aria-label="Rakkib demo">
+        <section id="demo" className="demo-showcase marketing-demo" aria-label="Rakkib demo">
           <div className="demo-frame">
             <video
               className="demo-video"
@@ -214,9 +325,10 @@ export function Landing() {
           </div>
         </section>
 
-        <section className="services" aria-labelledby="services-title">
+        <section id="services" className="services marketing-services" aria-labelledby="services-title">
           <p className="section-label">{t('sectionLabel')}</p>
           <h2 id="services-title">{t('servicesTitle')}</h2>
+          <p className="services-intro">{t('catalogIntro')}</p>
 
           {servicesState.status === 'loading' ? (
             <p className="simple-loading" role="status">Loading...</p>
@@ -244,23 +356,29 @@ export function Landing() {
                 return groups
               }, new Map<string, PublicServiceItem[]>()),
             )
+            const activeCategory = serviceCategories.some(([category]) => category === selectedCategory)
+              ? selectedCategory
+              : null
+            const activeCategoryItems = activeCategory
+              ? serviceCategories.find(([category]) => category === activeCategory)?.[1] ?? []
+              : filteredItems
 
             return (
-              <div className="setup-phase-stack setup-service-catalog">
-                <article className="setup-service-search-card">
+              <div className="catalog-showcase">
+                <article className="catalog-search-card">
                   <div>
                     <p className="section-label">{t('serviceLibraryLabel')}</p>
                     <h2>{t('serviceSearchTitle')}</h2>
                   </div>
                   <input
-                    className="setup-input setup-service-search"
+                    className="setup-input catalog-service-search"
                     type="search"
                     value={serviceSearch}
                     onChange={(event) => setServiceSearch(event.target.value)}
                     placeholder={t('serviceSearchPlaceholder')}
                     aria-label={t('serviceSearchAriaLabel')}
                   />
-                  <p className="setup-field-help">
+                  <p className="setup-field-help catalog-search-summary">
                     {tf('serviceSearchSummary', {
                       shown: filteredItems.length,
                       total: allItems.length,
@@ -270,46 +388,46 @@ export function Landing() {
                 </article>
 
                 {serviceCategories.length > 0 ? (
-                  serviceCategories.map(([category, items]) => (
-                    <article className="setup-service-section" key={category}>
-                      <div className="setup-field-header">
-                        <div>
-                          <p className="section-label">
-                            {tf(items.length === 1 ? 'serviceCountOne' : 'serviceCountMany', { count: items.length })}
-                          </p>
-                          <h2>{tc(category)}</h2>
-                        </div>
-                      </div>
+                  <>
+                    <div className="catalog-category-rail" aria-label={t('categoriesLabel')}>
+                      {serviceCategories.map(([category, items]) => (
+                        <button
+                          className={`catalog-category-chip${category === activeCategory ? ' is-active' : ''}`}
+                          type="button"
+                          key={category}
+                          aria-pressed={category === activeCategory}
+                          onClick={() => setSelectedCategory((current) => (current === category ? null : category))}
+                        >
+                          <strong>{tc(category)}</strong>
+                          <span>{tf(items.length === 1 ? 'serviceCountOne' : 'serviceCountMany', { count: items.length })}</span>
+                        </button>
+                      ))}
+                    </div>
 
-                      <div className="setup-service-list" role="list">
-                        {items.map((item) => {
-                          const serviceSubdomain = formatServiceSubdomain(item, subdomainSuffix)
-
-                          return (
-                            <article
-                              key={item.id}
-                              className="setup-service-item"
-                              role="listitem"
-                              style={{ cursor: 'default' }}
-                            >
-                              {/* <ServiceMark slug={item.id} label={item.name ?? item.id} /> */}
-                              <span className="setup-service-copy">
-                                <strong>{item.name ?? item.id}</strong>
-                                <span>{serviceDetail(item, ts, detailLabels)}</span>
-                              </span>
-                              {serviceSubdomain ? (
-                                <span className="setup-service-tags">
-                                  <span className="setup-service-tag">{serviceSubdomain}</span>
-                                </span>
-                              ) : null}
-                            </article>
-                          )
-                        })}
+                    <div className="catalog-interactive-stage">
+                      <ServicesMarquee3D
+                        services={activeCategoryItems}
+                        subdomainSuffix={subdomainSuffix}
+                        ts={ts}
+                        tc={tc}
+                        detailLabels={detailLabels}
+                      />
+                      <div className="catalog-mobile-list" role="list">
+                        {activeCategoryItems.map((item) => (
+                          <ServiceCatalogCard
+                            key={item.id}
+                            item={item}
+                            subdomainSuffix={subdomainSuffix}
+                            ts={ts}
+                            tc={tc}
+                            detailLabels={detailLabels}
+                          />
+                        ))}
                       </div>
-                    </article>
-                  ))
+                    </div>
+                  </>
                 ) : (
-                  <article className="setup-service-section setup-service-empty">
+                  <article className="setup-service-section setup-service-empty catalog-empty">
                     <p className="section-label">{t('noMatchesLabel')}</p>
                     <h2>{t('noMatchesTitle')}</h2>
                     <p className="hero-text">{t('noMatchesHint')}</p>
