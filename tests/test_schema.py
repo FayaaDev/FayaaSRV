@@ -144,6 +144,7 @@ def test_phase_3_service_catalog_and_rules():
         "esphome",
         "notemark",
         "memos",
+        "onlyoffice",
         "gitea",
         "whoami",
         "pairdrop",

@@ -352,6 +352,19 @@
       "icon": "markdown.png"
     },
     {
+      "id": "onlyoffice",
+      "required": false,
+      "optional": true,
+      "foundation": false,
+      "host_service": false,
+      "default_subdomain": "office",
+      "default_port": 80,
+      "category": "Documents",
+      "name": "OnlyOffice",
+      "description": "Collaborative document server",
+      "icon": "onlyoffice.png"
+    },
+    {
       "id": "stirling-pdf",
       "required": false,
       "optional": true,
