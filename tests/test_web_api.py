@@ -107,6 +107,17 @@ def test_web_state_patch_rejects_arbitrary_updates_without_writing_state(tmp_pat
     assert State.load(state_path).get("domain") == "kept.example.com"
 
 
+def test_web_state_auto_detects_platform(tmp_path, monkeypatch):
+    monkeypatch.setattr("rakkib.host_platform.platform.system", lambda: "Darwin")
+    client = _client(tmp_path)
+    client.post("/api/session/bootstrap", json={"token": "setup-token"})
+
+    response = client.get("/api/state")
+
+    assert response.status_code == 200
+    assert response.json()["state"]["platform"] == "mac"
+
+
 def test_logout_revokes_session_and_clears_cookie(tmp_path):
     client = _client(tmp_path)
     bootstrap = client.post("/api/session/bootstrap", json={"token": "setup-token"})

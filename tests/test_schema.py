@@ -32,13 +32,10 @@ def test_phase_1_platform_field():
     assert arch.detect["normalize"]["x86_64"] == "amd64"
     assert arch.records == ["arch"]
 
-    # Platform single_select
+    # Platform is detected by the interview/web runtime, not prompted.
     platform = field_map["platform"]
-    assert platform.type == "single_select"
-    assert platform.prompt == "What platform are you installing on?"
-    assert platform.canonical_values == ["linux", "mac"]
-    assert platform.normalize == "lowercase"
-    assert platform.aliases["mac"] == ["mac", "macos", "osx", "darwin"]
+    assert platform.type == "derived"
+    assert platform.source == "host"
     assert platform.records == ["platform"]
 
     # Docker confirm

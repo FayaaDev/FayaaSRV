@@ -12,6 +12,7 @@ from typing import Any
 from questionary import Choice
 from rich.console import Console
 
+from rakkib.host_platform import ensure_state_platform
 from rakkib.normalize import apply_normalize, eval_when, resolve_numeric_aliases
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.state import State, subdomain_placeholder_key
@@ -65,6 +66,8 @@ def run_interview(state: State, questions_dir: Path | str = "questions") -> Stat
         )
         if overwrite:
             state = State({}, path=state.path)
+
+    ensure_state_platform(state)
 
     resume = 1 if state.has("confirmed") and not state.is_confirmed() else state.resume_phase()
     try:

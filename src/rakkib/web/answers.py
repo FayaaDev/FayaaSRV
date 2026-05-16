@@ -9,6 +9,7 @@ import re
 import shlex
 from typing import Any
 
+from rakkib.host_platform import ensure_state_platform
 from rakkib.normalize import apply_normalize, eval_when
 from rakkib.schema import FieldDef, QuestionSchema
 from rakkib.state import State, subdomain_placeholder_key
@@ -56,6 +57,7 @@ def apply_phase_answers(
     """Apply a browser phase submission to a cloned state object."""
     working = State(deepcopy(state.to_dict()))
     confirmations = confirmations or {}
+    ensure_state_platform(working)
 
     if schema.service_catalog and state.get("web_deployment.status") == "succeeded":
         if not state.get("deployed.exists"):

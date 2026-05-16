@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from rakkib.host_platform import ensure_state_platform
 from rakkib.normalize import eval_when
 from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
 from rakkib.service_catalog import deployed_service_urls
@@ -51,7 +52,9 @@ class RunStartRequest(BaseModel):
 
 def _load_state(state_path: Path) -> State:
     """Load the persisted setup state from disk."""
-    return State.load(state_path)
+    state = State.load(state_path)
+    ensure_state_platform(state)
+    return state
 
 
 def _schemas() -> list[QuestionSchema]:
