@@ -13,7 +13,6 @@ writes_state:
   - arch
   - privilege_mode
   - privilege_strategy
-  - docker_installed
   - host_gateway
 fields:
   - id: platform
@@ -58,17 +57,6 @@ fields:
     records:
       - privilege_mode
       - privilege_strategy
-  - id: docker_installed
-    type: confirm
-    prompt: Is Docker already installed and running on this machine? [Y/n]
-    default: true
-    accepted_inputs:
-      y: true
-      n: false
-      "yes": true
-      "no": false
-    records:
-      - docker_installed
   - id: host_gateway
     type: derived
     source: prior_answer
@@ -84,7 +72,7 @@ fields:
 
 ## Instructions for the Agent
 
-Auto-detect platform from the machine and ask the user the following questions in order. Record answers into `.fss-state.yaml` under the keys specified. Do not advance to `questions/02-identity.md` until every required answer is recorded.
+Auto-detect platform from the machine and record answers into `.fss-state.yaml` under the keys specified. Do not advance to `questions/02-identity.md` until every required answer is recorded.
 
 Detect platform from the machine instead of asking for it:
 - Linux -> `linux`
@@ -123,20 +111,6 @@ Before asking any questions on Linux, detect whether the agent is running as roo
 
 On Mac, do not perform Linux root enforcement. Record `privilege_mode: sudo` and `privilege_strategy: on_demand`.
 
----
-
-## Questions to Ask
-
-### Q1 — Docker Status
-
-Ask: "Is Docker already installed and running on this machine? [Y/n]"
-
-Accepted answers: `y` or `n`. Normalize to boolean.
-
-If the user answers `n`, note that step `steps/00-prereqs.md` will handle Docker installation before any other step runs. On Linux, the documented install path is Docker's official Docker Engine for Ubuntu method run directly by the root installer process.
-
----
-
 ## Record in .fss-state.yaml
 
 ```yaml
@@ -144,7 +118,6 @@ platform: linux        # or: mac, auto-detected from the host
 arch: amd64            # or: arm64, auto-detected from `uname -m`
 privilege_mode: sudo   # normal Linux flow; root only for repair/debug sessions
 privilege_strategy: on_demand  # request sudo only for specific post-confirmation actions
-docker_installed: true # or: false
 ```
 
 ---

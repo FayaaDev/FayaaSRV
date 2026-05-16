@@ -21,8 +21,6 @@ fields:
     accepted_inputs:
       y: generate
       n: manual
-      "yes": generate
-      "no": manual
     records:
       - secrets.mode
   - id: manual_secret_values

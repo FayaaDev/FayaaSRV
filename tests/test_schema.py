@@ -38,13 +38,7 @@ def test_phase_1_platform_field():
     assert platform.source == "host"
     assert platform.records == ["platform"]
 
-    # Docker confirm
-    docker = field_map["docker_installed"]
-    assert docker.type == "confirm"
-    assert docker.prompt == "Is Docker already installed and running on this machine? [Y/n]"
-    assert docker.default is True
-    assert docker.accepted_inputs["y"] is True
-    assert docker.accepted_inputs["n"] is False
+    assert "docker_installed" not in field_map
 
     # Host gateway derived
     gw = field_map["host_gateway"]
@@ -211,8 +205,7 @@ def test_phase_5_secrets_and_execution_generated():
     field_map = {f.id: f for f in schema.fields}
     secrets_mode = field_map["secrets_mode"]
     assert secrets_mode.type == "confirm"
-    assert secrets_mode.accepted_inputs["y"] == "generate"
-    assert secrets_mode.accepted_inputs["n"] == "manual"
+    assert secrets_mode.accepted_inputs == {"y": "generate", "n": "manual"}
     assert secrets_mode.records == ["secrets.mode"]
 
     manual = field_map["manual_secret_values"]

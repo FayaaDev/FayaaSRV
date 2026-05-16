@@ -581,6 +581,19 @@ class TestPromptConfirm:
             assert _prompt_confirm(field, State({})) is True
             assert mock_ask.call_args.kwargs["default"].value is True
 
+    def test_final_confirm_uses_schema_default_over_stale_false(self):
+        field = FieldDef(
+            id="confirmed",
+            type="confirm",
+            prompt="Proceed?",
+            default=True,
+            accepted_inputs={"y": True, "n": False},
+            records=["confirmed"],
+        )
+        with patch("rakkib.interview.prompt_select", return_value=True) as mock_ask:
+            assert _prompt_confirm(field, State({"confirmed": False})) is True
+            assert mock_ask.call_args.kwargs["default"].value is True
+
     def test_mapped_confirm_uses_existing_state_default(self):
         field = FieldDef(
             id="mode",
