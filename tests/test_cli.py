@@ -950,7 +950,7 @@ class TestAuth:
 
         assert result.exit_code == 0
         assert "Preparing Docker" in result.output
-        assert "Docker is ready" in result.output
+        assert "Re-run `rakkib pull`" in result.output
 
     def test_auth_help(self, tmp_path: Path):
         runner = CliRunner()
@@ -986,7 +986,7 @@ class TestAuth:
             result = runner.invoke(cli, ["auth"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "Docker is ready for your user" in result.output
+        assert "Re-run `rakkib pull`" in result.output
         assert ["sudo", "-n", "usermod", "-aG", "docker", "ubuntu"] in [
             call.args[0] for call in mock_run.call_args_list
         ]
@@ -1005,7 +1005,7 @@ class TestAuth:
             result = runner.invoke(cli, ["auth"], obj={"repo_dir": repo_dir})
 
         assert result.exit_code == 0
-        assert "Docker is ready" in result.output
+        assert "Re-run `rakkib pull`" in result.output
 
 
 class TestPrivileged:
