@@ -16,6 +16,17 @@ from rakkib.web.host_auth import HostAuthStatus
 
 
 class TestInit:
+    def _registry(self):
+        return {
+            "services": [
+                {"id": "caddy", "state_bucket": "always"},
+                {"id": "cloudflared", "state_bucket": "always"},
+                {"id": "postgres", "state_bucket": "always"},
+                {"id": "homepage", "state_bucket": "foundation_services"},
+                {"id": "n8n", "state_bucket": "selected_services"},
+            ]
+        }
+
     def test_init_runs_interview(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
@@ -73,6 +84,94 @@ class TestInit:
         mock_interview.assert_called_once()
         mock_steps.assert_not_called()
         assert "Run rakkib pull to install" in result.output
+
+    def test_init_mode_change_from_cloudflare_removes_previous_hosting(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "confirmed: true\n"
+            "exposure_mode: cloudflare\n"
+            f"data_root: {tmp_path / 'srv'}\n"
+            "deployed:\n"
+            "  exists: true\n"
+            "  foundation_services:\n"
+            "    - homepage\n"
+            "  selected_services:\n"
+            "    - n8n\n"
+            "cloudflare:\n"
+            "  auth_method: browser_login\n"
+            "  published_services:\n"
+            "    - homepage\n"
+        )
+
+        with (
+            patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.steps.services._load_registry", return_value=self._registry()),
+            patch("rakkib.steps.services.remove_single_service") as mock_remove,
+        ):
+            mock_interview.return_value = State({"confirmed": True, "exposure_mode": "internal"})
+            result = runner.invoke(cli, ["init"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        assert [call.args[1] for call in mock_remove.call_args_list] == [
+            "n8n",
+            "homepage",
+            "cloudflared",
+            "caddy",
+        ]
+        saved = State.load(state_file)
+        assert saved.get("exposure_mode") == "internal"
+
+    def test_init_mode_change_from_internal_removes_previous_services(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "confirmed: true\n"
+            "exposure_mode: internal\n"
+            f"data_root: {tmp_path / 'srv'}\n"
+            "foundation_services:\n"
+            "  - homepage\n"
+            "selected_services:\n"
+            "  - n8n\n"
+        )
+
+        with (
+            patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.steps.services._load_registry", return_value=self._registry()),
+            patch("rakkib.steps.services.remove_single_service") as mock_remove,
+        ):
+            mock_interview.return_value = State({"confirmed": True, "exposure_mode": "cloudflare"})
+            result = runner.invoke(cli, ["init"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["n8n", "homepage"]
+
+    def test_init_same_mode_does_not_cleanup(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text(
+            "confirmed: true\n"
+            "exposure_mode: internal\n"
+            f"data_root: {tmp_path / 'srv'}\n"
+            "foundation_services:\n"
+            "  - homepage\n"
+        )
+
+        with (
+            patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.steps.services.remove_single_service") as mock_remove,
+        ):
+            mock_interview.return_value = State({"confirmed": True, "exposure_mode": "internal"})
+            result = runner.invoke(cli, ["init"], obj={"repo_dir": repo_dir})
+
+        assert result.exit_code == 0
+        mock_remove.assert_not_called()
 
 
 class TestUninstall:
