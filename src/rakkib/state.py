@@ -107,8 +107,7 @@ class State:
         if path is _UNSET:
             if self._path is None:
                 raise RuntimeError(
-                    "State has no save path. Load it with State.load(path) or pass "
-                    "an explicit path to save(path)."
+                    "State has no save path. Load it with State.load(path) or pass an explicit path to save(path)."
                 )
             save_path = self._path
         else:

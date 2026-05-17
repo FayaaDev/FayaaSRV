@@ -1,6 +1,5 @@
 """Tests for rakkib.normalize."""
 
-
 from rakkib.normalize import apply_normalize, eval_when, resolve_numeric_aliases
 from rakkib.state import State
 
@@ -34,19 +33,9 @@ class TestEvalWhen:
 
     def test_and(self):
         state = State({"tunnel_strategy": "new", "accept_browser_login": False})
-        assert (
-            eval_when(
-                "tunnel_strategy == new and accept_browser_login == false", state
-            )
-            is True
-        )
+        assert eval_when("tunnel_strategy == new and accept_browser_login == false", state) is True
         state.set("accept_browser_login", True)
-        assert (
-            eval_when(
-                "tunnel_strategy == new and accept_browser_login == false", state
-            )
-            is False
-        )
+        assert eval_when("tunnel_strategy == new and accept_browser_login == false", state) is False
 
     def test_or(self):
         state = State({"a": "1", "b": "2"})
@@ -93,14 +82,8 @@ class TestApplyNormalize:
         assert apply_normalize("1000", mapping) == "sudo"
 
     def test_first_non_loopback_ipv4(self):
-        assert (
-            apply_normalize("127.0.0.1 192.168.1.50", "first_non_loopback_ipv4")
-            == "192.168.1.50"
-        )
-        assert (
-            apply_normalize("10.0.0.1 127.0.0.1", "first_non_loopback_ipv4")
-            == "10.0.0.1"
-        )
+        assert apply_normalize("127.0.0.1 192.168.1.50", "first_non_loopback_ipv4") == "192.168.1.50"
+        assert apply_normalize("10.0.0.1 127.0.0.1", "first_non_loopback_ipv4") == "10.0.0.1"
 
     def test_first_active_interface_ipv4(self):
         assert apply_normalize("192.168.1.10", "first_active_interface_ipv4") == "192.168.1.10"

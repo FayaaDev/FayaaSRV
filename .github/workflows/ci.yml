@@ -33,6 +33,9 @@ jobs:
       - name: Ruff lint
         run: ruff check src tests
 
+      - name: Ruff format check
+        run: ruff format --check src tests
+
       - name: Compile sources
         run: python -m compileall -q src/rakkib
 

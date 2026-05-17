@@ -217,9 +217,7 @@ class TestRunInterview:
 
 class TestRunField:
     def test_skip_when_false(self, empty_state):
-        field = FieldDef(
-            id="test", type="text", prompt="hello", when="platform == mac"
-        )
+        field = FieldDef(id="test", type="text", prompt="hello", when="platform == mac")
         with patch("rakkib.interview.prompt_text") as mock_ask:
             _run_field(field, empty_state)
             mock_ask.assert_not_called()
@@ -507,9 +505,7 @@ class TestPromptText:
             prompt="Name?",
             validate={"pattern": "^[a-z]+$", "message": "lowercase only"},
         )
-        with patch(
-            "rakkib.interview.prompt_text", side_effect=["Alice", "alice"]
-        ):
+        with patch("rakkib.interview.prompt_text", side_effect=["Alice", "alice"]):
             assert _prompt_text(field, State({})) == "alice"
 
     def test_existing_state_value_used_as_default(self):
@@ -523,9 +519,7 @@ class TestPromptText:
 
 class TestPromptConfirm:
     def test_boolean_confirm(self):
-        field = FieldDef(
-            id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False}
-        )
+        field = FieldDef(id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False})
         with patch("rakkib.interview.prompt_select", return_value=True):
             assert _prompt_confirm(field, State({})) is True
 
@@ -547,9 +541,7 @@ class TestPromptConfirm:
             prompt="Mode?",
             accepted_inputs={"y": "generate", "n": "manual"},
         )
-        with patch(
-            "rakkib.interview.prompt_select", side_effect=["x", "n"]
-        ):
+        with patch("rakkib.interview.prompt_select", side_effect=["x", "n"]):
             result = _prompt_confirm(field, State({}))
             assert result == "manual"
 
@@ -605,9 +597,7 @@ class TestPromptConfirm:
             assert mock_ask.call_args.kwargs["default"] == "n"
 
     def test_exit_choice_raises(self):
-        field = FieldDef(
-            id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False}
-        )
+        field = FieldDef(id="flag", type="confirm", prompt="Flag?", accepted_inputs={"y": True, "n": False})
         with patch("rakkib.interview.prompt_select", return_value="exit"):
             with pytest.raises(InterviewExit):
                 _prompt_confirm(field, State({}))
@@ -778,9 +768,7 @@ class TestHandleSecretGroup:
             ],
         )
         state = State({"foundation_services": ["nocodb"]})
-        with patch(
-            "rakkib.interview.prompt_password", side_effect=["secret1", "secret2"]
-        ):
+        with patch("rakkib.interview.prompt_password", side_effect=["secret1", "secret2"]):
             _handle_secret_group(field, state)
         assert state.get("secrets.values.POSTGRES_PASSWORD") == "secret1"
         assert state.get("secrets.values.NOCODB_DB_PASS") == "secret2"
@@ -805,9 +793,7 @@ class TestHandleSecretGroup:
             entries=[{"key": "POSTGRES_PASSWORD", "when": "always"}],
         )
         state = State({})
-        with patch(
-            "rakkib.interview.prompt_password", side_effect=["", "valid"]
-        ):
+        with patch("rakkib.interview.prompt_password", side_effect=["", "valid"]):
             _handle_secret_group(field, state)
         assert state.get("secrets.values.POSTGRES_PASSWORD") == "valid"
 
@@ -872,10 +858,12 @@ class TestBuildSubdomainDefaults:
 
 class TestEnforceRules:
     def test_hermes_adds_required_service(self, sample_schema):
-        state = State({
-            "selected_services": ["hermes"],
-            "foundation_services": ["nocodb"],
-        })
+        state = State(
+            {
+                "selected_services": ["hermes"],
+                "foundation_services": ["nocodb"],
+            }
+        )
         with patch("rakkib.interview.console.print"):
             _enforce_rules(sample_schema, state)
         assert "homepage" in state.get("foundation_services")
@@ -897,9 +885,7 @@ class TestGetDefault:
         assert _get_default(field, State({})) == "hello"
 
     def test_default_from_host_dict_linux(self):
-        field = FieldDef(
-            id="x", type="text", default_from_host={"linux": "echo linux_user"}
-        )
+        field = FieldDef(id="x", type="text", default_from_host={"linux": "echo linux_user"})
         state = State({"platform": "linux"})
         assert _get_default(field, state) == "linux_user"
 
@@ -920,9 +906,7 @@ class TestGetDefault:
 
 class TestValidate:
     def test_non_empty(self):
-        field = FieldDef(
-            id="x", type="text", validate={"non_empty": True, "message": "Required"}
-        )
+        field = FieldDef(id="x", type="text", validate={"non_empty": True, "message": "Required"})
         assert _validate("hello", field) is True
         assert _validate("", field) is False
 

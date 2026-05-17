@@ -235,11 +235,7 @@ class TestStatus:
         package_dir.mkdir(parents=True)
         (checkout / ".git").mkdir()
         (checkout / ".fss-state.yaml").write_text(
-            "confirmed: true\n"
-            "domain: example.com\n"
-            "data_root: /srv\n"
-            "foundation_services: []\n"
-            "selected_services: []\n"
+            "confirmed: true\ndomain: example.com\ndata_root: /srv\nfoundation_services: []\nselected_services: []\n"
         )
 
         result = runner.invoke(cli, ["status"], obj={"repo_dir": package_dir})
@@ -317,19 +313,22 @@ class TestDoctor:
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
-        with patch("rakkib.doctor.check_os") as mock_os, \
-             patch("rakkib.doctor.check_arch") as mock_arch, \
-             patch("rakkib.doctor.check_ram") as mock_ram, \
-             patch("rakkib.doctor.check_disk") as mock_disk, \
-             patch("rakkib.doctor.check_docker") as mock_docker, \
-             patch("rakkib.doctor.check_compose") as mock_compose, \
-             patch("rakkib.doctor.check_cloudflared_binary") as mock_cf, \
-             patch("rakkib.doctor.check_public_ports") as mock_pp, \
-             patch("rakkib.doctor.check_ssh_port") as mock_ssh, \
-             patch("rakkib.doctor.check_domain_dns") as mock_dns, \
-             patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr, \
-             patch("rakkib.doctor.check_conflicts") as mock_conf:
+        with (
+            patch("rakkib.doctor.check_os") as mock_os,
+            patch("rakkib.doctor.check_arch") as mock_arch,
+            patch("rakkib.doctor.check_ram") as mock_ram,
+            patch("rakkib.doctor.check_disk") as mock_disk,
+            patch("rakkib.doctor.check_docker") as mock_docker,
+            patch("rakkib.doctor.check_compose") as mock_compose,
+            patch("rakkib.doctor.check_cloudflared_binary") as mock_cf,
+            patch("rakkib.doctor.check_public_ports") as mock_pp,
+            patch("rakkib.doctor.check_ssh_port") as mock_ssh,
+            patch("rakkib.doctor.check_domain_dns") as mock_dns,
+            patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr,
+            patch("rakkib.doctor.check_conflicts") as mock_conf,
+        ):
             from rakkib.doctor import CheckResult
+
             mock_os.return_value = CheckResult("os", "ok", True, "Ubuntu detected")
             mock_arch.return_value = CheckResult("architecture", "ok", False, "amd64")
             mock_ram.return_value = CheckResult("ram", "ok", False, "8192 MB")
@@ -351,6 +350,7 @@ class TestDoctor:
 
         assert result.exit_code == 0
         import json
+
         data = json.loads(result.output)
         assert data["ok"] is True
         assert data["summary"]["ok"] > 0
@@ -360,19 +360,22 @@ class TestDoctor:
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
-        with patch("rakkib.doctor.check_os") as mock_os, \
-             patch("rakkib.doctor.check_arch") as mock_arch, \
-             patch("rakkib.doctor.check_ram") as mock_ram, \
-             patch("rakkib.doctor.check_disk") as mock_disk, \
-             patch("rakkib.doctor.check_docker") as mock_docker, \
-             patch("rakkib.doctor.check_compose") as mock_compose, \
-             patch("rakkib.doctor.check_cloudflared_binary") as mock_cf, \
-             patch("rakkib.doctor.check_public_ports") as mock_pp, \
-             patch("rakkib.doctor.check_ssh_port") as mock_ssh, \
-             patch("rakkib.doctor.check_domain_dns") as mock_dns, \
-             patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr, \
-             patch("rakkib.doctor.check_conflicts") as mock_conf:
+        with (
+            patch("rakkib.doctor.check_os") as mock_os,
+            patch("rakkib.doctor.check_arch") as mock_arch,
+            patch("rakkib.doctor.check_ram") as mock_ram,
+            patch("rakkib.doctor.check_disk") as mock_disk,
+            patch("rakkib.doctor.check_docker") as mock_docker,
+            patch("rakkib.doctor.check_compose") as mock_compose,
+            patch("rakkib.doctor.check_cloudflared_binary") as mock_cf,
+            patch("rakkib.doctor.check_public_ports") as mock_pp,
+            patch("rakkib.doctor.check_ssh_port") as mock_ssh,
+            patch("rakkib.doctor.check_domain_dns") as mock_dns,
+            patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr,
+            patch("rakkib.doctor.check_conflicts") as mock_conf,
+        ):
             from rakkib.doctor import CheckResult
+
             mock_os.return_value = CheckResult("os", "fail", True, "unsupported")
             mock_arch.return_value = CheckResult("architecture", "ok", False, "amd64")
             mock_ram.return_value = CheckResult("ram", "ok", False, "8192 MB")
@@ -400,20 +403,23 @@ class TestDoctor:
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
-        with patch("rakkib.doctor.check_os") as mock_os, \
-             patch("rakkib.doctor.check_arch") as mock_arch, \
-             patch("rakkib.doctor.check_ram") as mock_ram, \
-             patch("rakkib.doctor.check_disk") as mock_disk, \
-             patch("rakkib.doctor.check_docker") as mock_docker, \
-             patch("rakkib.doctor.check_compose") as mock_compose, \
-             patch("rakkib.doctor.check_cloudflared_binary") as mock_cf, \
-             patch("rakkib.doctor.check_public_ports") as mock_pp, \
-             patch("rakkib.doctor.check_ssh_port") as mock_ssh, \
-             patch("rakkib.doctor.check_domain_dns") as mock_dns, \
-             patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr, \
-             patch("rakkib.doctor.check_conflicts") as mock_conf, \
-             patch("rakkib.cli.attempt_fix_docker") as mock_fix:
+        with (
+            patch("rakkib.doctor.check_os") as mock_os,
+            patch("rakkib.doctor.check_arch") as mock_arch,
+            patch("rakkib.doctor.check_ram") as mock_ram,
+            patch("rakkib.doctor.check_disk") as mock_disk,
+            patch("rakkib.doctor.check_docker") as mock_docker,
+            patch("rakkib.doctor.check_compose") as mock_compose,
+            patch("rakkib.doctor.check_cloudflared_binary") as mock_cf,
+            patch("rakkib.doctor.check_public_ports") as mock_pp,
+            patch("rakkib.doctor.check_ssh_port") as mock_ssh,
+            patch("rakkib.doctor.check_domain_dns") as mock_dns,
+            patch("rakkib.doctor.check_cloudflare_readiness") as mock_cfr,
+            patch("rakkib.doctor.check_conflicts") as mock_conf,
+            patch("rakkib.cli.attempt_fix_docker") as mock_fix,
+        ):
             from rakkib.doctor import CheckResult
+
             mock_os.return_value = CheckResult("os", "ok", True, "Ubuntu")
             mock_arch.return_value = CheckResult("architecture", "ok", False, "amd64")
             mock_ram.return_value = CheckResult("ram", "ok", False, "8192 MB")
@@ -537,29 +543,65 @@ class TestAdd:
                 "notes": "Shared database backend.",
                 "secrets": {"POSTGRES_PASSWORD": {"factory": "password"}},
             },
-            {"id": "homepage", "state_bucket": "foundation_services", "depends_on": [], "default_subdomain": "home", "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN", "notes": "Service dashboard."},
-            {"id": "nocodb", "state_bucket": "foundation_services", "depends_on": ["postgres"], "default_subdomain": "nocodb", "subdomain_placeholder": "NOCODB_SUBDOMAIN", "notes": "No-code database UI.", "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"}},
-            {"id": "n8n", "state_bucket": "selected_services", "depends_on": ["postgres"], "default_subdomain": "n8n", "subdomain_placeholder": "N8N_SUBDOMAIN", "notes": "Workflow automation.", "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"}, "homepage": {"category": "Automation"}},
-            {"id": "hermes", "state_bucket": "selected_services", "depends_on": ["homepage"], "default_subdomain": "hermes", "subdomain_placeholder": "HERMES_SUBDOMAIN", "notes": "Internal assistant."},
-            {"id": "openclaw", "state_bucket": "selected_services", "host_service": True, "depends_on": [], "default_subdomain": "claw", "subdomain_placeholder": "OPENCLAW_SUBDOMAIN", "notes": "AI assistant gateway.", "homepage": {"category": "AI"}},
+            {
+                "id": "homepage",
+                "state_bucket": "foundation_services",
+                "depends_on": [],
+                "default_subdomain": "home",
+                "subdomain_placeholder": "HOMEPAGE_SUBDOMAIN",
+                "notes": "Service dashboard.",
+            },
+            {
+                "id": "nocodb",
+                "state_bucket": "foundation_services",
+                "depends_on": ["postgres"],
+                "default_subdomain": "nocodb",
+                "subdomain_placeholder": "NOCODB_SUBDOMAIN",
+                "notes": "No-code database UI.",
+                "postgres": {"role": "nocodb", "db": "nocodb_db", "password_key": "NOCODB_DB_PASS"},
+            },
+            {
+                "id": "n8n",
+                "state_bucket": "selected_services",
+                "depends_on": ["postgres"],
+                "default_subdomain": "n8n",
+                "subdomain_placeholder": "N8N_SUBDOMAIN",
+                "notes": "Workflow automation.",
+                "postgres": {"role": "n8n", "db": "n8n_db", "password_key": "N8N_DB_PASS"},
+                "homepage": {"category": "Automation"},
+            },
+            {
+                "id": "hermes",
+                "state_bucket": "selected_services",
+                "depends_on": ["homepage"],
+                "default_subdomain": "hermes",
+                "subdomain_placeholder": "HERMES_SUBDOMAIN",
+                "notes": "Internal assistant.",
+            },
+            {
+                "id": "openclaw",
+                "state_bucket": "selected_services",
+                "host_service": True,
+                "depends_on": [],
+                "default_subdomain": "claw",
+                "subdomain_placeholder": "OPENCLAW_SUBDOMAIN",
+                "notes": "AI assistant gateway.",
+                "homepage": {"category": "AI"},
+            },
         ]
         if extra_services:
             services.extend(extra_services)
         return {"services": services}
 
     def test_add_choices_group_selected_services_by_category(self):
-        choices = _build_add_choices(
-            State({"selected_services": ["n8n"]}), self._make_registry()
-        )
+        choices = _build_add_choices(State({"selected_services": ["n8n"]}), self._make_registry())
 
         titles = [choice.title for choice in choices]
         assert "━━ Optional Services ━━" not in titles
         assert "━━ Automation ━━" in titles
         assert "━━ AI ━━" in titles
         assert "━━ Other ━━" in titles
-        assert titles.index("━━ Automation ━━") < titles.index(
-            "  n8n [Workflow automation]"
-        )
+        assert titles.index("━━ Automation ━━") < titles.index("  n8n [Workflow automation]")
 
     def test_remove_choices_show_only_installed_services_checked(self):
         choices = _build_remove_choices(
@@ -675,11 +717,7 @@ class TestAdd:
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "platform: linux\n"
-            "foundation_services: []\n"
-            "selected_services: []\n"
-        )
+        state_file.write_text("platform: linux\nfoundation_services: []\nselected_services: []\n")
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
@@ -705,11 +743,7 @@ class TestAdd:
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "platform: linux\n"
-            "foundation_services:\n  - homepage\n"
-            "selected_services: []\n"
-        )
+        state_file.write_text("platform: linux\nfoundation_services:\n  - homepage\nselected_services: []\n")
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
@@ -738,9 +772,7 @@ class TestAdd:
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            "platform: linux\n"
-            "foundation_services:\n  - homepage\n  - nocodb\n"
-            "selected_services: []\n"
+            "platform: linux\nfoundation_services:\n  - homepage\n  - nocodb\nselected_services: []\n"
         )
 
         with (
@@ -765,11 +797,7 @@ class TestAdd:
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "platform: linux\n"
-            "foundation_services:\n  - homepage\n"
-            "selected_services: []\n"
-        )
+        state_file.write_text("platform: linux\nfoundation_services:\n  - homepage\nselected_services: []\n")
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
@@ -812,11 +840,7 @@ class TestAdd:
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "platform: linux\n"
-            "foundation_services:\n  - homepage\n"
-            "selected_services:\n  - n8n\n"
-        )
+        state_file.write_text("platform: linux\nfoundation_services:\n  - homepage\nselected_services:\n  - n8n\n")
 
         with (
             patch("rakkib.steps.services._load_registry") as mock_reg,
@@ -984,9 +1008,7 @@ class TestAdd:
         data_root = tmp_path / "srv"
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            f"foundation_services:\n  - homepage\n  - nocodb\n"
-            f"selected_services:\n  - n8n\n"
-            f"data_root: {data_root}\n"
+            f"foundation_services:\n  - homepage\n  - nocodb\nselected_services:\n  - n8n\ndata_root: {data_root}\n"
         )
 
         with (
@@ -1036,9 +1058,7 @@ class TestAdd:
         data_root = tmp_path / "srv"
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            f"foundation_services:\n  - homepage\n"
-            f"selected_services:\n  - n8n\n"
-            f"data_root: {data_root}\n"
+            f"foundation_services:\n  - homepage\nselected_services:\n  - n8n\ndata_root: {data_root}\n"
         )
 
         with (
@@ -1245,17 +1265,15 @@ class TestPrivileged:
             )
         assert result.exit_code == 0
         mock_chown.assert_called()
+
+
 class TestPullSnapshots:
     def test_pull_persists_deployed_selection_on_success(self, tmp_path: Path):
         runner = CliRunner()
         repo_dir = tmp_path / "repo"
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
-        state_file.write_text(
-            "confirmed: true\n"
-            "foundation_services:\n  - homepage\n"
-            "selected_services:\n  - n8n\n"
-        )
+        state_file.write_text("confirmed: true\nfoundation_services:\n  - homepage\nselected_services:\n  - n8n\n")
 
         with (
             patch("rakkib.cli.ensure_prereqs", return_value=True),
@@ -1418,12 +1436,7 @@ class TestRestart:
         repo_dir.mkdir()
         state_file = repo_dir / ".fss-state.yaml"
         state_file.write_text(
-            "deployed:\n"
-            "  exists: true\n"
-            "  foundation_services:\n"
-            "    - homepage\n"
-            "  selected_services:\n"
-            "    - n8n\n"
+            "deployed:\n  exists: true\n  foundation_services:\n    - homepage\n  selected_services:\n    - n8n\n"
         )
 
         registry = {

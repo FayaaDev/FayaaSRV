@@ -30,6 +30,48 @@ def _minimal_registry(*ids: str) -> dict:
     }
 
 
+def _registry_with_deps(*services: tuple[str, list[str]]) -> dict:
+    registry = _minimal_registry(*(sid for sid, _deps in services))
+    for svc, (_sid, deps) in zip(registry["services"], services, strict=True):
+        if deps:
+            svc["depends_on"] = deps
+    return registry
+
+
+def _registry_with_postgres(*postgres_ids: str) -> dict:
+    registry = _minimal_registry(*postgres_ids)
+    for svc in registry["services"]:
+        svc["postgres"] = {
+            "role": svc["id"],
+            "db": f"{svc['id']}_db",
+            "password_key": f"{svc['id'].upper()}_DB_PASS",
+        }
+    return registry
+
+
+def _sync_state(
+    tmp_path: Path,
+    *,
+    selected: list[str],
+    deployed: list[str],
+) -> tuple[State, Path]:
+    state_file = tmp_path / ".fss-state.yaml"
+    state = State(
+        {
+            "foundation_services": [],
+            "selected_services": selected,
+            "deployed": {
+                "exists": bool(deployed),
+                "foundation_services": [],
+                "selected_services": deployed,
+            },
+        },
+        path=state_file,
+    )
+    state.save(state_file)
+    return state, state_file
+
+
 class TestRunServicePullRollback:
     def _baseline(self, tmp_path: Path) -> tuple[State, Path]:
         state_file = tmp_path / ".fss-state.yaml"
@@ -88,6 +130,203 @@ class TestRunServicePullRollback:
 
 
 class TestSyncRollback:
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.remove_single_service")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_add_failure_does_not_remove_existing_services(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_remove,
+        mock_secrets,
+        mock_sync_artifacts,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _minimal_registry("old", "new")
+        mock_run.side_effect = RuntimeError("new failed")
+        state, state_file = _sync_state(
+            tmp_path,
+            selected=["old", "new"],
+            deployed=["old"],
+        )
+
+        ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is False
+        assert "old" not in [call.args[1] for call in mock_remove.call_args_list]
+
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_mixed_add_remove_runs_added_before_removing_old_service(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_secrets,
+        mock_sync_artifacts,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _minimal_registry("old", "new")
+        events: list[str] = []
+        state, state_file = _sync_state(tmp_path, selected=["new"], deployed=["old"])
+
+        with (
+            patch(
+                "rakkib.cli.services_step.run_single_service",
+                side_effect=lambda _state, svc_id: events.append(f"run:{svc_id}"),
+            ),
+            patch(
+                "rakkib.cli.services_step.remove_single_service",
+                side_effect=lambda _state, svc_id: events.append(f"remove:{svc_id}"),
+            ),
+        ):
+            ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is True
+        assert events == ["run:new", "remove:old"]
+
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_removal_failure_cleans_added_service_and_restores_state(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_secrets,
+        mock_sync_artifacts,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _minimal_registry("old", "new")
+        state, state_file = _sync_state(tmp_path, selected=["new"], deployed=["old"])
+        with patch("rakkib.cli.services_step.remove_single_service") as mock_remove:
+            mock_remove.side_effect = [RuntimeError("old remove failed"), None]
+
+            ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is False
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["old", "new"]
+        reloaded = State.load(state_file)
+        assert reloaded.get("selected_services") == ["new"]
+        assert reloaded.get("deployed.selected_services") == ["old"]
+
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.remove_single_service")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_failure_after_removal_attempts_restore_removed_service(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_remove,
+        mock_secrets,
+        mock_sync_artifacts,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _minimal_registry("old")
+        mock_sync_artifacts.side_effect = RuntimeError("artifact sync failed")
+        state, state_file = _sync_state(tmp_path, selected=[], deployed=["old"])
+
+        ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is False
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["old"]
+        assert [call.args[1] for call in mock_run.call_args_list] == ["old"]
+        reloaded = State.load(state_file)
+        assert reloaded.get("deployed.selected_services") == ["old"]
+
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.remove_single_service")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_dependency_removal_order_remains_reverse_dependency_order(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_remove,
+        mock_secrets,
+        mock_sync_artifacts,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _registry_with_deps(("db", []), ("app", ["db"]))
+        state, state_file = _sync_state(tmp_path, selected=[], deployed=["db", "app"])
+
+        ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is True
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["app", "db"]
+
+    @patch("rakkib.cli.services_step._drop_service_postgres_resources")
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.remove_single_service")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_postgres_failure_drops_only_new_service_resources(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_remove,
+        mock_secrets,
+        mock_sync_artifacts,
+        mock_drop_pg,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _registry_with_postgres("oldpg", "newpg")
+        mock_pg_run.side_effect = RuntimeError("postgres sync failed")
+        state, state_file = _sync_state(tmp_path, selected=["oldpg", "newpg"], deployed=["oldpg"])
+
+        ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is False
+        assert [call.args[0]["id"] for call in mock_drop_pg.call_args_list] == ["newpg"]
+        mock_remove.assert_not_called()
+        reloaded = State.load(state_file)
+        assert reloaded.get("deployed.selected_services") == ["oldpg"]
+
+    @patch("rakkib.cli.services_step._drop_service_postgres_resources")
+    @patch("rakkib.cli.services_step.sync_shared_artifacts")
+    @patch("rakkib.cli.services_step._generate_missing_secrets")
+    @patch("rakkib.cli.services_step.remove_single_service")
+    @patch("rakkib.cli.services_step.run_single_service")
+    @patch("rakkib.cli.postgres_step.run")
+    @patch("rakkib.cli.services_step._load_registry")
+    def test_postgres_cleanup_skips_resources_removed_by_service_cleanup(
+        self,
+        mock_load_reg,
+        mock_pg_run,
+        mock_run,
+        mock_remove,
+        mock_secrets,
+        mock_sync_artifacts,
+        mock_drop_pg,
+        tmp_path: Path,
+    ):
+        mock_load_reg.return_value = _registry_with_postgres("oldpg", "newpg")
+        mock_run.side_effect = RuntimeError("service failed after postgres sync")
+        state, state_file = _sync_state(tmp_path, selected=["oldpg", "newpg"], deployed=["oldpg"])
+
+        ok = _sync_services_to_state_selection(state, state_file)
+
+        assert ok is False
+        assert [call.args[1] for call in mock_remove.call_args_list] == ["newpg"]
+        mock_drop_pg.assert_not_called()
+
     @patch("rakkib.cli.services_step.sync_shared_artifacts")
     @patch("rakkib.cli.services_step._generate_missing_secrets")
     @patch("rakkib.cli.services_step.remove_single_service")

@@ -45,7 +45,6 @@ def test_bootstrap_sets_strict_cookie_and_returns_csrf_token(tmp_path):
 
     response = client.post("/api/session/bootstrap", json={"token": "setup-token"})
 
-
     assert response.status_code == 200
     assert response.json()["ok"] is True
     assert response.json()["csrf_token"]
@@ -75,7 +74,10 @@ def test_cookie_authenticated_patch_accepts_csrf_token(tmp_path):
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "Use the phase answers API for setup updates; arbitrary state patches are not allowed."
+    assert (
+        response.json()["detail"]
+        == "Use the phase answers API for setup updates; arbitrary state patches are not allowed."
+    )
 
 
 def test_web_state_patch_rejects_arbitrary_updates_without_writing_state(tmp_path):
@@ -100,7 +102,10 @@ def test_web_state_patch_rejects_arbitrary_updates_without_writing_state(tmp_pat
         )
 
         assert response.status_code == 422
-        assert response.json()["detail"] == "Use the phase answers API for setup updates; arbitrary state patches are not allowed."
+        assert (
+            response.json()["detail"]
+            == "Use the phase answers API for setup updates; arbitrary state patches are not allowed."
+        )
 
     assert state_path.exists()
     assert not (package_dir / ".fss-state.yaml").exists()

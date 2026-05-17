@@ -100,9 +100,7 @@ class TestValidateRepoUrl:
 class TestValidateBranch:
     def test_accepts_typical_names(self, tmp_path: Path):
         for branch in ("main", "Claudify", "v2.0.0a1", "release/1.0", "feature_x", "x"):
-            result = _run_install_script(
-                _source_install(f"validate_branch {_q(branch)}"), tmp_path
-            )
+            result = _run_install_script(_source_install(f"validate_branch {_q(branch)}"), tmp_path)
             assert result.returncode == 0, f"rejected legitimate branch {branch}: {result.stderr}"
 
     def test_rejects_injection(self, tmp_path: Path):
@@ -117,9 +115,7 @@ class TestValidateBranch:
             "main`id`",
             "main\nrm",
         ):
-            result = _run_install_script(
-                _source_install(f"validate_branch {_q(branch)}"), tmp_path
-            )
+            result = _run_install_script(_source_install(f"validate_branch {_q(branch)}"), tmp_path)
             assert result.returncode != 0, f"accepted dangerous branch {branch!r}"
 
 

@@ -59,6 +59,7 @@ class TestCheckOs:
             if "-is" in cmd:
                 return MagicMock(stdout="Ubuntu\n", returncode=0)
             return MagicMock(stdout="22.04\n", returncode=0)
+
         mock_run.side_effect = side_effect
         result = check_os()
         assert result.status == "ok"
@@ -227,14 +228,14 @@ class TestCheckPublicPorts:
         assert result.status == "ok"
         assert "free" in result.message
 
-    @patch("rakkib.doctor._port_listeners", side_effect=[("LISTEN 0.0.0.0:80 users:((\"caddy\"))", 0), ("", 0)])
+    @patch("rakkib.doctor._port_listeners", side_effect=[('LISTEN 0.0.0.0:80 users:(("caddy"))', 0), ("", 0)])
     def test_owned_by_caddy(self, _mock: MagicMock):
         result = check_public_ports()
         assert result.status == "ok"
         assert "owned by caddy" in result.message
 
     @patch("rakkib.doctor._docker_container_publishes_port", return_value=False)
-    @patch("rakkib.doctor._port_listeners", side_effect=[("LISTEN 0.0.0.0:80 users:((\"nginx\"))", 0), ("", 0)])
+    @patch("rakkib.doctor._port_listeners", side_effect=[('LISTEN 0.0.0.0:80 users:(("nginx"))', 0), ("", 0)])
     def test_conflict(self, _mock_pl: MagicMock, _mock_dcpp: MagicMock):
         result = check_public_ports()
         assert result.status == "fail"
@@ -247,7 +248,7 @@ class TestCheckPublicPorts:
 
 
 class TestCheckSshPort:
-    @patch("rakkib.doctor._port_listeners", return_value=("LISTEN 0.0.0.0:22 users:((\"sshd\"))", 0))
+    @patch("rakkib.doctor._port_listeners", return_value=('LISTEN 0.0.0.0:22 users:(("sshd"))', 0))
     def test_listening(self, _mock: MagicMock):
         result = check_ssh_port()
         assert result.status == "ok"
@@ -310,9 +311,9 @@ class TestCheckConflicts:
 class TestRunChecks:
     def test_runs_all(self):
         state = State({"domain": "example.com", "data_root": "/srv", "exposure_mode": "cloudflare"})
-        with patch("rakkib.doctor.check_os") as mock_os, \
-             patch("rakkib.doctor.check_arch") as mock_arch:
+        with patch("rakkib.doctor.check_os") as mock_os, patch("rakkib.doctor.check_arch") as mock_arch:
             from rakkib.doctor import CheckResult
+
             mock_os.return_value = CheckResult("os", "ok", True, "")
             mock_arch.return_value = CheckResult("architecture", "ok", False, "")
             results = run_checks(state)
@@ -656,7 +657,9 @@ class TestAttemptFixCompose:
         assert "download" in msg.lower() and "failed" in msg.lower()
 
     @patch("platform.machine", return_value="x86_64")
-    @patch("rakkib.doctor._sha256_file", return_value="a0298760c9772d2c06888fc8703a487c94c3c3b0134adeef830742a2fc7647b4")
+    @patch(
+        "rakkib.doctor._sha256_file", return_value="a0298760c9772d2c06888fc8703a487c94c3c3b0134adeef830742a2fc7647b4"
+    )
     @patch("rakkib.doctor._command_exists", return_value=False)
     @patch("subprocess.run")
     def test_install_verify_fails(self, mock_run: MagicMock, _cmd: MagicMock, _sha: MagicMock, _machine: MagicMock):
@@ -699,7 +702,9 @@ class TestAttemptFixCloudflared:
         assert mock_run.call_args_list[1].args[0] == ["/opt/homebrew/bin/cloudflared", "--version"]
 
     @patch("subprocess.run")
-    @patch("rakkib.doctor._sha256_file", return_value="4a9e50e6d6d798e90fcd01933151a90bf7edd99a0a55c28ad18f2e16263a5c30")
+    @patch(
+        "rakkib.doctor._sha256_file", return_value="4a9e50e6d6d798e90fcd01933151a90bf7edd99a0a55c28ad18f2e16263a5c30"
+    )
     @patch("platform.system", return_value="Linux")
     @patch("platform.machine", return_value="x86_64")
     @patch("pathlib.Path.chmod")
@@ -725,7 +730,9 @@ class TestAttemptFixCloudflared:
     @patch("rakkib.doctor.tarfile.open")
     @patch("subprocess.run")
     @patch("rakkib.doctor._macos_brew_cmd", return_value=None)
-    @patch("rakkib.doctor._sha256_file", return_value="0f30140c4a5e213d22f951ef4c964cac5fb6a5f061ba6eba5ea932999f7c0394")
+    @patch(
+        "rakkib.doctor._sha256_file", return_value="0f30140c4a5e213d22f951ef4c964cac5fb6a5f061ba6eba5ea932999f7c0394"
+    )
     @patch("platform.system", return_value="Darwin")
     @patch("platform.machine", return_value="x86_64")
     def test_download_success_darwin_amd64_archive(
@@ -761,7 +768,9 @@ class TestAttemptFixCloudflared:
     @patch("rakkib.doctor.tarfile.open")
     @patch("subprocess.run")
     @patch("rakkib.doctor._macos_brew_cmd", return_value=None)
-    @patch("rakkib.doctor._sha256_file", return_value="2aae4f69b0fc1c671b8353b4f594cbd902cd1e360c8eed2b8cad4602cb1546fb")
+    @patch(
+        "rakkib.doctor._sha256_file", return_value="2aae4f69b0fc1c671b8353b4f594cbd902cd1e360c8eed2b8cad4602cb1546fb"
+    )
     @patch("platform.system", return_value="Darwin")
     @patch("platform.machine", return_value="arm64")
     def test_download_success_darwin_arm64_archive(

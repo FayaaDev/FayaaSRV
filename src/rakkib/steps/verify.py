@@ -134,9 +134,7 @@ def _print_summary(results: list[VerificationResult]) -> None:
     if failures:
         print("ACTION REQUIRED")
         print("-" * 60)
-        print(
-            "Some checks failed. Review the message above, then run `rakkib pull` again."
-        )
+        print("Some checks failed. Review the message above, then run `rakkib pull` again.")
         print("")
 
 
