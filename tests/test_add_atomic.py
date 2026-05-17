@@ -11,8 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from rakkib.cli import _run_service_pull, _sync_services_to_state_selection
 from rakkib.state import State
 

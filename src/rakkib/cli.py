@@ -348,7 +348,10 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
     desired_ids = set(desired_foundation)
     desired_ids.update(desired_selected)
 
-    previous_foundation, previous_selected = _deployed_service_lists(state)
+    if state.get("deployed.exists", False):
+        previous_foundation, previous_selected = _deployed_service_lists(state)
+    else:
+        previous_foundation, previous_selected = [], []
     previous_ids = set(previous_foundation)
     previous_ids.update(previous_selected)
 
@@ -382,7 +385,8 @@ def _sync_services_to_state_selection(state: State, state_path: Path) -> bool:
             if _postgres_sync_needed(registry, previous_ids, desired_ids):
                 postgres_step.run(state)
 
-            added = sorted(desired_ids - previous_ids)
+            added_set = desired_ids - previous_ids
+            added = [svc["id"] for svc in registry["services"] if svc["id"] in added_set]
             if added:
                 for svc_id in added:
                     added_in_progress = svc_id

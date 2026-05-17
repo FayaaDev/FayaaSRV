@@ -303,7 +303,7 @@ wait_for_apt_locks() {
   while true; do
     local busy=0
     for f in "${lock_files[@]}"; do
-      if [[ -e "$f" ]] && ! sudo flock -n "$f" true 2>/dev/null; then
+      if [[ -e "$f" ]] && ! run_root flock -n "$f" true 2>/dev/null; then
         busy=1
         break
       fi
@@ -320,7 +320,7 @@ wait_for_apt_locks() {
 
 apt_get() {
   local timeout="${RAKKIB_APT_LOCK_TIMEOUT:-900}"
-  sudo env \
+  run_root env \
     DEBIAN_FRONTEND=noninteractive \
     APT_LISTCHANGES_FRONTEND=none \
     NEEDRESTART_MODE=a \
