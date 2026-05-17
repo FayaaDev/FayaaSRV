@@ -54,6 +54,83 @@ def test_run_quiet_uses_portable_mktemp_template(tmp_path: Path):
     assert result.returncode == 0, result.stderr + result.stdout
 
 
+def _source_install(extra: str = "") -> str:
+    return f"""
+    set -euo pipefail
+    export RAKKIB_INSTALL_TEST_MODE=1
+    source ./install.sh
+    {extra}
+    """
+
+
+class TestValidateRepoUrl:
+    def test_accepts_public_https(self, tmp_path: Path):
+        for url in (
+            "https://github.com/FayaaDev/rakkib",
+            "https://github.com/FayaaDev/rakkib.git",
+            "https://github.com/FayaaDev/rakkib-dev",
+            "https://github.com/FayaaDev/rakkib-dev.git",
+        ):
+            result = _run_install_script(_source_install(f"validate_repo_url {_q(url)}"), tmp_path)
+            assert result.returncode == 0, f"rejected legitimate URL {url}: {result.stderr}"
+
+    def test_accepts_ssh_forms(self, tmp_path: Path):
+        for url in (
+            "git@github.com:FayaaDev/rakkib.git",
+            "git@github.com:FayaaDev/rakkib-dev.git",
+            "ssh://git@github.com/FayaaDev/rakkib.git",
+            "ssh://git@github.com/FayaaDev/rakkib-dev.git",
+        ):
+            result = _run_install_script(_source_install(f"validate_repo_url {_q(url)}"), tmp_path)
+            assert result.returncode == 0, f"rejected legitimate URL {url}: {result.stderr}"
+
+    def test_rejects_untrusted_urls(self, tmp_path: Path):
+        for url in (
+            "https://attacker.example/rakkib.git",
+            "https://github.com/FayaaDev/Rakkib",  # legacy uppercase; old origin migrates but install rejects
+            "https://github.com/evil/rakkib.git",
+            "file:///tmp/local-rakkib",
+            "https://github.com/FayaaDev/rakkib-fork.git",
+        ):
+            result = _run_install_script(_source_install(f"validate_repo_url {_q(url)}"), tmp_path)
+            assert result.returncode != 0, f"accepted untrusted URL {url}"
+            assert "untrusted repo" in result.stderr
+
+
+class TestValidateBranch:
+    def test_accepts_typical_names(self, tmp_path: Path):
+        for branch in ("main", "Claudify", "v2.0.0a1", "release/1.0", "feature_x", "x"):
+            result = _run_install_script(
+                _source_install(f"validate_branch {_q(branch)}"), tmp_path
+            )
+            assert result.returncode == 0, f"rejected legitimate branch {branch}: {result.stderr}"
+
+    def test_rejects_injection(self, tmp_path: Path):
+        for branch in (
+            "",
+            "--upload-pack=evil",
+            "-rf",
+            ".hidden",
+            "/abs",
+            "main; rm -rf /",
+            "main$(id)",
+            "main`id`",
+            "main\nrm",
+        ):
+            result = _run_install_script(
+                _source_install(f"validate_branch {_q(branch)}"), tmp_path
+            )
+            assert result.returncode != 0, f"accepted dangerous branch {branch!r}"
+
+
+def test_update_mode_default_is_skip(tmp_path: Path):
+    # Defense against curl|bash silently destroying local checkout edits.
+    script = _source_install('printf "%s" "$UPDATE_MODE"')
+    result = _run_install_script(script, tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "skip", f"default UPDATE_MODE drifted: {result.stdout!r}"
+
+
 def test_macos_tooling_installs_clt_homebrew_and_git(tmp_path: Path):
     fakebin = tmp_path / "fakebin"
     fakebin.mkdir()
