@@ -33,8 +33,7 @@ def test_build_add_choices_include_description_and_resource_suffixes():
     titles = [choice.title for choice in choices]
 
     assert any(
-        "hermes-agent [Self-improving AI agent] [heavy: 8 GB RAM, 25 GB disk recommended]" in title
-        for title in titles
+        "hermes-agent [Self-improving AI agent] [heavy: 8 GB RAM, 25 GB disk recommended]" in title for title in titles
     )
 
 
@@ -68,8 +67,7 @@ def test_interview_service_catalog_includes_description_and_resource_suffixes():
 
     titles = [choice.title for choice in mock_checkbox.call_args.kwargs["choices"]]
     assert any(
-        "Hermes Agent [Self-improving AI agent] [heavy: 8 GB RAM, 25 GB disk recommended]" in title
-        for title in titles
+        "Hermes Agent [Self-improving AI agent] [heavy: 8 GB RAM, 25 GB disk recommended]" in title for title in titles
     )
 
 

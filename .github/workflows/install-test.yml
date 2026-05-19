@@ -1,0 +1,46 @@
+name: Install Smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-2404:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run install.sh in fresh Ubuntu 24.04
+        run: |
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            ubuntu:24.04 \
+            bash -lc '
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              export HOME=/tmp/rakkib-home
+              mkdir -p "$HOME" /tmp/rakkib
+
+              apt-get update -qq
+              apt-get install -y -qq --no-install-recommends ca-certificates curl git python3
+
+              cp -a /src/. /tmp/rakkib/
+              cd /tmp/rakkib
+              rm -rf .venv
+              git config --global --add safe.directory /tmp/rakkib
+
+              # Keep this smoke test on the checked-out branch instead of updating to origin/main.
+              touch .rakkib-install-smoke-dirty
+              RAKKIB_UPDATE_MODE=skip bash ./install.sh
+
+              /tmp/rakkib-home/.local/bin/rakkib --version
+            '

@@ -146,7 +146,9 @@ def test_host_auth_readiness_on_mac_skips_sudo_when_docker_ready(monkeypatch):
 
     monkeypatch.setattr("rakkib.web.host_auth.os.geteuid", lambda: 1000)
     monkeypatch.setattr("rakkib.web.host_auth.platform.system", lambda: "Darwin")
-    monkeypatch.setattr("rakkib.web.host_auth.shutil.which", lambda cmd: f"/usr/local/bin/{cmd}" if cmd == "docker" else None)
+    monkeypatch.setattr(
+        "rakkib.web.host_auth.shutil.which", lambda cmd: f"/usr/local/bin/{cmd}" if cmd == "docker" else None
+    )
     monkeypatch.setattr("rakkib.web.host_auth.docker_run", fake_docker_run)
 
     status = check_host_auth_readiness()

@@ -15,16 +15,13 @@ from rakkib.docker import DockerError
 from rakkib.hooks import services as service_hooks
 from rakkib.state import State
 from rakkib.steps import selected_service_defs
-from rakkib.steps import VerificationResult
 from rakkib.steps import services as services_step
 
 
 @pytest.fixture(autouse=True)
 def clear_registry_cache_and_mock_network():
     services_step._load_registry.cache_clear()
-    with patch("rakkib.steps.services.create_network"), patch(
-        "rakkib.steps.services.health_check", return_value=True
-    ):
+    with patch("rakkib.steps.services.create_network"), patch("rakkib.steps.services.health_check", return_value=True):
         yield
     services_step._load_registry.cache_clear()
 
@@ -104,10 +101,12 @@ def fake_repo(tmp_path: Path):
 
 class TestSelectedServiceDefs:
     def test_dependency_order(self, fake_repo: Path):
-        state = State({
-            "foundation_services": ["nocodb", "homepage"],
-            "selected_services": ["homepage"],
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb", "homepage"],
+                "selected_services": ["homepage"],
+            }
+        )
         registry = services_step._load_registry()
         defs = selected_service_defs(state, registry)
         ids = [d["id"] for d in defs]
@@ -140,45 +139,53 @@ class TestGenerateMissingSecrets:
         assert state.get("NOCODB_DB_PASS") is not None
 
     def test_generates_n8n_encryption_when_fresh(self):
-        state = State({
-            "selected_services": ["n8n"],
-            "secrets": {"n8n_mode": "fresh"},
-        })
+        state = State(
+            {
+                "selected_services": ["n8n"],
+                "secrets": {"n8n_mode": "fresh"},
+            }
+        )
         services_step._generate_missing_secrets(state)
         assert state.get("N8N_ENCRYPTION_KEY") is not None
 
     def test_does_not_generate_n8n_encryption_when_migrate(self):
-        state = State({
-            "selected_services": ["n8n"],
-            "secrets": {"n8n_mode": "migrate"},
-        })
+        state = State(
+            {
+                "selected_services": ["n8n"],
+                "secrets": {"n8n_mode": "migrate"},
+            }
+        )
         services_step._generate_missing_secrets(state)
         assert state.get("N8N_ENCRYPTION_KEY") is None
 
     def test_prefers_secrets_values_over_generation(self):
         """When secrets.values already has a password (set by Step 4),
         Step 5 must reuse it instead of generating a divergent one."""
-        state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": ["n8n"],
-            "secrets": {
-                "n8n_mode": "fresh",
-                "values": {
-                    "NOCODB_DB_PASS": "from-step4-nocodb",
-                    "N8N_DB_PASS": "from-step4-n8n",
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "selected_services": ["n8n"],
+                "secrets": {
+                    "n8n_mode": "fresh",
+                    "values": {
+                        "NOCODB_DB_PASS": "from-step4-nocodb",
+                        "N8N_DB_PASS": "from-step4-n8n",
+                    },
                 },
-            },
-        })
+            }
+        )
         services_step._generate_missing_secrets(state)
         assert state.get("NOCODB_DB_PASS") == "from-step4-nocodb"
         assert state.get("N8N_DB_PASS") == "from-step4-n8n"
 
     def test_generates_when_secrets_values_empty(self):
         """When secrets.values has no entry, Step 5 should still generate."""
-        state = State({
-            "foundation_services": ["nocodb"],
-            "secrets": {"values": {}},
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "secrets": {"values": {}},
+            }
+        )
         services_step._generate_missing_secrets(state)
         assert state.get("NOCODB_DB_PASS") is not None
         assert len(state.get("NOCODB_DB_PASS")) > 0
@@ -209,11 +216,7 @@ class TestRenderEnvExample:
 class TestInternalAccessRendering:
     def test_internal_mode_injects_declared_direct_port(self, tmp_path: Path):
         compose_path = tmp_path / "docker-compose.yml"
-        compose_path.write_text(
-            "services:\n"
-            "  nocodb:\n"
-            "    image: nocodb/nocodb:latest\n"
-        )
+        compose_path.write_text("services:\n  nocodb:\n    image: nocodb/nocodb:latest\n")
         svc = {
             "id": "nocodb",
             "internal_access": {"enabled": True, "host_port": 13001, "container_port": 8080},
@@ -277,12 +280,14 @@ class TestRun:
     ):
         mock_repo.return_value = fake_repo
         data_root = tmp_path / "srv"
-        state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
-            "data_root": str(data_root),
-            "backup_dir": str(data_root / "backups"),
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "selected_services": [],
+                "data_root": str(data_root),
+                "backup_dir": str(data_root / "backups"),
+            }
+        )
         with patch("rakkib.steps.services._publish_cloudflare_service"):
             services_step.run(state)
 
@@ -306,13 +311,15 @@ class TestRun:
     ):
         mock_repo.return_value = fake_repo
         data_root = tmp_path / "srv"
-        state = State({
-            "exposure_mode": "internal",
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
-            "data_root": str(data_root),
-            "backup_dir": str(data_root / "backups"),
-        })
+        state = State(
+            {
+                "exposure_mode": "internal",
+                "foundation_services": ["nocodb"],
+                "selected_services": [],
+                "data_root": str(data_root),
+                "backup_dir": str(data_root / "backups"),
+            }
+        )
 
         with patch("rakkib.steps.services._publish_cloudflare_service"):
             services_step.run(state)
@@ -336,12 +343,14 @@ class TestRun:
     ):
         mock_repo.return_value = fake_repo
         data_root = tmp_path / "srv"
-        state = State({
-            "foundation_services": [],
-            "selected_services": ["openclaw"],
-            "data_root": str(data_root),
-            "backup_dir": str(data_root / "backups"),
-        })
+        state = State(
+            {
+                "foundation_services": [],
+                "selected_services": ["openclaw"],
+                "data_root": str(data_root),
+                "backup_dir": str(data_root / "backups"),
+            }
+        )
         services_step.run(state)
         mock_compose.assert_not_called()
         assert mock_hooks.call_count == 3
@@ -362,13 +371,15 @@ class TestRun:
     ):
         mock_repo.return_value = fake_repo
         data_root = tmp_path / "srv"
-        state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
-            "data_root": str(data_root),
-            "backup_dir": str(data_root / "backups"),
-            "VALUE": "test123",
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "selected_services": [],
+                "data_root": str(data_root),
+                "backup_dir": str(data_root / "backups"),
+                "VALUE": "test123",
+            }
+        )
         services_step.run(state)
         env_path = data_root / "docker" / "nocodb" / ".env"
         assert env_path.exists()
@@ -475,12 +486,14 @@ class TestRunSingleService:
     def test_deploys_single_service(self, mock_reload, mock_compose, _mock_health, mock_repo, fake_repo, tmp_path):
         mock_repo.return_value = fake_repo
         data_root = tmp_path / "srv"
-        state = State({
-            "foundation_services": [],
-            "selected_services": [],
-            "data_root": str(data_root),
-            "backup_dir": str(data_root / "backups"),
-        })
+        state = State(
+            {
+                "foundation_services": [],
+                "selected_services": [],
+                "data_root": str(data_root),
+                "backup_dir": str(data_root / "backups"),
+            }
+        )
         services_step.run_single_service(state, "nocodb")
         mock_compose.assert_called_once()
         mock_reload.assert_not_called()
@@ -551,16 +564,23 @@ class TestReloadCaddy:
         data_root = tmp_path / "srv"
         caddy_dir = data_root / "docker" / "caddy"
         caddy_dir.mkdir(parents=True)
-        (caddy_dir / "Caddyfile").write_text(":80 {\n\trespond \"ok\" 200\n}\n")
+        (caddy_dir / "Caddyfile").write_text(':80 {\n\trespond "ok" 200\n}\n')
 
-        fmt_result = MagicMock(returncode=0, stdout=":80 {\nrespond \"ok\" 200\n}\n")
+        fmt_result = MagicMock(returncode=0, stdout=':80 {\nrespond "ok" 200\n}\n')
         reload_result = MagicMock(returncode=0, stdout="", stderr="")
         mock_docker_run.side_effect = [fmt_result, reload_result]
 
         services_step._reload_caddy(data_root)
 
         assert mock_docker_run.call_count == 2
-        assert mock_docker_run.call_args_list[0].args[0] == ["compose", "exec", "caddy", "caddy", "fmt", "/etc/caddy/Caddyfile"]
+        assert mock_docker_run.call_args_list[0].args[0] == [
+            "compose",
+            "exec",
+            "caddy",
+            "caddy",
+            "fmt",
+            "/etc/caddy/Caddyfile",
+        ]
         assert mock_docker_run.call_args_list[1].args[0] == [
             "compose",
             "exec",
@@ -631,12 +651,14 @@ class TestReloadCaddy:
     @patch("rakkib.steps.services._repo_dir")
     def test_raises_for_unknown_service(self, mock_repo, fake_repo, tmp_path):
         mock_repo.return_value = fake_repo
-        state = State({
-            "foundation_services": [],
-            "selected_services": [],
-            "data_root": str(tmp_path / "srv"),
-            "backup_dir": str(tmp_path / "srv" / "backups"),
-        })
+        state = State(
+            {
+                "foundation_services": [],
+                "selected_services": [],
+                "data_root": str(tmp_path / "srv"),
+                "backup_dir": str(tmp_path / "srv" / "backups"),
+            }
+        )
         with pytest.raises(ValueError, match="not found in registry"):
             services_step.run_single_service(state, "unknown")
 
@@ -705,9 +727,11 @@ class TestSpecialHandlers:
 
         state = State({"admin_user": "admin"})
 
-        with patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000)), patch(
-            "pathlib.Path.exists", return_value=False
-        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000):
+        with (
+            patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000)),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("rakkib.hooks.services.os.geteuid", return_value=1000),
+        ):
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         install_cmd = mock_run_as_user.call_args_list[0].args[1]
@@ -723,8 +747,14 @@ class TestSpecialHandlers:
         assert second_call[1] == Path("/home/admin/.local/bin/openclaw")
         assert second_call[2][0] == "onboard"
 
-    @patch("rakkib.hooks.services.wait_for_apt_locks", return_value="Timed out waiting for apt/dpkg locks: /var/lib/dpkg/lock-frontend. unattended-upgrades is running.")
-    @patch("rakkib.hooks.services.shutil.which", side_effect=lambda cmd: "/usr/bin/apt-get" if cmd == "apt-get" else "/usr/bin/curl")
+    @patch(
+        "rakkib.hooks.services.wait_for_apt_locks",
+        return_value="Timed out waiting for apt/dpkg locks: /var/lib/dpkg/lock-frontend. unattended-upgrades is running.",
+    )
+    @patch(
+        "rakkib.hooks.services.shutil.which",
+        side_effect=lambda cmd: "/usr/bin/apt-get" if cmd == "apt-get" else "/usr/bin/curl",
+    )
     def test_openclaw_install_fails_actionably_when_apt_lock_wait_times_out(self, _mock_which, _mock_wait):
         state = State({"admin_user": "admin"})
 
@@ -733,10 +763,18 @@ class TestSpecialHandlers:
                 service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
     @patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000))
-    @patch("rakkib.hooks.services.subprocess.run", side_effect=subprocess.TimeoutExpired(["openclaw", "gateway", "restart"], 1))
+    @patch(
+        "rakkib.hooks.services.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(["openclaw", "gateway", "restart"], 1),
+    )
     def test_openclaw_command_timeout_is_actionable(self, _mock_run, _mock_user):
         with pytest.raises(RuntimeError, match="timed out"):
-            service_hooks._run_openclaw(State({"admin_user": "admin"}), Path("/home/admin/.local/bin/openclaw"), ["gateway", "restart"], check=False)
+            service_hooks._run_openclaw(
+                State({"admin_user": "admin"}),
+                Path("/home/admin/.local/bin/openclaw"),
+                ["gateway", "restart"],
+                check=False,
+            )
 
     @patch("rakkib.hooks.services._run_openclaw")
     @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
@@ -759,11 +797,12 @@ class TestSpecialHandlers:
             }
         )
 
-        with patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000)), patch(
-            "rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")
-        ), patch(
-            "pathlib.Path.exists", return_value=True
-        ), patch("rakkib.hooks.services.os.geteuid", return_value=1000):
+        with (
+            patch("rakkib.hooks.services._service_admin_user", return_value=("admin", Path("/home/admin"), 1000)),
+            patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/home/admin/.local/bin/openclaw")),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("rakkib.hooks.services.os.geteuid", return_value=1000),
+        ):
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         assert mock_run_openclaw.call_args_list[1].args[2] == ["config", "set", "gateway.bind", "lan"]
@@ -777,7 +816,9 @@ class TestSpecialHandlers:
     @patch("rakkib.hooks.services._run_openclaw")
     @patch("rakkib.hooks.services.subprocess.run")
     @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
-    def test_openclaw_install_tolerates_nonzero_onboard_when_artifacts_exist(self, _mock_wait, _mock_subprocess, mock_run_openclaw):
+    def test_openclaw_install_tolerates_nonzero_onboard_when_artifacts_exist(
+        self, _mock_wait, _mock_subprocess, mock_run_openclaw
+    ):
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
             MagicMock(returncode=1, stdout="Updated ~/.openclaw/openclaw.json", stderr="daemon warning"),
@@ -795,9 +836,12 @@ class TestSpecialHandlers:
                 return config_checks["count"] > 1
             return path_obj == service_path
 
-        with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/root/.local/bin/openclaw")), patch(
-            "rakkib.hooks.services._service_admin_user", return_value=("root", Path("/root"), 0)
-        ), patch("pathlib.Path.exists", autospec=True, side_effect=fake_exists), patch("rakkib.hooks.services.os.geteuid", return_value=0):
+        with (
+            patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/root/.local/bin/openclaw")),
+            patch("rakkib.hooks.services._service_admin_user", return_value=("root", Path("/root"), 0)),
+            patch("pathlib.Path.exists", autospec=True, side_effect=fake_exists),
+            patch("rakkib.hooks.services.os.geteuid", return_value=0),
+        ):
             service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
         assert mock_run_openclaw.call_args_list[1].args[2][0] == "onboard"
@@ -806,16 +850,23 @@ class TestSpecialHandlers:
     @patch("rakkib.hooks.services._run_openclaw")
     @patch("rakkib.hooks.services.subprocess.run")
     @patch("rakkib.hooks.services.wait_for_apt_locks", return_value=None)
-    def test_openclaw_install_raises_with_stderr_when_onboard_fails_without_artifacts(self, _mock_wait, _mock_subprocess, mock_run_openclaw):
+    def test_openclaw_install_raises_with_stderr_when_onboard_fails_without_artifacts(
+        self, _mock_wait, _mock_subprocess, mock_run_openclaw
+    ):
         mock_run_openclaw.side_effect = [
             MagicMock(returncode=0, stdout="2026.4.26", stderr=""),
-            MagicMock(returncode=1, stdout="Updated ~/.openclaw/openclaw.json", stderr="failed to reach systemd user bus"),
+            MagicMock(
+                returncode=1, stdout="Updated ~/.openclaw/openclaw.json", stderr="failed to reach systemd user bus"
+            ),
         ]
         state = State({"admin_user": "root", "foundation_services": []})
 
-        with patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/root/.local/bin/openclaw")), patch(
-            "rakkib.hooks.services._service_admin_user", return_value=("root", Path("/root"), 0)
-        ), patch("pathlib.Path.exists", return_value=False), patch("rakkib.hooks.services.os.geteuid", return_value=0):
+        with (
+            patch("rakkib.hooks.services._resolve_openclaw_bin", return_value=Path("/root/.local/bin/openclaw")),
+            patch("rakkib.hooks.services._service_admin_user", return_value=("root", Path("/root"), 0)),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("rakkib.hooks.services.os.geteuid", return_value=0),
+        ):
             with pytest.raises(RuntimeError, match="failed to reach systemd user bus"):
                 service_hooks.openclaw_install(state, {}, Path("."), Path("."), Path("hook.log"), {})
 
@@ -860,8 +911,9 @@ class TestSpecialHandlers:
         mock_run_as_user.return_value = MagicMock(returncode=0, stdout="", stderr="")
         state = State({"admin_user": "ubuntu"})
 
-        with patch("rakkib.hooks.services._service_admin_user", return_value=("ubuntu", Path("/home/ubuntu"), 1000)), patch(
-            "pathlib.Path.exists", autospec=True, side_effect=lambda _self: True
+        with (
+            patch("rakkib.hooks.services._service_admin_user", return_value=("ubuntu", Path("/home/ubuntu"), 1000)),
+            patch("pathlib.Path.exists", autospec=True, side_effect=lambda _self: True),
         ):
             service_hooks._migrate_root_openclaw_service(state)
 
@@ -884,7 +936,9 @@ class TestSpecialHandlers:
         mock_run_as_user.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         with patch("pathlib.Path.exists", return_value=False):
-            service_hooks.openclaw_gateway_uninstall(State({"admin_user": "admin"}), {}, Path("."), Path("."), Path("hook.log"), {})
+            service_hooks.openclaw_gateway_uninstall(
+                State({"admin_user": "admin"}), {}, Path("."), Path("."), Path("hook.log"), {}
+            )
 
         assert mock_run_openclaw.call_args.args[2] == ["gateway", "uninstall"]
         purge_cmd = mock_run_as_user.call_args.args[3]
@@ -908,7 +962,9 @@ class TestSpecialHandlers:
         mock_run_as_user.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         with patch("pathlib.Path.exists", return_value=False):
-            service_hooks.openclaw_gateway_uninstall(State({"admin_user": "admin"}), {}, Path("."), Path("."), Path("hook.log"), {})
+            service_hooks.openclaw_gateway_uninstall(
+                State({"admin_user": "admin"}), {}, Path("."), Path("."), Path("hook.log"), {}
+            )
 
         mock_run_openclaw.assert_not_called()
         mock_run_as_user.assert_called_once()
@@ -1133,15 +1189,20 @@ class TestRemoveSingleService:
                 }
             ]
         }
-        state = State({
-            "data_root": str(data_root),
-            "exposure_mode": "cloudflare",
-            "domain": "example.com",
-            "subdomains": {"vaultwarden": "vault"},
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "exposure_mode": "cloudflare",
+                "domain": "example.com",
+                "subdomains": {"vaultwarden": "vault"},
+            }
+        )
 
         with patch("rakkib.steps.services._load_registry", return_value=registry):
-            with patch("rakkib.steps.cloudflare.unpublish_service", return_value="Cloudflare DNS record vault.example.com may still exist.") as mock_unpublish:
+            with patch(
+                "rakkib.steps.cloudflare.unpublish_service",
+                return_value="Cloudflare DNS record vault.example.com may still exist.",
+            ) as mock_unpublish:
                 services_step.remove_single_service(state, "vaultwarden")
 
         mock_unpublish.assert_called_once_with(state, registry["services"][0], warn=True)
@@ -1171,10 +1232,12 @@ class TestVerify:
     @patch("rakkib.steps.services.subprocess.run")
     def test_host_service_uses_monitoring_path(self, mock_run: MagicMock):
         mock_run.return_value = MagicMock(returncode=0)
-        state = State({
-            "foundation_services": [],
-            "selected_services": ["openclaw"],
-        })
+        state = State(
+            {
+                "foundation_services": [],
+                "selected_services": ["openclaw"],
+            }
+        )
 
         result = services_step.verify(state)
 
@@ -1357,10 +1420,12 @@ class TestRestartService:
         mock_repo.return_value = fake_repo
         mock_running.return_value = True
         mock_port.return_value = True
-        state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "selected_services": [],
+            }
+        )
         result = services_step.verify(state)
         assert result.ok is True
 
@@ -1374,10 +1439,12 @@ class TestRestartService:
     ):
         mock_repo.return_value = fake_repo
         mock_running.return_value = False
-        state = State({
-            "foundation_services": ["nocodb"],
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "foundation_services": ["nocodb"],
+                "selected_services": [],
+            }
+        )
         result = services_step.verify(state)
         assert result.ok is False
         assert "nocodb" in result.message
@@ -1396,10 +1463,12 @@ class TestRestartService:
         mock_running.return_value = True
         mock_port.return_value = False
         # transfer has host_port=True; if port is not published, verify must fail
-        state = State({
-            "foundation_services": [],
-            "selected_services": ["transfer"],
-        })
+        state = State(
+            {
+                "foundation_services": [],
+                "selected_services": ["transfer"],
+            }
+        )
         result = services_step.verify(state)
         assert result.ok is False
         assert "does not publish port" in result.message
@@ -1418,10 +1487,12 @@ class TestRestartService:
         mock_running.return_value = True
         mock_port.return_value = False
         # dockge has host_port=False; verify should succeed without port check
-        state = State({
-            "foundation_services": ["dockge"],
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "foundation_services": ["dockge"],
+                "selected_services": [],
+            }
+        )
         result = services_step.verify(state)
         assert result.ok is True
         # container_publishes_port should NOT be called for host_port=False services

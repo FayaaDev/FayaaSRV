@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from rakkib.schema import FieldDef, QuestionSchema, load_all_schemas
+from rakkib.schema import QuestionSchema, load_all_schemas
 
 QUESTIONS_DIR = Path(__file__).resolve().parent.parent / "src" / "rakkib" / "data" / "questions"
 

@@ -54,7 +54,10 @@ def test_validate_subdomain_map_rejects_duplicates_and_invalid_labels():
 
 def test_cloudflare_enabled_defaults_existing_cloudflare_installs_to_true():
     assert cloudflare_enabled(State({"cloudflare": {"auth_method": "browser_login"}})) is True
-    assert cloudflare_enabled(State({"exposure_mode": "internal", "cloudflare": {"auth_method": "browser_login"}})) is False
+    assert (
+        cloudflare_enabled(State({"exposure_mode": "internal", "cloudflare": {"auth_method": "browser_login"}}))
+        is False
+    )
 
 
 def test_caddy_enabled_only_skips_explicit_internal_mode():
@@ -78,7 +81,9 @@ def test_service_url_uses_internal_access_for_internal_mode():
 
 
 def test_deployed_service_urls_keep_registry_order_for_internal_mode():
-    state = State({"exposure_mode": "internal", "lan_ip": "192.168.1.50", "foundation_services": ["homepage", "nocodb"]})
+    state = State(
+        {"exposure_mode": "internal", "lan_ip": "192.168.1.50", "foundation_services": ["homepage", "nocodb"]}
+    )
     registry = {
         "services": [
             {"id": "homepage", "internal_access": {"enabled": True, "host_port": 13000, "container_port": 3000}},
@@ -99,12 +104,14 @@ def test_deployed_service_urls_use_openclaw_special_url_only():
             {"id": "openclaw", "default_subdomain": "claw", "homepage": {"name": "OpenClaw"}},
         ]
     }
-    state = State({
-        "domain": "example.com",
-        "foundation_services": ["homepage"],
-        "selected_services": ["openclaw"],
-        "deployed": {"special_urls": {"openclaw": "https://claw.example.com/?token=abc"}},
-    })
+    state = State(
+        {
+            "domain": "example.com",
+            "foundation_services": ["homepage"],
+            "selected_services": ["openclaw"],
+            "deployed": {"special_urls": {"openclaw": "https://claw.example.com/?token=abc"}},
+        }
+    )
 
     rows = deployed_service_urls(state, registry)
 

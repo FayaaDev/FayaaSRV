@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rakkib.state import State
-from rakkib.steps import VerificationResult
 from rakkib.steps import cron as cron_step
 
 
@@ -69,14 +68,14 @@ class TestInstallCronEntry:
     def test_replaces_existing_entry(self):
         lines = ["0 0 * * * /bin/old  # MARK"]
         result = cron_step._install_cron_entry(lines, "# MARK", "0 * * * *", "/bin/new")
-        assert len([l for l in result if "# MARK" in l]) == 1
+        assert len([line for line in result if "# MARK" in line]) == 1
         assert "/bin/new" in result[-1]
         assert "/bin/old" not in result[-1]
 
     def test_does_not_duplicate(self):
         lines = ["0 0 * * * /bin/old  # MARK", "# other"]
         result = cron_step._install_cron_entry(lines, "# MARK", "0 * * * *", "/bin/new")
-        assert len([l for l in result if "# MARK" in l]) == 1
+        assert len([line for line in result if "# MARK" in line]) == 1
 
 
 class TestCrontabLines:
@@ -117,13 +116,15 @@ class TestRun:
         mock_exists.return_value = True
         data_root = tmp_path / "srv"
         backup_dir = data_root / "backups"
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "admin_user": "admin",
-            "selected_services": ["openclaw"],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "admin_user": "admin",
+                "selected_services": ["openclaw"],
+            }
+        )
         cron_step.run(state)
 
         written_lines = mock_write.call_args[0][0]
@@ -153,13 +154,15 @@ class TestRun:
         mock_read.return_value = []
         data_root = tmp_path / "srv"
         backup_dir = data_root / "backups"
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "admin_user": "admin",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "admin_user": "admin",
+                "selected_services": [],
+            }
+        )
         cron_step.run(state)
         mock_read.assert_called_once_with("admin")
         mock_write.assert_called_once()
@@ -184,13 +187,15 @@ class TestRun:
         mock_read.return_value = []
         data_root = tmp_path / "srv"
         backup_dir = data_root / "backups"
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "mac",
-            "admin_user": "admin",
-            "selected_services": ["openclaw"],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "mac",
+                "admin_user": "admin",
+                "selected_services": ["openclaw"],
+            }
+        )
         cron_step.run(state)
         written_lines = mock_write.call_args[0][0]
         assert not any("claw-healthcheck" in line for line in written_lines)
@@ -221,13 +226,15 @@ class TestRun:
         mock_home.return_value = tmp_path / "home"
         data_root = tmp_path / "srv"
         backup_dir = data_root / "backups"
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "exposure_mode": "internal",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "exposure_mode": "internal",
+                "selected_services": [],
+            }
+        )
 
         cron_step.run(state)
 
@@ -260,13 +267,15 @@ class TestRun:
         mock_home.return_value = tmp_path / "home"
         data_root = tmp_path / "srv"
         backup_dir = data_root / "backups"
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "exposure_mode": "cloudflare",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "exposure_mode": "cloudflare",
+                "selected_services": [],
+            }
+        )
 
         cron_step.run(state)
 
@@ -295,12 +304,14 @@ class TestVerify:
         (backup_dir / "healthchecks" / "cloudflared-healthcheck.sh").write_text("#!/bin/bash\n")
         (backup_dir / "healthchecks" / "cloudflared-healthcheck.sh").chmod(0o755)
 
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "selected_services": [],
+            }
+        )
         result = cron_step.verify(state)
         assert result.ok is True
 
@@ -313,12 +324,14 @@ class TestVerify:
         (backup_dir / "backup-local.sh").write_text("#!/bin/bash\n")
         # NOT executable
 
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "selected_services": [],
+            }
+        )
         result = cron_step.verify(state)
         assert result.ok is False
         assert "not executable" in result.message
@@ -334,12 +347,14 @@ class TestVerify:
         (backup_dir / "restore-local.sh").write_text("#!/bin/bash\n")
         (backup_dir / "restore-local.sh").chmod(0o755)
 
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "selected_services": [],
+            }
+        )
         result = cron_step.verify(state)
         assert result.ok is False
         assert "Missing cron entry" in result.message
@@ -360,12 +375,14 @@ class TestVerify:
         (backup_dir / "healthchecks" / "cloudflared-healthcheck.sh").write_text("#!/bin/bash\n")
         # NOT executable
 
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "selected_services": [],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "selected_services": [],
+            }
+        )
         result = cron_step.verify(state)
         assert result.ok is False
         assert "not executable" in result.message
@@ -384,11 +401,13 @@ class TestVerify:
         (backup_dir / "restore-local.sh").write_text("#!/bin/bash\n")
         (backup_dir / "restore-local.sh").chmod(0o755)
 
-        state = State({
-            "data_root": str(data_root),
-            "backup_dir": str(backup_dir),
-            "platform": "linux",
-            "selected_services": ["openclaw"],
-        })
+        state = State(
+            {
+                "data_root": str(data_root),
+                "backup_dir": str(backup_dir),
+                "platform": "linux",
+                "selected_services": ["openclaw"],
+            }
+        )
         result = cron_step.verify(state)
         assert result.ok is True

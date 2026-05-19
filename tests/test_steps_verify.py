@@ -5,7 +5,6 @@ from __future__ import annotations
 import stat
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from rakkib.state import State
 from rakkib.steps import VerificationResult
@@ -32,7 +31,9 @@ class TestCollectVerifications:
     def test_internal_mode_skips_caddy_and_cloudflare(self):
         state = State({"exposure_mode": "internal"})
         caddy_module = MagicMock(verify=MagicMock(return_value=VerificationResult.failure("caddy", "should skip")))
-        cloudflare_module = MagicMock(verify=MagicMock(return_value=VerificationResult.failure("cloudflare", "should skip")))
+        cloudflare_module = MagicMock(
+            verify=MagicMock(return_value=VerificationResult.failure("cloudflare", "should skip"))
+        )
         with patch.dict(
             "sys.modules",
             {
@@ -73,9 +74,7 @@ class TestCollectVerifications:
         with patch.dict(
             "sys.modules",
             {
-                "rakkib.steps.layout": MagicMock(
-                    verify=lambda s: VerificationResult.failure("layout", "boom")
-                ),
+                "rakkib.steps.layout": MagicMock(verify=lambda s: VerificationResult.failure("layout", "boom")),
                 "rakkib.steps.caddy": MagicMock(verify=lambda s: VerificationResult.success("caddy")),
                 "rakkib.steps.postgres": MagicMock(verify=lambda s: VerificationResult.success("postgres")),
                 "rakkib.steps.services": MagicMock(verify=lambda s: VerificationResult.success("services")),
@@ -110,12 +109,8 @@ class TestVerify:
         with patch.dict(
             "sys.modules",
             {
-                "rakkib.steps.layout": MagicMock(
-                    verify=lambda s: VerificationResult.failure("layout", "bad")
-                ),
-                "rakkib.steps.caddy": MagicMock(
-                    verify=lambda s: VerificationResult.failure("caddy", "worse")
-                ),
+                "rakkib.steps.layout": MagicMock(verify=lambda s: VerificationResult.failure("layout", "bad")),
+                "rakkib.steps.caddy": MagicMock(verify=lambda s: VerificationResult.failure("caddy", "worse")),
                 "rakkib.steps.postgres": MagicMock(verify=lambda s: VerificationResult.success("postgres")),
                 "rakkib.steps.services": MagicMock(verify=lambda s: VerificationResult.success("services")),
                 "rakkib.steps.cron": MagicMock(verify=lambda s: VerificationResult.success("cron")),
@@ -169,9 +164,7 @@ class TestRun:
         with patch.dict(
             "sys.modules",
             {
-                "rakkib.steps.layout": MagicMock(
-                    verify=lambda s: VerificationResult.failure("layout", "bad")
-                ),
+                "rakkib.steps.layout": MagicMock(verify=lambda s: VerificationResult.failure("layout", "bad")),
                 "rakkib.steps.caddy": MagicMock(verify=lambda s: VerificationResult.success("caddy")),
                 "rakkib.steps.postgres": MagicMock(verify=lambda s: VerificationResult.success("postgres")),
                 "rakkib.steps.services": MagicMock(verify=lambda s: VerificationResult.success("services")),

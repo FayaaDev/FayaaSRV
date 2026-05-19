@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install rakkib (editable) with test extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Ruff lint
+        run: ruff check src tests
+
+      - name: Ruff format check
+        run: ruff format --check src tests
+
+      - name: Compile sources
+        run: python -m compileall -q src/rakkib
+
+      - name: Forbid :latest in compose templates
+        # Pin upstream image tags to avoid silent prod drift on `docker compose pull`.
+        # Allowlist: images that publish no upstream stable release tags today.
+        # Re-evaluate the allowlist when adding new services or upstream tagging changes.
+        run: |
+          set -euo pipefail
+          ALLOW='ghcr\.io/deiucanta/chatpad|ghcr\.io/homarr-labs/homarr|nousresearch/hermes-agent'
+          if grep -rE 'image:.*:latest' src/rakkib/data/templates/docker/ | grep -vE "$ALLOW"; then
+            echo "::error::Pin docker image tags; ':latest' is banned (see allowlist in ci.yml)."
+            exit 1
+          fi
+
+      - name: Pytest
+        run: pytest -q

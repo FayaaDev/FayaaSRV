@@ -31,7 +31,8 @@ def test_single_select_disables_unavailable_values():
 
 
 def test_single_select_rejects_disabled_alias_fallback():
-    with patch("rakkib.interview.prompt_select", return_value=None), patch(
-        "rakkib.interview.prompt_text", side_effect=["macos", "linux"]
+    with (
+        patch("rakkib.interview.prompt_select", return_value=None),
+        patch("rakkib.interview.prompt_text", side_effect=["macos", "linux"]),
     ):
         assert _prompt_single_select(_platform_field(), State({})) == "linux"

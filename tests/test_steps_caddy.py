@@ -125,6 +125,7 @@ def test_caddy_run_validates_before_promote(tmp_path):
 
     def side_effect(cmd, **kwargs):
         nonlocal validate_called
+
         class Result:
             pass
 

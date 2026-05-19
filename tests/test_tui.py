@@ -11,7 +11,9 @@ def test_progress_wait_returns_true_when_poll_succeeds():
 def test_progress_wait_returns_false_after_timeout():
     now = iter([0, 0, 1, 1, 2, 2])
 
-    with patch("rakkib.tui.Progress"), patch("rakkib.tui.time.sleep"), patch(
-        "rakkib.tui.time.monotonic", side_effect=lambda: next(now, 2)
+    with (
+        patch("rakkib.tui.Progress"),
+        patch("rakkib.tui.time.sleep"),
+        patch("rakkib.tui.time.monotonic", side_effect=lambda: next(now, 2)),
     ):
         assert not progress_wait("Waiting...", 2, lambda: False)

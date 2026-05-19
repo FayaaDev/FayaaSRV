@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import stat
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -144,7 +142,6 @@ class TestRun:
         state = _make_state(tmp_path)
         cloudflared_dir = tmp_path / "data" / "cloudflared"
         cloudflared_dir.mkdir(parents=True)
-        cert_path = cloudflared_dir / "cert.pem"
         default_cert = Path.home() / ".cloudflared" / "cert.pem"
         default_cert.parent.mkdir(parents=True, exist_ok=True)
         default_cert.write_text("cert-data")
@@ -428,12 +425,14 @@ class TestRun:
             with patch("rakkib.steps.cloudflare.subprocess.run") as mock_sub:
                 with patch("rakkib.steps.cloudflare._run") as mock_run:
                     with patch("rakkib.steps.cloudflare.compose_up"):
+
                         def curl_side(cmd, **kwargs):
                             r = MagicMock()
                             r.returncode = 0
                             r.stdout = '{"success":true}'
                             r.stderr = ""
                             return r
+
                         mock_sub.side_effect = curl_side
                         mock_run.side_effect = _subprocess_side_effect()
                         cloudflare.run(state)
@@ -478,7 +477,9 @@ class TestRun:
         with patch("rakkib.steps.cloudflare._find_cloudflared_artifact") as mock_find:
             with patch("rakkib.steps.cloudflare._run") as mock_run:
                 with patch("rakkib.steps.cloudflare.compose_up"):
-                    mock_find.side_effect = lambda name, admin_user=None: reused_creds if name == "reused-uuid.json" else None
+                    mock_find.side_effect = lambda name, admin_user=None: (
+                        reused_creds if name == "reused-uuid.json" else None
+                    )
                     mock_run.side_effect = _subprocess_side_effect(
                         tunnels_json=[{"name": "rakkib-example", "id": "reused-uuid"}]
                     )
@@ -554,7 +555,9 @@ class TestRun:
                 with patch("rakkib.steps.cloudflare._find_cloudflared_artifact") as mock_find:
                     with patch("rakkib.steps.cloudflare._run", side_effect=run_side_effect):
                         with patch("rakkib.steps.cloudflare.compose_up"):
-                            mock_find.side_effect = lambda name, admin_user=None: fresh_creds if name == "fresh-uuid.json" else None
+                            mock_find.side_effect = lambda name, admin_user=None: (
+                                fresh_creds if name == "fresh-uuid.json" else None
+                            )
                             cloudflare.run(state)
 
         assert state.get("cloudflare.tunnel_uuid") == "fresh-uuid"
@@ -575,10 +578,7 @@ class TestRun:
                     cloudflare.run(state)
                     # os.chmod is called for cert.pem copy and creds json;
                     # assert the creds json got 0o600.
-                    creds_chmod_calls = [
-                        c for c in mock_chmod.call_args_list
-                        if str(creds_path) in str(c[0][0])
-                    ]
+                    creds_chmod_calls = [c for c in mock_chmod.call_args_list if str(creds_path) in str(c[0][0])]
                     assert len(creds_chmod_calls) == 1
                     assert creds_chmod_calls[0][0][1] == 0o600
 
@@ -886,6 +886,7 @@ class TestRunExistingTunnel:
         (cloudflared_dir / "test-uuid-123.json").write_text("{}")
 
         from rakkib.docker import DockerError
+
         with patch("rakkib.steps.cloudflare._run") as mock_run:
             with patch("rakkib.steps.cloudflare.compose_up") as mock_compose:
                 mock_run.side_effect = _subprocess_side_effect()

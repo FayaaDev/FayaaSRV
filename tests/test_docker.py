@@ -231,16 +231,12 @@ class TestContainerRunning:
 class TestContainerPublishesPort:
     @patch("rakkib.docker._run")
     def test_publishes_port(self, mock_run: MagicMock):
-        mock_run.return_value = MagicMock(
-            stdout='{"8080/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8080"}]}'
-        )
+        mock_run.return_value = MagicMock(stdout='{"8080/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8080"}]}')
         assert container_publishes_port("web", 8080) is True
 
     @patch("rakkib.docker._run")
     def test_different_port(self, mock_run: MagicMock):
-        mock_run.return_value = MagicMock(
-            stdout='{"8080/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8080"}]}'
-        )
+        mock_run.return_value = MagicMock(stdout='{"8080/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8080"}]}')
         assert container_publishes_port("web", 3000) is False
 
     @patch("rakkib.docker._run")
@@ -288,9 +284,7 @@ class TestCreateNetwork:
         mock_exists.return_value = False
         create_network("mynet")
         mock_run.assert_called_once()
-        assert mock_run.call_args.args[0] == [
-            "docker", "network", "create", "--driver", "bridge", "mynet"
-        ]
+        assert mock_run.call_args.args[0] == ["docker", "network", "create", "--driver", "bridge", "mynet"]
 
     @patch("rakkib.docker.network_exists")
     @patch("rakkib.docker._run")
@@ -305,9 +299,7 @@ class TestCreateNetwork:
         mock_exists.return_value = False
         create_network("mynet", driver="overlay")
         mock_run.assert_called_once()
-        assert mock_run.call_args.args[0] == [
-            "docker", "network", "create", "--driver", "overlay", "mynet"
-        ]
+        assert mock_run.call_args.args[0] == ["docker", "network", "create", "--driver", "overlay", "mynet"]
 
 
 class TestRun:
@@ -315,6 +307,7 @@ class TestRun:
     def test_success_no_log(self, mock_subprocess: MagicMock):
         mock_subprocess.return_value = MagicMock(returncode=0, stderr="")
         from rakkib.docker import _run
+
         result = _run(["echo", "hello"])
         assert result.returncode == 0
 
@@ -322,6 +315,7 @@ class TestRun:
     def test_failure_raises(self, mock_subprocess: MagicMock):
         mock_subprocess.return_value = MagicMock(returncode=1, stderr="err")
         from rakkib.docker import _run
+
         with pytest.raises(DockerError) as exc_info:
             _run(["false"])
         assert exc_info.value.stderr == "err"
@@ -360,6 +354,7 @@ class TestRun:
     def test_check_false_does_not_raise(self, mock_subprocess: MagicMock):
         mock_subprocess.return_value = MagicMock(returncode=1, stderr="err")
         from rakkib.docker import _run
+
         result = _run(["false"], check=False)
         assert result.returncode == 1
 
@@ -368,6 +363,7 @@ class TestRun:
         log = tmp_path / "out.log"
         mock_subprocess.return_value = MagicMock(returncode=0, stderr="")
         from rakkib.docker import _run
+
         _run(["echo", "hi"], log_path=log)
         assert log.exists()
         _, kwargs = mock_subprocess.call_args
