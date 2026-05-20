@@ -72,8 +72,10 @@ class TestInit:
         with (
             patch("rakkib.cli.run_interview") as mock_interview,
             patch("rakkib.cli._run_steps") as mock_steps,
+            patch("rakkib.cli._persist_deployed_selection") as mock_persist,
         ):
             mock_interview.return_value = State({"platform": "linux", "confirmed": True})
+            mock_steps.return_value = True
             result = runner.invoke(
                 cli,
                 ["init"],
@@ -82,8 +84,32 @@ class TestInit:
 
         assert result.exit_code == 0
         mock_interview.assert_called_once()
-        mock_steps.assert_not_called()
-        assert "Run rakkib pull to install" in result.output
+        mock_steps.assert_called_once()
+        mock_persist.assert_called_once()
+        assert "Run rakkib pull to install" not in result.output
+
+    def test_init_confirmed_state_exits_nonzero_when_steps_fail(self, tmp_path: Path):
+        runner = CliRunner()
+        repo_dir = tmp_path / "repo"
+        repo_dir.mkdir()
+        state_file = repo_dir / ".fss-state.yaml"
+        state_file.write_text("confirmed: true\n")
+
+        with (
+            patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.cli._run_steps", return_value=False) as mock_steps,
+            patch("rakkib.cli._persist_deployed_selection") as mock_persist,
+        ):
+            mock_interview.return_value = State({"platform": "linux", "confirmed": True})
+            result = runner.invoke(
+                cli,
+                ["init"],
+                obj={"repo_dir": repo_dir},
+            )
+
+        assert result.exit_code == 1
+        mock_steps.assert_called_once()
+        mock_persist.assert_not_called()
 
     def test_init_mode_change_from_cloudflare_removes_previous_hosting(self, tmp_path: Path):
         runner = CliRunner()
@@ -108,6 +134,7 @@ class TestInit:
 
         with (
             patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.cli._run_steps", return_value=True),
             patch("rakkib.steps.services._load_registry", return_value=self._registry()),
             patch("rakkib.steps.services.remove_single_service") as mock_remove,
         ):
@@ -141,6 +168,7 @@ class TestInit:
 
         with (
             patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.cli._run_steps", return_value=True),
             patch("rakkib.steps.services._load_registry", return_value=self._registry()),
             patch("rakkib.steps.services.remove_single_service") as mock_remove,
         ):
@@ -165,6 +193,7 @@ class TestInit:
 
         with (
             patch("rakkib.cli.run_interview") as mock_interview,
+            patch("rakkib.cli._run_steps", return_value=True),
             patch("rakkib.steps.services.remove_single_service") as mock_remove,
         ):
             mock_interview.return_value = State({"confirmed": True, "exposure_mode": "internal"})
