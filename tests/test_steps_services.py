@@ -1090,6 +1090,58 @@ class TestSpecialHandlers:
         with pytest.raises(RuntimeError, match="service 'n8n'"):
             service_hooks.service_postgres_login_preflight(state, svc, Path("."), Path("."), Path("hook.log"), {})
 
+    def test_homecinema_seed_configs_writes_first_run_files_without_overwriting(self, tmp_path):
+        state = State(
+            {
+                "RADARR_API_KEY": "r" * 32,
+                "SONARR_API_KEY": "s" * 32,
+                "PROWLARR_API_KEY": "p" * 32,
+            }
+        )
+
+        service_hooks.homecinema_seed_configs(state, {"id": "plex"}, tmp_path, tmp_path, tmp_path / "hook.log", {})
+
+        radarr_config = tmp_path / "data" / "plex" / "radarr" / "config" / "config.xml"
+        assert "<ApiKey>" + "r" * 32 + "</ApiKey>" in radarr_config.read_text()
+        assert (tmp_path / "data" / "plex" / "sonarr" / "config" / "config.xml").exists()
+        assert (tmp_path / "data" / "plex" / "prowlarr" / "config" / "config.xml").exists()
+        assert (tmp_path / "data" / "plex" / "media" / "movies").is_dir()
+        assert (tmp_path / "data" / "plex" / "media" / "downloads" / "torrents" / "tv").is_dir()
+
+        qbittorrent_config = tmp_path / "data" / "plex" / "qbittorrent" / "config" / "qBittorrent" / "qBittorrent.conf"
+        assert "WebUI\\LocalHostAuth=false" in qbittorrent_config.read_text()
+
+        radarr_config.write_text("custom")
+        service_hooks.homecinema_seed_configs(state, {"id": "plex"}, tmp_path, tmp_path, tmp_path / "hook.log", {})
+        assert radarr_config.read_text() == "custom"
+
+    def test_homecinema_configure_wires_internal_apps(self, tmp_path):
+        state = State(
+            {
+                "RADARR_API_KEY": "radarr-key",
+                "SONARR_API_KEY": "sonarr-key",
+                "PROWLARR_API_KEY": "prowlarr-key",
+                "QBITTORRENT_USERNAME": "rakkib",
+                "QBITTORRENT_PASSWORD": "qbit-pass",
+            }
+        )
+
+        with patch("rakkib.hooks.services.homecinema_seed_configs") as mock_seed, patch(
+            "rakkib.hooks.services._homecinema_configure_qbittorrent"
+        ) as mock_qbit, patch("rakkib.hooks.services._homecinema_configure_arr") as mock_arr, patch(
+            "rakkib.hooks.services._homecinema_configure_prowlarr"
+        ) as mock_prowlarr:
+            service_hooks.homecinema_configure(state, {"id": "plex"}, tmp_path, tmp_path, tmp_path / "hook.log", {})
+
+        mock_seed.assert_called_once()
+        mock_qbit.assert_called_once()
+        mock_prowlarr.assert_called_once()
+        assert mock_arr.call_count == 2
+        assert mock_arr.call_args_list[0].kwargs["root_path"] == "/data/movies"
+        assert mock_arr.call_args_list[0].kwargs["api_key"] == "radarr-key"
+        assert mock_arr.call_args_list[1].kwargs["root_path"] == "/data/tv"
+        assert mock_arr.call_args_list[1].kwargs["api_key"] == "sonarr-key"
+
 
 class TestRemoveSingleService:
     @patch("rakkib.steps.services.compose_down")

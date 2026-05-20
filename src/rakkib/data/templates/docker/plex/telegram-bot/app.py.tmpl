@@ -50,8 +50,6 @@ def stop(_signum: int, _frame: Any) -> None:
 
 def require_env() -> None:
     missing = []
-    if not TELEGRAM_TOKEN:
-        missing.append("TELEGRAM_BOT_TOKEN")
     if not SEERR_API_KEY:
         missing.append("SEERR_API_KEY")
     if not RADARR_API_KEY:
@@ -409,6 +407,12 @@ def handle_callback(callback: dict[str, Any]) -> None:
 
 
 def main() -> int:
+    if not TELEGRAM_TOKEN:
+        logger.info("Telegram bot token is not configured; staying idle until the container is restarted with a token.")
+        while RUNNING:
+            time.sleep(60)
+        return 0
+
     require_env()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
