@@ -184,6 +184,7 @@ class TestSyncRollback:
                 "rakkib.cli.services_step.remove_single_service",
                 side_effect=lambda _state, svc_id: events.append(f"remove:{svc_id}"),
             ),
+            patch("rakkib.cli.services_step._reload_caddy"),
         ):
             ok = _sync_services_to_state_selection(state, state_file)
 
@@ -264,7 +265,8 @@ class TestSyncRollback:
         mock_load_reg.return_value = _registry_with_deps(("db", []), ("app", ["db"]))
         state, state_file = _sync_state(tmp_path, selected=[], deployed=["db", "app"])
 
-        ok = _sync_services_to_state_selection(state, state_file)
+        with patch("rakkib.cli.services_step._reload_caddy"):
+            ok = _sync_services_to_state_selection(state, state_file)
 
         assert ok is True
         assert [call.args[1] for call in mock_remove.call_args_list] == ["app", "db"]
