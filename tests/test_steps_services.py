@@ -1126,11 +1126,12 @@ class TestSpecialHandlers:
             }
         )
 
-        with patch("rakkib.hooks.services.homecinema_seed_configs") as mock_seed, patch(
-            "rakkib.hooks.services._homecinema_configure_qbittorrent"
-        ) as mock_qbit, patch("rakkib.hooks.services._homecinema_configure_arr") as mock_arr, patch(
-            "rakkib.hooks.services._homecinema_configure_prowlarr"
-        ) as mock_prowlarr:
+        with (
+            patch("rakkib.hooks.services.homecinema_seed_configs") as mock_seed,
+            patch("rakkib.hooks.services._homecinema_configure_qbittorrent") as mock_qbit,
+            patch("rakkib.hooks.services._homecinema_configure_arr") as mock_arr,
+            patch("rakkib.hooks.services._homecinema_configure_prowlarr") as mock_prowlarr,
+        ):
             service_hooks.homecinema_configure(state, {"id": "plex"}, tmp_path, tmp_path, tmp_path / "hook.log", {})
 
         mock_seed.assert_called_once()
