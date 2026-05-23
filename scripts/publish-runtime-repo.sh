@@ -17,11 +17,11 @@ die() {
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/publish-runtime-repo.sh sync [--source-ref <ref>] [--public-repo <url>] [--public-branch <branch>] [--public-dir <path>] [--push]
+  scripts/publish-runtime-repo.sh sync [--source-ref <ref>] [--public-repo <url>] [--public-branch <branch>] [--public-dir <path>] [--no-push]
   scripts/publish-runtime-repo.sh verify [--source-ref <ref>] --public-dir <path>
 
 Commands:
-  sync    Export the runtime allowlist from the private dev repo into the public runtime repo.
+  sync    Export the runtime allowlist from the private dev repo into the public runtime repo and push by default.
   verify  Verify a public runtime checkout contains only allowlisted files and matches <source-ref>.
 EOF
 }
@@ -243,10 +243,10 @@ verify_command() {
 main() {
   local command="${1:-}"
   local source_ref="main"
-  local public_repo="${RAKKIB_PUBLIC_REPO:-}"
+  local public_repo="${RAKKIB_PUBLIC_REPO:-https://github.com/FayaaDev/rakkib.git}"
   local public_branch="main"
   local public_dir=""
-  local push_changes=0
+  local push_changes=1
 
   [[ -n "$command" ]] || {
     usage
@@ -278,6 +278,10 @@ main() {
         ;;
       --push)
         push_changes=1
+        shift
+        ;;
+      --no-push)
+        push_changes=0
         shift
         ;;
       -h|--help)
